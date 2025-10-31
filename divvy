@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# This script finds the project's root directory and runs the Python application.
+
+# Get the absolute path of the directory where this script is located.
+PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Add the project's src directory to Python's path and execute the cli module.
+PYTHONPATH="$PROJECT_ROOT/src" python3 -m divvy.cli
