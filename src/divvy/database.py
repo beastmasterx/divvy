@@ -168,7 +168,7 @@ def get_transactions_by_period(period_id: int) -> list[dict]:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM transactions WHERE period_id = ? ORDER BY timestamp",
+            "SELECT * FROM transactions WHERE period_id = ? ORDER BY TIMESTAMP",
             (period_id,)
         )
         transactions = cursor.fetchall()
@@ -213,7 +213,7 @@ def get_all_transactions() -> list[dict]:
     """Retrieves all transactions."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions ORDER BY timestamp")
+        cursor.execute("SELECT * FROM transactions ORDER BY TIMESTAMP")
         transactions = cursor.fetchall()
         return [dict(t) for t in transactions]
 

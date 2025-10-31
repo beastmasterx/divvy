@@ -36,6 +36,15 @@ def db_connection():
         schema_sql = f.read()
     conn.executescript(schema_sql)
     conn.commit()
+    
+    # Ensure there's an initial period - create it directly since we're using in-memory DB
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
+        ("Initial Period",)
+    )
+    conn.commit()
+    
     yield conn
     conn.close()
 
@@ -62,14 +71,14 @@ def test_show_menu(capsys):
     cli.show_menu()
     captured = capsys.readouterr()
     assert "Divvy Expense Splitter" in captured.out
-    assert "Add expense" in captured.out
-    assert "Add deposit" in captured.out
+    assert "Add Expense" in captured.out
+    assert "Add Deposit" in captured.out
     assert "View Period" in captured.out
 
 
 def test_menu_choice_add_member(setup_members, capsys):
     """Test menu option 6: Add a new member."""
-    with patch('builtins.input', side_effect=['6', 'Charlie', '7']):
+    with patch('builtins.input', side_effect=['6', 'Charlie', '8']):
         try:
             cli.main()
         except (SystemExit, KeyboardInterrupt):
@@ -92,7 +101,7 @@ def test_menu_choice_record_expense(setup_members, capsys):
         '10.00',  # Amount
         '1',  # Select Alice as payer
         '1',  # Select first category
-        '7',  # Exit
+        '8',  # Exit
     ]
     
     with patch('builtins.input', side_effect=inputs):
@@ -111,13 +120,13 @@ def test_menu_choice_record_expense(setup_members, capsys):
 
 
 def test_menu_choice_record_deposit(setup_members, capsys):
-    """Test menu option 3: Record a deposit."""
+    """Test menu option 2: Record a deposit."""
     inputs = [
-        '3',  # Menu choice
+        '2',  # Menu choice
         'Monthly deposit',  # Description
         '50.00',  # Amount
         '1',  # Select Alice as payer
-        '7',  # Exit
+        '8',  # Exit
     ]
     
     with patch('builtins.input', side_effect=inputs):
@@ -142,8 +151,8 @@ def test_menu_choice_view_period_summary(setup_members, capsys):
     database.add_transaction('deposit', 10000, "Test deposit", alice['id'])
     
     inputs = [
-        '2',  # View period summary
-        '7',  # Exit
+        '4',  # View period summary
+        '8',  # Exit
     ]
     
     with patch('builtins.input', side_effect=inputs):
@@ -153,7 +162,7 @@ def test_menu_choice_view_period_summary(setup_members, capsys):
             pass
     
     captured = capsys.readouterr()
-    assert "PERIOD SUMMARY" in captured.out or "No active period found" in captured.out
+    assert "VIEW PERIOD" in captured.out or "No active period found" in captured.out
 
 
 def test_menu_choice_settle_period(setup_members, capsys):
@@ -164,8 +173,9 @@ def test_menu_choice_settle_period(setup_members, capsys):
     
     inputs = [
         '5',  # Settle period
+        'y',  # Confirm
         'Test Period Name',  # Period name
-        '7',  # Exit (after new period is created)
+        '8',  # Exit (after new period is created)
     ]
     
     with patch('builtins.input', side_effect=inputs):
@@ -181,10 +191,10 @@ def test_menu_choice_settle_period(setup_members, capsys):
 
 
 def test_menu_choice_show_system_status(setup_members, capsys):
-    """Test menu option 4: Show system status."""
+    """Test menu option 4: View Period (no longer has system status menu)."""
     inputs = [
-        '4',  # Show system status
-        '7',  # Exit
+        '4',  # View Period
+        '8',  # Exit
     ]
     
     with patch('builtins.input', side_effect=inputs):
@@ -194,12 +204,12 @@ def test_menu_choice_show_system_status(setup_members, capsys):
             pass
     
     captured = capsys.readouterr()
-    assert "SYSTEM STATUS" in captured.out
+    assert "VIEW PERIOD" in captured.out or "No active period found" in captured.out
 
 
 def test_menu_choice_exit(capsys):
-    """Test menu option 7: Exit."""
-    inputs = ['7']
+    """Test menu option 8: Exit."""
+    inputs = ['8']
     
     with patch('builtins.input', side_effect=inputs):
         # Exit uses 'break', not sys.exit(), so function completes normally
@@ -211,7 +221,7 @@ def test_menu_choice_exit(capsys):
 
 def test_menu_invalid_choice(capsys):
     """Test handling of invalid menu choice."""
-    inputs = ['99', '7']  # Invalid choice, then exit
+    inputs = ['99', '8']  # Invalid choice, then exit
     
     with patch('builtins.input', side_effect=inputs):
         with patch('sys.exit'):
@@ -278,7 +288,7 @@ def test_record_expense_with_empty_description(setup_members):
         '10.00',  # Amount
         '1',  # Select Alice
         '1',  # Select category
-        '7',  # Exit
+        '8',  # Exit
     ]
     
     with patch('builtins.input', side_effect=inputs):
@@ -302,7 +312,7 @@ def test_display_period_summary(setup_members, capsys):
     database.add_transaction('deposit', 10000, "Test deposit", alice['id'])
     
     # Test via menu option which calls _display_period_summary
-    inputs = ['2', '7']  # View period summary, then exit
+    inputs = ['4', '8']  # View period summary, then exit
     
     with patch('builtins.input', side_effect=inputs):
         try:
@@ -316,9 +326,9 @@ def test_display_period_summary(setup_members, capsys):
 
 
 def test_display_system_status(setup_members, capsys):
-    """Test _display_system_status function via menu option."""
-    # Test via menu option which calls _display_system_status
-    inputs = ['4', '7']  # Show system status, then exit
+    """Test _display_view_period function via menu option."""
+    # Test via menu option which calls _display_view_period
+    inputs = ['4', '8']  # View Period, then exit
     
     with patch('builtins.input', side_effect=inputs):
         try:
@@ -327,5 +337,5 @@ def test_display_system_status(setup_members, capsys):
             pass
     
     captured = capsys.readouterr()
-    assert "SYSTEM STATUS" in captured.out or len(captured.out) > 0
+    assert "VIEW PERIOD" in captured.out or "No active period found" in captured.out or len(captured.out) > 0
 

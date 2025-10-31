@@ -72,7 +72,8 @@ def _display_view_period() -> None:
                 category_name = category['name'] if category else f"Category ID {tx['category_id']}"
             # For deposits/refunds, leave category blank (not "Uncategorized")
             
-            timestamp_str = tx['timestamp']
+            # SQLite column names: check for TIMESTAMP (as defined in schema) or lowercase variant
+            timestamp_str = tx.get('TIMESTAMP', tx.get('timestamp', ''))
             date_only = timestamp_str.split()[0] if ' ' in timestamp_str else timestamp_str
             
             tx_type = tx['transaction_type'].title()

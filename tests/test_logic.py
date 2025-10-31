@@ -33,6 +33,15 @@ def db_connection():
         schema_sql = f.read()
     conn.executescript(schema_sql)
     conn.commit()
+    
+    # Ensure there's an initial period - create it directly since we're using in-memory DB
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
+        ("Initial Period",)
+    )
+    conn.commit()
+    
     yield conn
     conn.close()
 
