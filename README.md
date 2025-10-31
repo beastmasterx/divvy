@@ -194,6 +194,7 @@ divvy/
 │   └── test_logic.py        # Logic tests
 ├── environment.yml          # Conda environment configuration
 ├── requirements.txt         # Pip dependencies
+├── LICENSE                  # Apache License 2.0
 ├── divvy                    # Convenience launcher script
 └── README.md               # This file
 ```
@@ -245,7 +246,9 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## License
 
-[Add your license here - MIT, Apache 2.0, etc.]
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+For more information about the Apache License, visit http://www.apache.org/licenses/LICENSE-2.0
 
 ---
 
