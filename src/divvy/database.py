@@ -1,19 +1,21 @@
-import sqlite3
 import os
+import sqlite3
 
 # Determine the absolute path to the project root and the database file
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-DB_FILE = os.path.join(PROJECT_ROOT, 'data', 'expenses.db')
-SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'schema.sql')
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DB_FILE = os.path.join(PROJECT_ROOT, "data", "expenses.db")
+SCHEMA_FILE = os.path.join(os.path.dirname(__file__), "schema.sql")
+
 
 def get_db_connection():
     """Establishes a connection to the SQLite database."""
     # Ensure the data directory exists
     os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
-    
+
     conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row # This allows accessing columns by name
+    conn.row_factory = sqlite3.Row  # This allows accessing columns by name
     return conn
+
 
 def initialize_database():
     """Initializes the database by creating tables from the schema.sql file."""
@@ -26,17 +28,19 @@ def initialize_database():
             initialize_first_period_if_needed()
             return  # Database already initialized
 
-        with open(SCHEMA_FILE, 'r') as f:
+        with open(SCHEMA_FILE) as f:
             schema_sql = f.read()
-        
+
         conn.executescript(schema_sql)
         conn.commit()
-    
+
     print("Database initialized successfully.")
     # Ensure current period exists after initialization
     initialize_first_period_if_needed()
 
+
 # --- Database operations for Members ---
+
 
 def add_member(name: str) -> int | None:
     """Adds a new member to the database and returns their ID, or None if already exists."""
@@ -50,6 +54,7 @@ def add_member(name: str) -> int | None:
         except sqlite3.IntegrityError:  # Name is UNIQUE
             return None
 
+
 def get_member_by_name(name: str) -> dict | None:
     """Retrieves a member by their name."""
     with get_db_connection() as conn:
@@ -57,6 +62,7 @@ def get_member_by_name(name: str) -> dict | None:
         cursor.execute("SELECT * FROM members WHERE name = ?", (name,))
         member = cursor.fetchone()
         return dict(member) if member else None
+
 
 def get_member_by_id(member_id: int) -> dict | None:
     """Retrieves a member by their ID."""
@@ -66,6 +72,7 @@ def get_member_by_id(member_id: int) -> dict | None:
         member = cursor.fetchone()
         return dict(member) if member else None
 
+
 def get_all_members() -> list[dict]:
     """Retrieves all members, active or inactive."""
     with get_db_connection() as conn:
@@ -74,20 +81,27 @@ def get_all_members() -> list[dict]:
         members = cursor.fetchall()
         return [dict(m) for m in members]
 
+
 def get_active_members() -> list[dict]:
     """Retrieves all active members."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM members WHERE is_active = 1 ORDER BY id")  # Order by ID for consistent remainder distribution
+        cursor.execute(
+            "SELECT * FROM members WHERE is_active = 1 ORDER BY id"
+        )  # Order by ID for consistent remainder distribution
         members = cursor.fetchall()
         return [dict(m) for m in members]
+
 
 def update_member_remainder_status(member_id: int, status: bool):
     """Updates the paid_remainder_in_cycle status for a member."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE members SET paid_remainder_in_cycle = ? WHERE id = ?", (status, member_id))
+        cursor.execute(
+            "UPDATE members SET paid_remainder_in_cycle = ? WHERE id = ?", (status, member_id)
+        )
         conn.commit()
+
 
 def reset_all_member_remainder_status():
     """Resets paid_remainder_in_cycle to False for all active members."""
@@ -95,6 +109,7 @@ def reset_all_member_remainder_status():
         cursor = conn.cursor()
         cursor.execute("UPDATE members SET paid_remainder_in_cycle = 0 WHERE is_active = 1")
         conn.commit()
+
 
 def deactivate_member(member_id: int) -> bool:
     """Deactivates a member by setting is_active to 0. Returns True if successful."""
@@ -104,6 +119,7 @@ def deactivate_member(member_id: int) -> bool:
         conn.commit()
         return cursor.rowcount > 0
 
+
 def reactivate_member(member_id: int) -> bool:
     """Reactivates a member by setting is_active to 1. Returns True if successful."""
     with get_db_connection() as conn:
@@ -112,7 +128,9 @@ def reactivate_member(member_id: int) -> bool:
         conn.commit()
         return cursor.rowcount > 0
 
+
 # --- Database operations for Periods ---
+
 
 def get_current_period() -> dict | None:
     """Gets the current active (unsettled) period."""
@@ -124,17 +142,19 @@ def get_current_period() -> dict | None:
         period = cursor.fetchone()
         return dict(period) if period else None
 
+
 def create_new_period(name: str) -> int:
     """Creates a new settlement period and returns its ID."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0) RETURNING id",
-            (name,)
+            (name,),
         )
         period_id = cursor.fetchone()[0]
         conn.commit()
         return period_id
+
 
 def settle_period(period_id: int) -> bool:
     """Marks a period as settled and sets the end date."""
@@ -142,10 +162,11 @@ def settle_period(period_id: int) -> bool:
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE periods SET is_settled = 1, end_date = CURRENT_TIMESTAMP, settled_date = CURRENT_TIMESTAMP WHERE id = ?",
-            (period_id,)
+            (period_id,),
         )
         conn.commit()
         return cursor.rowcount > 0
+
 
 def get_period_by_id(period_id: int) -> dict | None:
     """Retrieves a period by its ID."""
@@ -155,6 +176,7 @@ def get_period_by_id(period_id: int) -> dict | None:
         period = cursor.fetchone()
         return dict(period) if period else None
 
+
 def get_all_periods() -> list[dict]:
     """Retrieves all periods, ordered by start_date descending."""
     with get_db_connection() as conn:
@@ -163,16 +185,17 @@ def get_all_periods() -> list[dict]:
         periods = cursor.fetchall()
         return [dict(p) for p in periods]
 
+
 def get_transactions_by_period(period_id: int) -> list[dict]:
     """Retrieves all transactions for a specific period."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM transactions WHERE period_id = ? ORDER BY TIMESTAMP",
-            (period_id,)
+            "SELECT * FROM transactions WHERE period_id = ? ORDER BY TIMESTAMP", (period_id,)
         )
         transactions = cursor.fetchall()
         return [dict(t) for t in transactions]
+
 
 def initialize_first_period_if_needed():
     """Ensures there's at least one period in the system."""
@@ -183,13 +206,22 @@ def initialize_first_period_if_needed():
         if not cursor.fetchone():
             # Periods table doesn't exist yet - skip period initialization
             return
-    
+
     if get_current_period() is None:
         create_new_period("Initial Period")
 
+
 # --- Database operations for Transactions ---
 
-def add_transaction(transaction_type: str, amount: int, description: str | None = None, payer_id: int | None = None, category_id: int | None = None, period_id: int | None = None) -> int:
+
+def add_transaction(
+    transaction_type: str,
+    amount: int,
+    description: str | None = None,
+    payer_id: int | None = None,
+    category_id: int | None = None,
+    period_id: int | None = None,
+) -> int:
     """Adds a new transaction to the database and returns its ID.
     If period_id is None, uses the current active period."""
     if period_id is None:
@@ -197,17 +229,18 @@ def add_transaction(transaction_type: str, amount: int, description: str | None 
         if current_period is None:
             initialize_first_period_if_needed()
             current_period = get_current_period()
-        period_id = current_period['id']
-    
+        period_id = current_period["id"]
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO transactions (transaction_type, description, amount, payer_id, category_id, period_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-            (transaction_type, description, amount, payer_id, category_id, period_id)
+            (transaction_type, description, amount, payer_id, category_id, period_id),
         )
         transaction_id = cursor.fetchone()[0]
         conn.commit()
         return transaction_id
+
 
 def get_all_transactions() -> list[dict]:
     """Retrieves all transactions."""
@@ -217,6 +250,7 @@ def get_all_transactions() -> list[dict]:
         transactions = cursor.fetchall()
         return [dict(t) for t in transactions]
 
+
 def get_category_by_name(name: str) -> dict | None:
     """Retrieves a category by its name."""
     with get_db_connection() as conn:
@@ -224,6 +258,7 @@ def get_category_by_name(name: str) -> dict | None:
         cursor.execute("SELECT * FROM categories WHERE name = ?", (name,))
         category = cursor.fetchone()
         return dict(category) if category else None
+
 
 def get_all_categories() -> list[dict]:
     """Retrieves all categories."""
@@ -233,6 +268,7 @@ def get_all_categories() -> list[dict]:
         categories = cursor.fetchall()
         return [dict(c) for c in categories]
 
+
 def get_category_by_id(category_id: int) -> dict | None:
     """Retrieves a category by its ID."""
     with get_db_connection() as conn:
@@ -240,5 +276,6 @@ def get_category_by_id(category_id: int) -> dict | None:
         cursor.execute("SELECT * FROM categories WHERE id = ?", (category_id,))
         category = cursor.fetchone()
         return dict(category) if category else None
+
 
 # ... other database functions to be implemented ...

@@ -1,0 +1,49 @@
+[tool.ruff]
+# Line length matches common Python standards
+line-length = 100
+
+# Target Python 3.10+
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable a comprehensive set of rule categories
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+
+# Ignore specific rules that might be too strict for this project
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B008",  # Do not perform function calls in argument defaults
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Indent with spaces
+indent-style = "space"
+# Skip magic trailing comma
+skip-magic-trailing-comma = false
+# Line ending style
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+# Use double quotes
+known-first-party = ["divvy"]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow longer lines in tests
+"tests/*" = ["E501"]
+
