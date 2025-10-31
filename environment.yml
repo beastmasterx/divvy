@@ -1,0 +1,10 @@
+name: divvy
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - pip
+  - pip:
+      - pytest>=7.0.0
+      - pytest-cov>=4.0.0

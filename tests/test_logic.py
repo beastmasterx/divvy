@@ -10,6 +10,19 @@ from src.divvy import database
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 SCHEMA_FILE = os.path.join(PROJECT_ROOT, 'src', 'divvy', 'schema.sql')
 
+class DatabaseConnection:
+    """Context manager wrapper for database connection."""
+    def __init__(self, conn):
+        self.conn = conn
+    
+    def __enter__(self):
+        return self.conn
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Don't close in tests - fixture handles it
+        pass
+
+
 @pytest.fixture
 def db_connection():
     """Fixture for a temporary, in-memory SQLite database connection."""
@@ -26,13 +39,16 @@ def db_connection():
 @pytest.fixture(autouse=True)
 def mock_get_db_connection(db_connection):
     """Mock database.get_db_connection to use the in-memory test database."""
-    with patch('src.divvy.database.get_db_connection', return_value=db_connection):
+    def get_connection():
+        return DatabaseConnection(db_connection)
+    
+    with patch('src.divvy.database.get_db_connection', side_effect=get_connection):
         yield
 
-def test_add_new_member_no_buy_in():
-    """Test adding the first member, expecting no buy-in."""
+def test_add_new_member():
+    """Test adding a new member."""
     result = logic.add_new_member("Alice")
-    assert "Member 'Alice' added successfully. No buy-in required as public fund is empty or no other active members." == result
+    assert "Member 'Alice' added successfully." == result
     
     member = database.get_member_by_name("Alice")
     assert member is not None
@@ -40,45 +56,11 @@ def test_add_new_member_no_buy_in():
     assert member['is_active'] == 1
     assert member['paid_remainder_in_cycle'] == 0
 
-    # Check no transactions recorded (except default categories)
-    conn = database.get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM transactions")
-    assert cursor.fetchone()[0] == 0
-
-def test_add_new_member_with_buy_in():
-    """Test adding a member when a public fund exists, expecting a buy-in."""
-    # Add initial member and a deposit to simulate public fund
-    logic.add_new_member("Bob")
-    bob = database.get_member_by_name("Bob")
-    assert bob is not None
-    
-    # Manually add a deposit to the public fund for Bob
-    database.add_transaction(
-        transaction_type='deposit',
-        description="Initial fund for Bob",
-        amount=10000, # $100.00
-        payer_id=bob['id']
-    )
-
-    # Add a second member, expecting buy-in
-    result = logic.add_new_member("Charlie")
-    assert "Member 'Charlie' added successfully. Buy-in of 100.00 recorded." == result
-
-    charlie = database.get_member_by_name("Charlie")
-    assert charlie is not None
-    assert charlie['name'] == "Charlie"
-
-    # Verify buy-in transaction for Charlie
-    conn = database.get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM transactions WHERE payer_id = ? AND description LIKE 'Buy-in%'", (charlie['id'],))
-    buy_in_tx = cursor.fetchone()
-    assert buy_in_tx is not None
-    assert buy_in_tx['amount'] == 10000 # $100.00
-
-    # Verify public fund balance after buy-in
-    assert database.get_public_fund_balance() == 20000 # Bob's 100 + Charlie's 100 = 200
+    # Check no transactions recorded (except default categories and periods)
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM transactions WHERE transaction_type IN ('deposit', 'expense')")
+        assert cursor.fetchone()[0] == 0
 
 def test_record_expense_no_remainder():
     """Test recording an expense that splits evenly."""
@@ -90,14 +72,15 @@ def test_record_expense_no_remainder():
     assert "Expense 'Dinner' of 30.00 recorded successfully. Remainder of 0.00 assigned to N/A." == result
 
     # Verify transaction recorded
-    conn = database.get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM transactions WHERE description = 'Dinner'")
-    tx = cursor.fetchone()
-    assert tx is not None
-    assert tx['amount'] == 3000
-    assert tx['payer_id'] == database.get_member_by_name("Alice")['id']
-    assert tx['category_id'] == database.get_category_by_name("Dining Out / Takeaway")['id']
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE description = 'Dinner'")
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx['amount'] == 3000
+        assert tx['payer_id'] == database.get_member_by_name("Alice")['id']
+        assert tx['category_id'] == database.get_category_by_name("Dining Out / Takeaway")['id']
+        assert tx['period_id'] is not None  # Should be assigned to a period
 
     # Verify remainder status (should all be False as no remainder was assigned)
     members = database.get_active_members()
@@ -154,8 +137,8 @@ def test_get_settlement_balances_deposits_only():
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
 
-    database.add_transaction('deposit', "Alice's deposit", 10000, alice['id'])
-    database.add_transaction('deposit', "Bob's deposit", 5000, bob['id'])
+    database.add_transaction('deposit', 10000, "Alice's deposit", alice['id'])
+    database.add_transaction('deposit', 5000, "Bob's deposit", bob['id'])
 
     balances = logic.get_settlement_balances()
     assert balances["Alice"] == "Is owed 100.00"
@@ -172,9 +155,9 @@ def test_get_settlement_balances_mixed_transactions():
     charlie = database.get_member_by_name("Charlie")
 
     # Alice deposits 100
-    database.add_transaction('deposit', "Alice's fund", 10000, alice['id'])
+    database.add_transaction('deposit', 10000, "Alice's fund", alice['id'])
     # Bob deposits 50
-    database.add_transaction('deposit', "Bob's fund", 5000, bob['id'])
+    database.add_transaction('deposit', 5000, "Bob's fund", bob['id'])
 
     # Expense 1: Dinner 30.00, Alice pays. Split among Alice, Bob, Charlie.
     # Each share: 10.00. Alice paid 30, owes 10. Net +20. Bob owes 10. Charlie owes 10.
@@ -195,21 +178,124 @@ def test_get_settlement_balances_mixed_transactions():
     assert balances["Bob"] == "Is owed 46.67"
     assert balances["Charlie"] == "Owes 13.33"
 
-def test_get_settlement_balances_public_fund_expense():
-    """Test settlement balances when public fund pays for an expense."""
+def test_record_expense_with_null_description():
+    """Test recording an expense with None description."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    
+    result = logic.record_expense(None, "10.00", "Alice", "Groceries")
+    assert "Expense '(no description)'" in result
+    
+    # Verify transaction recorded with NULL description
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE payer_id = ? ORDER BY id DESC LIMIT 1", (database.get_member_by_name("Alice")['id'],))
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx['description'] is None
+
+
+def test_record_deposit():
+    """Test recording a deposit."""
+    logic.add_new_member("Alice")
+    
+    result = logic.record_deposit("Monthly contribution", "50.00", "Alice")
+    assert "Deposit 'Monthly contribution'" in result
+    assert "50.00" in result
+    assert "Alice" in result
+    
+    # Verify transaction recorded
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE transaction_type = 'deposit' AND payer_id = ?", (database.get_member_by_name("Alice")['id'],))
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx['amount'] == 5000
+        assert tx['description'] == "Monthly contribution"
+        assert tx['period_id'] is not None
+
+
+def test_record_deposit_with_null_description():
+    """Test recording a deposit with None description."""
+    logic.add_new_member("Alice")
+    
+    result = logic.record_deposit(None, "25.00", "Alice")
+    assert "Deposit '(no description)'" in result
+    assert "25.00" in result
+    
+    # Verify transaction recorded with NULL description
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE transaction_type = 'deposit' ORDER BY id DESC LIMIT 1")
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx['description'] is None
+
+
+def test_get_period_balances():
+    """Test getting balances for current period."""
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
     alice = database.get_member_by_name("Alice")
-    bob = database.get_member_by_name("Bob")
+    
+    # Add deposit and expense in current period
+    database.add_transaction('deposit', 10000, "Alice's deposit", alice['id'])
+    logic.record_expense("Lunch", "20.00", "Alice", "Dining Out / Takeaway")
+    
+    balances = logic.get_period_balances()
+    assert "Alice" in balances
+    assert "Bob" in balances
 
-    # Alice deposits 100 (public fund has 100)
-    database.add_transaction('deposit', "Alice's fund", 10000, alice['id'])
 
-    # Expense 1: Utilities 20.00, Public Fund pays. Split among Alice, Bob.
-    # Each share: 10.00. Public fund decreases by 20.
-    # Alice owes 10. Bob owes 10.
-    logic.record_expense("Utilities", "20.00", "Public Fund", "Utilities (Water & Electricity)")
+def test_get_period_summary():
+    """Test getting period summary."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    
+    # Add transactions
+    database.add_transaction('deposit', 10000, "Alice's deposit", alice['id'])
+    logic.record_expense("Dinner", "30.00", "Alice", "Dining Out / Takeaway")
+    
+    summary = logic.get_period_summary()
+    assert summary is not None
+    assert 'period' in summary
+    assert 'transactions' in summary
+    assert 'balances' in summary
+    assert 'totals' in summary
+    assert summary['transaction_count'] == 2
+    assert summary['totals']['deposits'] == 10000
+    assert summary['totals']['expenses'] == 3000
 
-    balances = logic.get_settlement_balances()
-    assert balances["Alice"] == "Is owed 90.00"
-    assert balances["Bob"] == "Owes 10.00"
+
+def test_settle_current_period():
+    """Test settling current period."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    
+    # Add some transactions
+    database.add_transaction('deposit', 10000, "Alice's deposit", alice['id'])
+    logic.record_expense("Dinner", "30.00", "Alice", "Dining Out / Takeaway")
+    
+    # Get current period
+    current_period = database.get_current_period()
+    assert current_period is not None
+    assert current_period['is_settled'] == 0
+    
+    # Settle the period
+    result = logic.settle_current_period("Settled Period")
+    assert "has been settled" in result
+    assert "New period" in result
+    
+    # Verify period is settled
+    settled_period = database.get_period_by_id(current_period['id'])
+    assert settled_period['is_settled'] == 1
+    assert settled_period['end_date'] is not None
+    
+    # Verify new period created
+    new_period = database.get_current_period()
+    assert new_period is not None
+    assert new_period['id'] != current_period['id']
+    assert new_period['name'] == "Settled Period"
+    assert new_period['is_settled'] == 0

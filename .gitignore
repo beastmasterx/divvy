@@ -36,6 +36,9 @@ htmlcov/
 data/*.db
 *.sqlite3
 
+# Development tools
+.azurite/
+
 # OS-specific files
 .DS_Store
 thumbs.db

@@ -1,4 +1,12 @@
 -- Database schema for the Divvy application
+CREATE TABLE IF NOT EXISTS periods (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    start_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    end_date DATETIME NULL,
+    is_settled BOOLEAN NOT NULL DEFAULT 0,
+    settled_date DATETIME NULL
+);
 
 CREATE TABLE IF NOT EXISTS members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,24 +22,27 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    transaction_type TEXT NOT NULL, -- 'expense' or 'deposit'
-    description TEXT NOT NULL,
-    remark TEXT,
+    transaction_type TEXT NOT NULL, -- 'expense' 'deposit' 'refund'
+    description TEXT NULL,
     amount INTEGER NOT NULL, -- Stored in cents
     payer_id INTEGER,
     category_id INTEGER,
-    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    period_id INTEGER NOT NULL,
+    TIMESTAMP DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (payer_id) REFERENCES members (id),
-    FOREIGN KEY (category_id) REFERENCES categories (id)
+    FOREIGN KEY (category_id) REFERENCES categories (id),
+    FOREIGN KEY (period_id) REFERENCES periods (id)
 );
 
 -- Pre-populate with some default categories for shared living scenario
-INSERT INTO categories (name) VALUES 
-    ('Rent'), 
-    ('Utilities (Water & Electricity)'), 
-    ('Gas Bill'), 
-    ('Groceries'), 
-    ('Daily Necessities'), 
-    ('Dining Out / Takeaway'), 
-    ('Transportation'), 
+INSERT INTO
+    categories (name)
+VALUES
+    ('Rent'),
+    ('Utilities (Water & Electricity)'),
+    ('Gas Bill'),
+    ('Groceries'),
+    ('Daily Necessities'),
+    ('Dining Out / Takeaway'),
+    ('Transportation'),
     ('Other');
