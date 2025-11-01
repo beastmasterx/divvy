@@ -333,3 +333,11 @@ msgstr "Expense"
 msgid "Deposit"
 msgstr "Deposit"
 
+# Virtual member display name
+msgid "Group"
+msgstr "Group"
+
+# Shared expense prompt
+msgid "Is this a shared expense (no individual payer)? (y/n, default: n): "
+msgstr "Is this a shared expense (no individual payer)? (y/n, default: n): "
+

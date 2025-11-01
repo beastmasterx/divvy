@@ -42,6 +42,11 @@ def db_connection():
         "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
         ("Initial Period",),
     )
+    # Ensure virtual member exists for shared expenses
+    cursor.execute(
+        "INSERT OR IGNORE INTO members (name, is_active) VALUES (?, 0)",
+        (database.VIRTUAL_MEMBER_INTERNAL_NAME,),
+    )
     conn.commit()
 
     yield conn
@@ -92,11 +97,12 @@ def test_menu_choice_add_member(setup_members, capsys):
 
 def test_menu_choice_record_expense(setup_members, capsys):
     """Test menu option 1: Record an expense."""
-    # Mock the selections: description, amount, payer (select 1=Alice), category (select first)
+    # Mock the selections: description, amount, shared expense (no), payer (select 1=Alice), category (select first)
     inputs = [
         "1",  # Menu choice
         "Test expense",  # Description
         "10.00",  # Amount
+        "n",  # Not a shared expense
         "1",  # Select Alice as payer
         "1",  # Select first category
         "8",  # Exit
@@ -285,6 +291,7 @@ def test_record_expense_with_empty_description(setup_members):
         "1",  # Menu choice
         "",  # Empty description
         "10.00",  # Amount
+        "n",  # Not a shared expense
         "1",  # Select Alice
         "1",  # Select category
         "8",  # Exit
@@ -341,3 +348,34 @@ def test_display_system_status(setup_members, capsys):
         or "No active period found" in captured.out
         or len(captured.out) > 0
     )
+
+
+def test_menu_choice_record_shared_expense(setup_members, capsys):
+    """Test menu option 1: Record a shared expense (using virtual member)."""
+    inputs = [
+        "1",  # Menu choice
+        "Rent payment",  # Description
+        "3000.00",  # Amount
+        "y",  # Yes, this is a shared expense
+        "1",  # Select first category (Rent)
+        "8",  # Exit
+    ]
+
+    with (
+        patch("builtins.input", side_effect=inputs),
+        contextlib.suppress(SystemExit, KeyboardInterrupt),
+    ):
+        cli.main()
+
+    # Verify transaction was created with virtual member as payer
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE description = 'Rent payment'")
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx["amount"] == 300000  # 3000.00 in cents
+        
+        # Verify payer is virtual member
+        payer = database.get_member_by_id(tx["payer_id"])
+        assert payer is not None
+        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME

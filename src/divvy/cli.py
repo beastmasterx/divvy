@@ -112,7 +112,10 @@ def _display_view_period() -> None:
             payer_name = _("Unknown")
             if tx["payer_id"]:
                 payer = database.get_member_by_id(tx["payer_id"])
-                payer_name = payer["name"] if payer else _("Member ID {}").format(tx["payer_id"])
+                if payer:
+                    payer_name = database.get_member_display_name(payer)
+                else:
+                    payer_name = _("Member ID {}").format(tx["payer_id"])
 
             transactions_data.append(
                 {
@@ -240,10 +243,16 @@ def main():
                 print(_("Error: Amount cannot be empty."))
                 continue
 
-            payer_name = select_payer(for_expense=True)
-            if payer_name is None:
-                print(_("Expense recording cancelled."))
-                continue
+            # Ask if it's a shared expense
+            is_shared = input(_("Is this a shared expense (no individual payer)? (y/n, default: n): ")).strip().lower()
+
+            if is_shared in ("y", "yes"):
+                payer_name = database.VIRTUAL_MEMBER_INTERNAL_NAME
+            else:
+                payer_name = select_payer(for_expense=True)
+                if payer_name is None:
+                    print(_("Expense recording cancelled."))
+                    continue
 
             categories = database.get_all_categories()
             # Create a display version with translated names but keep original for lookup

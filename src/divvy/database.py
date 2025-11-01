@@ -6,6 +6,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 DB_FILE = os.path.join(PROJECT_ROOT, "data", "expenses.db")
 SCHEMA_FILE = os.path.join(os.path.dirname(__file__), "schema.sql")
 
+# Virtual member for shared/public expenses
+VIRTUAL_MEMBER_INTERNAL_NAME = "_system_group_"
+SYSTEM_MEMBER_PREFIX = "_system_"
+
 
 def get_db_connection():
     """Establishes a connection to the SQLite database."""
@@ -26,6 +30,8 @@ def initialize_database():
         if cursor.fetchone():
             # Ensure there's a current period even if database was already initialized
             initialize_first_period_if_needed()
+            # Ensure virtual member exists
+            ensure_virtual_member_exists()
             return  # Database already initialized
 
         with open(SCHEMA_FILE) as f:
@@ -37,6 +43,8 @@ def initialize_database():
     print("Database initialized successfully.")
     # Ensure current period exists after initialization
     initialize_first_period_if_needed()
+    # Ensure virtual member exists
+    ensure_virtual_member_exists()
 
 
 # --- Database operations for Members ---
@@ -74,20 +82,24 @@ def get_member_by_id(member_id: int) -> dict | None:
 
 
 def get_all_members() -> list[dict]:
-    """Retrieves all members, active or inactive."""
+    """Retrieves all members, active or inactive (excluding virtual member)."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM members ORDER BY id")
+        cursor.execute(
+            "SELECT * FROM members WHERE name != ? ORDER BY id",
+            (VIRTUAL_MEMBER_INTERNAL_NAME,),
+        )
         members = cursor.fetchall()
         return [dict(m) for m in members]
 
 
 def get_active_members() -> list[dict]:
-    """Retrieves all active members."""
+    """Retrieves all active members (excluding virtual member)."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM members WHERE is_active = 1 ORDER BY id"
+            "SELECT * FROM members WHERE is_active = 1 AND name != ? ORDER BY id",
+            (VIRTUAL_MEMBER_INTERNAL_NAME,),
         )  # Order by ID for consistent remainder distribution
         members = cursor.fetchall()
         return [dict(m) for m in members]
@@ -209,6 +221,35 @@ def initialize_first_period_if_needed():
 
     if get_current_period() is None:
         create_new_period("Initial Period")
+
+
+def ensure_virtual_member_exists():
+    """Ensures the virtual member exists for shared expenses."""
+    virtual_member = get_member_by_name(VIRTUAL_MEMBER_INTERNAL_NAME)
+    if not virtual_member:
+        # Create virtual member (inactive so it doesn't appear in normal lists)
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO members (name, is_active) VALUES (?, 0)",
+                (VIRTUAL_MEMBER_INTERNAL_NAME,),
+            )
+            conn.commit()
+
+
+def is_virtual_member(member: dict | None) -> bool:
+    """Check if a member is the virtual/system member."""
+    if not member:
+        return False
+    return member["name"].startswith(SYSTEM_MEMBER_PREFIX)
+
+
+def get_member_display_name(member: dict) -> str:
+    """Get display name for member (translates virtual member to user-friendly name)."""
+    if is_virtual_member(member):
+        from .i18n import _
+        return _("Group")  # Translatable display name
+    return member["name"]
 
 
 # --- Database operations for Transactions ---

@@ -333,3 +333,11 @@ msgstr "支出"
 msgid "Deposit"
 msgstr "存款"
 
+# Virtual member display name
+msgid "Group"
+msgstr "共享支出"
+
+# Shared expense prompt
+msgid "Is this a shared expense (no individual payer)? (y/n, default: n): "
+msgstr "这是共享支出（无个人付款人）吗？(y/n，默认: n)："
+

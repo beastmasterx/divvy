@@ -225,11 +225,16 @@ def get_settlement_balances() -> dict[str, str]:
     # Calculate initial contributions and expenses
     for tx in all_transactions:
         if tx["transaction_type"] == "deposit":
-            if tx["payer_id"]:
+            # Only credit if payer exists in member_balances (excludes virtual member)
+            if tx["payer_id"] and tx["payer_id"] in member_balances:
                 member_balances[tx["payer_id"]] += tx["amount"]
         elif tx["transaction_type"] == "expense":
-            if tx["payer_id"]:
-                member_balances[tx["payer_id"]] += tx["amount"]
+            # Skip crediting if payer is virtual member (shared expense)
+            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if payer and not database.is_virtual_member(payer):
+                # Credit real member for paying the expense
+                if tx["payer_id"] in member_balances:
+                    member_balances[tx["payer_id"]] += tx["amount"]
 
             # Distribute expense cost among current active members
             num_active = len(current_active_members)
@@ -315,12 +320,18 @@ def get_period_balances(period_id: int | None = None) -> dict:
 
     for tx in transactions:
         if tx["transaction_type"] == "deposit":
-            if tx["payer_id"]:
+            # Only credit if payer exists in member_balances (excludes virtual member)
+            if tx["payer_id"] and tx["payer_id"] in member_balances:
                 member_balances[tx["payer_id"]] += tx["amount"]
         elif tx["transaction_type"] == "expense":
-            if tx["payer_id"]:
-                member_balances[tx["payer_id"]] += tx["amount"]
+            # Skip crediting if payer is virtual member (shared expense)
+            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if payer and not database.is_virtual_member(payer):
+                # Credit real member for paying the expense
+                if tx["payer_id"] in member_balances:
+                    member_balances[tx["payer_id"]] += tx["amount"]
 
+            # Subtract shares from all active members (for both real and shared expenses)
             # Distribute expense among active members at transaction time
             # For simplicity, use current active members (could be enhanced to track at transaction time)
             num_active = len(active_members)
@@ -370,14 +381,15 @@ def get_active_member_balances(period_id: int | None = None) -> dict[str, int]:
         if tx["transaction_type"] == "deposit":
             if tx["payer_id"] and tx["payer_id"] in member_balances:
                 member_balances[tx["payer_id"]] += tx["amount"]
-        elif (
-            tx["transaction_type"] == "expense"
-            and tx["payer_id"]
-            and tx["payer_id"] in member_balances
-        ):
-            # Only process expenses paid by active members (skip if payer_id is None)
-            member_balances[tx["payer_id"]] += tx["amount"]
+        elif tx["transaction_type"] == "expense":
+            # Skip crediting if payer is virtual member (shared expense)
+            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if payer and not database.is_virtual_member(payer):
+                # Credit real member for paying the expense
+                if tx["payer_id"] in member_balances:
+                    member_balances[tx["payer_id"]] += tx["amount"]
 
+            # Subtract shares from all active members (for both real and shared expenses)
             num_active = len(active_members)
             if num_active == 0:
                 continue

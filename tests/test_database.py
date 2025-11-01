@@ -42,6 +42,11 @@ def db_connection():
         "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
         ("Initial Period",),
     )
+    # Ensure virtual member exists for shared expenses
+    cursor.execute(
+        "INSERT OR IGNORE INTO members (name, is_active) VALUES (?, 0)",
+        (database.VIRTUAL_MEMBER_INTERNAL_NAME,),
+    )
     conn.commit()
 
     yield conn
@@ -258,3 +263,55 @@ def test_reset_all_member_remainder_status():
     member2 = database.get_member_by_id(member2_id)
     assert member1["paid_remainder_in_cycle"] == 0
     assert member2["paid_remainder_in_cycle"] == 0
+
+
+def test_virtual_member_not_in_active_members():
+    """Test that virtual member doesn't appear in get_active_members()."""
+    # Add a regular member
+    database.add_member("Alice")
+    
+    # Get active members
+    active_members = database.get_active_members()
+    
+    # Virtual member should not appear
+    member_names = [m["name"] for m in active_members]
+    assert database.VIRTUAL_MEMBER_INTERNAL_NAME not in member_names
+    assert "Alice" in member_names
+
+
+def test_virtual_member_not_in_all_members():
+    """Test that virtual member doesn't appear in get_all_members()."""
+    # Add a regular member
+    database.add_member("Alice")
+    
+    # Get all members
+    all_members = database.get_all_members()
+    
+    # Virtual member should not appear
+    member_names = [m["name"] for m in all_members]
+    assert database.VIRTUAL_MEMBER_INTERNAL_NAME not in member_names
+    assert "Alice" in member_names
+
+
+def test_is_virtual_member():
+    """Test is_virtual_member function."""
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    regular_member_id = database.add_member("Alice")
+    regular_member_dict = database.get_member_by_id(regular_member_id)
+    
+    assert database.is_virtual_member(virtual_member) is True
+    assert database.is_virtual_member(regular_member_dict) is False
+    assert database.is_virtual_member(None) is False
+
+
+def test_get_member_display_name():
+    """Test get_member_display_name function."""
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    regular_member_id = database.add_member("Alice")
+    regular_member_dict = database.get_member_by_id(regular_member_id)
+    
+    # Virtual member should display as "Group"
+    assert database.get_member_display_name(virtual_member) == "Group"
+    
+    # Regular member should display as their name
+    assert database.get_member_display_name(regular_member_dict) == "Alice"

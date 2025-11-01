@@ -42,6 +42,11 @@ def db_connection():
         "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
         ("Initial Period",),
     )
+    # Ensure virtual member exists for shared expenses
+    cursor.execute(
+        "INSERT OR IGNORE INTO members (name, is_active) VALUES (?, 0)",
+        (database.VIRTUAL_MEMBER_INTERNAL_NAME,),
+    )
     conn.commit()
 
     yield conn
@@ -289,6 +294,82 @@ def test_get_period_balances():
     balances = logic.get_period_balances()
     assert "Alice" in balances
     assert "Bob" in balances
+
+
+def test_record_shared_expense():
+    """Test recording a shared expense (using virtual member)."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    logic.add_new_member("Charlie")
+
+    # Record shared expense (rent) - no individual payer
+    result = logic.record_expense(
+        "Rent", "3000.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+    )
+    assert "3000.00 recorded successfully" in result
+
+    # Verify transaction recorded with virtual member as payer
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE description = 'Rent'")
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx["amount"] == 300000  # 3000.00 in cents
+        
+        payer = database.get_member_by_id(tx["payer_id"])
+        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+
+
+def test_shared_expense_balance_calculation():
+    """Test that shared expenses don't credit any member."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    bob = database.get_member_by_name("Bob")
+
+    # Alice deposits 100
+    database.add_transaction("deposit", 10000, "Alice's deposit", alice["id"])
+
+    # Shared expense: Rent 3000.00 (no one pays, everyone owes their share)
+    logic.record_expense(
+        "Rent", "3000.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+    )
+
+    # Expected balances:
+    # Alice: +100 (deposit) -1500 (share of rent) = -1400 (owes 1400)
+    # Bob: 0 (deposit) -1500 (share of rent) = -1500 (owes 1500)
+    # No one gets credited for paying the rent (it's shared)
+
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == -140000  # -1400.00 in cents
+    assert balances["Bob"] == -150000  # -1500.00 in cents
+
+
+def test_mixed_shared_and_individual_expenses():
+    """Test balance calculation with both shared and individual expenses."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    bob = database.get_member_by_name("Bob")
+
+    # Alice deposits 200
+    database.add_transaction("deposit", 20000, "Alice's deposit", alice["id"])
+
+    # Shared expense: Rent 1000.00 (split equally, no credit)
+    logic.record_expense(
+        "Rent", "1000.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+    )
+
+    # Individual expense: Groceries 60.00, Alice pays
+    logic.record_expense("Groceries", "60.00", "Alice", "Groceries")
+
+    # Expected balances:
+    # Alice: +200 (deposit) +60 (paid groceries) -500 (share rent) -30 (share groceries) = -270
+    # Bob: 0 (deposit) -500 (share rent) -30 (share groceries) = -530
+
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == -27000  # -270.00 in cents
+    assert balances["Bob"] == -53000  # -530.00 in cents
 
 
 def test_get_period_summary():
