@@ -15,6 +15,9 @@ msgstr "Enter your choice: "
 msgid "Enter your choice (1-{}): "
 msgstr "Enter your choice (1-{}): "
 
+msgid "Enter your choice (1-{}, or Enter for default): "
+msgstr "Enter your choice (1-{}, or Enter for default): "
+
 msgid "Invalid choice. Please enter a number between 1 and {}."
 msgstr "Invalid choice. Please enter a number between 1 and {}."
 
@@ -35,6 +38,21 @@ msgstr "------------------------"
 
 msgid "No active period found."
 msgstr "No active period found."
+
+msgid "Period not found."
+msgstr "Period not found."
+
+msgid "No periods available."
+msgstr "No periods available."
+
+msgid "Period"
+msgstr "Period"
+
+msgid " [Current]"
+msgstr " [Current]"
+
+msgid "Period selection cancelled."
+msgstr "Period selection cancelled."
 
 msgid "                 VIEW PERIOD: {}"
 msgstr "                 VIEW PERIOD: {}"

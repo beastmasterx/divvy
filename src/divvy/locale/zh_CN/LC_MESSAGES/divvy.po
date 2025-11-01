@@ -15,6 +15,9 @@ msgstr "请输入您的选择："
 msgid "Enter your choice (1-{}): "
 msgstr "请输入您的选择 (1-{})："
 
+msgid "Enter your choice (1-{}, or Enter for default): "
+msgstr "请输入您的选择 (1-{}，或按 Enter 选择默认)："
+
 msgid "Invalid choice. Please enter a number between 1 and {}."
 msgstr "无效选择。请输入 1 到 {} 之间的数字。"
 
@@ -35,6 +38,21 @@ msgstr "------------------------"
 
 msgid "No active period found."
 msgstr "未找到活动期间。"
+
+msgid "Period not found."
+msgstr "未找到期间。"
+
+msgid "No periods available."
+msgstr "没有可用的期间。"
+
+msgid "Period"
+msgstr "期间"
+
+msgid " [Current]"
+msgstr " [当前]"
+
+msgid "Period selection cancelled."
+msgstr "期间选择已取消。"
 
 msgid "                 VIEW PERIOD: {}"
 msgstr "                 查看期间：{}"

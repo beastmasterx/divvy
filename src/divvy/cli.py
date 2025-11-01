@@ -196,12 +196,19 @@ def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
     print(_("----------------------\n"))
 
 
-def _display_view_period() -> None:
-    """Displays the combined period view with transactions and active member balances."""
-    summary = logic.get_period_summary()
+def _display_view_period(period_id: int | None = None) -> None:
+    """Displays the combined period view with transactions and active member balances.
+    
+    Args:
+        period_id: Optional period ID to display. If None, displays the current active period.
+    """
+    summary = logic.get_period_summary(period_id)
 
     if not summary or not summary.get("period"):
-        print(_("No active period found."))
+        if period_id is None:
+            print(_("No active period found."))
+        else:
+            print(_("Period not found."))
         return
 
     period = summary["period"]
@@ -424,6 +431,73 @@ def _display_view_period() -> None:
     print("\n" + "=" * 60 + "\n")
 
 
+def select_period() -> dict | None:
+    """Selects a period from all periods, showing the current active period by default.
+    Returns the selected period dict, or None if cancelled.
+    If user presses Enter without input and there's a current period, returns the current period.
+    """
+    all_periods = database.get_all_periods()
+    
+    if not all_periods:
+        print(_("No periods available."))
+        return None
+    
+    current_period = database.get_current_period()
+    current_period_id = current_period["id"] if current_period else None
+    
+    # Create display strings for periods
+    periods_for_display = []
+    for period in all_periods:
+        # Extract date only from start_date (remove time portion)
+        start_date_only = period["start_date"].split()[0] if " " in period["start_date"] else period["start_date"]
+        status = _("Active") if not period["is_settled"] else _("Settled")
+        
+        # Mark the current active period
+        is_current = (current_period_id is not None and period["id"] == current_period_id)
+        marker = _(" [Current]") if is_current else ""
+        
+        display_name = f"{period['name']} ({start_date_only}, {status}){marker}"
+        periods_for_display.append({
+            **period,
+            "display_name": display_name
+        })
+    
+    # Sort so current period appears first
+    if current_period_id:
+        periods_for_display.sort(key=lambda p: (p["id"] != current_period_id, -p["id"]))
+    
+    # Display the list with a hint about the default
+    if not periods_for_display:
+        print(_("No periods available."))
+        return None
+    
+    print(_("\n--- Select {} ---").format(_("Period")))
+    for i, period in enumerate(periods_for_display, 1):
+        default_hint = " (default)" if i == 1 and current_period_id else ""
+        print(f"{i}. {period['display_name']}{default_hint}")
+    print(_("------------------------"))
+    
+    # Allow Enter to select default (first item, which is current period)
+    while True:
+        try:
+            choice = input(_("Enter your choice (1-{}, or Enter for default): ").format(len(periods_for_display))).strip()
+            if not choice:
+                # Empty input - return default (current period) if available
+                if current_period_id and periods_for_display:
+                    return periods_for_display[0]
+                print(_("Input cannot be empty. Please enter a number."))
+                continue
+            index = int(choice) - 1
+            if 0 <= index < len(periods_for_display):
+                return periods_for_display[index]
+            else:
+                print(_("Invalid choice. Please enter a number between 1 and {}.").format(len(periods_for_display)))
+        except ValueError:
+            print(_("Invalid input. Please enter a number."))
+        except KeyboardInterrupt:
+            return None
+
+
 def select_payer(for_expense: bool = False) -> str | None:
     """Selects a payer from active members.
     For deposits, includes virtual member (Group) as an option for public fund.
@@ -571,7 +645,12 @@ def main():
             print(result)
 
         elif choice == "4":
-            _display_view_period()
+            # Select a period to view (defaults to current active)
+            selected_period = select_period()
+            if selected_period:
+                _display_view_period(selected_period["id"])
+            else:
+                print(_("Period selection cancelled."))
 
         elif choice == "5":
             # Show period status first
