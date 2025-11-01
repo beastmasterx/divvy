@@ -48,6 +48,12 @@ msgstr "已结算"
 msgid "Period: {} | Started: {} | {}"
 msgstr "期间：{} | 开始日期：{} | {}"
 
+msgid "Started: {} | {}"
+msgstr "开始日期：{} | {}"
+
+msgid "Payer: {}"
+msgstr "付款人: {}"
+
 msgid "Deposits: {} | Expenses: {} | Fund: {}{}"
 msgstr "存款：{} | 支出：{} | 基金：{}{}"
 
@@ -89,6 +95,15 @@ msgstr "描述"
 
 msgid "Payer"
 msgstr "付款人"
+
+msgid "From/To"
+msgstr "来/至"
+
+msgid "From: {}"
+msgstr "来: {}"
+
+msgid "To: {}"
+msgstr "至: {}"
 
 msgid "Unknown"
 msgstr "未知"
@@ -371,7 +386,7 @@ msgstr "存款"
 
 # Virtual member display name
 msgid "Group"
-msgstr "共享支出"
+msgstr "公共支出"
 
 # Expense type prompt
 msgid "Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): "

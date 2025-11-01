@@ -30,6 +30,100 @@ def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | No
             return None
 
 
+def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
+    """Displays settlement plan transactions in table format."""
+    from .i18n import translate_transaction_type
+    
+    if not settlement_transactions:
+        print(_("No settlement transactions needed (all balances already zero)."))
+        return
+    
+    print(_("\n--- Settlement Plan ---"))
+    
+    # Prepare transactions with all needed data
+    transactions_data = []
+    for tx in settlement_transactions:
+        # Category is blank for settlement transactions
+        category_name = ""
+        
+        date_only = tx["date"]
+        
+        # Determine transaction type for display
+        amount_cents = tx["amount"]
+        if amount_cents < 0:
+            # Negative deposit = Refund
+            tx_type = translate_transaction_type("refund")
+            amount_formatted = logic._cents_to_dollars(abs(amount_cents))
+            amount_sign = "-"
+        else:
+            # Positive deposit = Deposit
+            tx_type = translate_transaction_type("deposit")
+            amount_formatted = logic._cents_to_dollars(amount_cents)
+            amount_sign = "+"
+        
+        desc = tx["description"] if tx["description"] else ""
+        
+        payer_name = tx.get("payer_name", _("Unknown"))
+        from_to = tx.get("from_to", "")
+        
+        # Format "From: Name" or "To: Name"
+        if from_to == "From":
+            from_to_display = _("From: {}").format(payer_name)
+        elif from_to == "To":
+            from_to_display = _("To: {}").format(payer_name)
+        else:
+            from_to_display = payer_name
+        
+        transactions_data.append(
+            {
+                "date": date_only,
+                "category": category_name,
+                "type": tx_type,
+                "personal": "",  # Blank for settlement
+                "amount": amount_cents,
+                "amount_formatted": f"{amount_sign}{amount_formatted}",
+                "description": desc,
+                "payer": from_to_display,
+            }
+        )
+    
+    # Calculate column widths
+    max_category_len = max(len(t["category"]) for t in transactions_data) if transactions_data else 10
+    max_desc_len = max(len(t["description"]) for t in transactions_data) if transactions_data else 10
+    max_payer_len = max(len(t["payer"]) for t in transactions_data) if transactions_data else 8
+    
+    category_width = max(15, max_category_len)
+    desc_width = max(20, max_desc_len)
+    payer_width = max(12, max_payer_len)
+    
+    # Calculate split column width (blank for settlement, but need space)
+    split_width = 10
+    
+    # Print header
+    header_date = _("Date")
+    header_category = _("Category")
+    header_type = _("Type")
+    header_split = _("Split")
+    header_amount = _("Amount")
+    header_description = _("Description")
+    header_from_to = _("From/To")
+    print(
+        f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_split:<{split_width}} | {header_amount:>12} | {header_description:<{desc_width}} | {header_from_to:<{payer_width}}"
+    )
+    print(
+        f"  {'-' * 12} | {'-' * category_width} | {'-' * 8} | {'-' * split_width} | {'-' * 12} | {'-' * desc_width} | {'-' * payer_width}"
+    )
+    
+    # Print transactions
+    for tx in transactions_data:
+        desc_display = tx["description"] if tx["description"] else ""
+        print(
+            f"  {tx['date']:<12} | {tx['category']:<{category_width}} | {tx['type']:<8} | {tx['personal']:<{split_width}} | {tx['amount_formatted']:>12} | {desc_display:<{desc_width}} | {tx['payer']:<{payer_width}}"
+        )
+    
+    print(_("----------------------\n"))
+
+
 def _display_view_period() -> None:
     """Displays the combined period view with transactions and active member balances."""
     summary = logic.get_period_summary()
@@ -73,8 +167,8 @@ def _display_view_period() -> None:
     # Extract date only from start_date (remove time portion)
     start_date_only = period["start_date"].split()[0] if " " in period["start_date"] else period["start_date"]
     print(
-        _("Period: {} | Started: {} | {}").format(
-            period["name"], start_date_only, active_status
+        _("Started: {} | {}").format(
+            start_date_only, active_status
         )
     )
     print(
@@ -124,12 +218,28 @@ def _display_view_period() -> None:
             desc = tx["description"] if tx["description"] else ""
 
             payer_name = _("Unknown")
+            from_to_display = ""
             if tx["payer_id"]:
                 payer = database.get_member_by_id(tx["payer_id"])
                 if payer:
                     payer_name = database.get_member_display_name(payer)
                 else:
                     payer_name = _("Member ID {}").format(tx["payer_id"])
+            
+            # Format payer column: use From/To for deposits/refunds, Payer for expenses
+            if tx["transaction_type"] == "expense":
+                # For expenses, show "Payer: Name"
+                from_to_display = _("Payer: {}").format(payer_name)
+            elif tx["transaction_type"] == "deposit":
+                if amount_cents < 0:
+                    # Negative deposit = Refund, show "To: Name"
+                    from_to_display = _("To: {}").format(payer_name)
+                else:
+                    # Positive deposit, show "From: Name"
+                    from_to_display = _("From: {}").format(payer_name)
+            else:
+                # Fallback
+                from_to_display = payer_name
 
             # Determine expense type display for Split column
             split_type_display = ""
@@ -153,7 +263,7 @@ def _display_view_period() -> None:
                     "amount": amount_cents,
                     "amount_formatted": f"{amount_sign}{amount_formatted}",
                     "description": desc,
-                    "payer": payer_name,
+                    "payer": from_to_display,
                 }
             )
 
@@ -184,9 +294,9 @@ def _display_view_period() -> None:
         header_split = _("Split")
         header_amount = _("Amount")
         header_description = _("Description")
-        header_payer = _("Payer")
+        header_from_to = _("From/To")
         print(
-            f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_split:<{split_width}} | {header_amount:>12} | {header_description:<{desc_width}} | {header_payer:<{payer_width}}"
+            f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_split:<{split_width}} | {header_amount:>12} | {header_description:<{desc_width}} | {header_from_to:<{payer_width}}"
         )
         print(
             f"  {'-' * 12} | {'-' * category_width} | {'-' * 8} | {'-' * split_width} | {'-' * 12} | {'-' * desc_width} | {'-' * payer_width}"
@@ -380,10 +490,7 @@ def main():
             if current_period:
                 settlement_plan = logic.get_settlement_plan(current_period["id"])
                 if settlement_plan:
-                    print(_("\n--- Settlement Plan ---"))
-                    for line in settlement_plan:
-                        print(line)
-                    print(_("----------------------\n"))
+                    _display_settlement_plan(settlement_plan)
                 else:
                     print(_("\nNo settlement transactions needed (all balances already zero).\n"))
 

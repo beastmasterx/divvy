@@ -48,6 +48,12 @@ msgstr "Settled"
 msgid "Period: {} | Started: {} | {}"
 msgstr "Period: {} | Started: {} | {}"
 
+msgid "Started: {} | {}"
+msgstr "Started: {} | {}"
+
+msgid "Payer: {}"
+msgstr "Payer: {}"
+
 msgid "Deposits: {} | Expenses: {} | Fund: {}{}"
 msgstr "Deposits: {} | Expenses: {} | Fund: {}{}"
 
@@ -89,6 +95,15 @@ msgstr "Description"
 
 msgid "Payer"
 msgstr "Payer"
+
+msgid "From/To"
+msgstr "From/To"
+
+msgid "From: {}"
+msgstr "From: {}"
+
+msgid "To: {}"
+msgstr "To: {}"
 
 msgid "Unknown"
 msgstr "Unknown"

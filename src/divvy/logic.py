@@ -602,10 +602,11 @@ def get_period_summary(period_id: int | None = None) -> dict:
     }
 
 
-def get_settlement_plan(period_id: int | None = None) -> list[str]:
+def get_settlement_plan(period_id: int | None = None) -> list[dict]:
     """
     Calculates and returns the settlement plan without executing it.
-    Returns a list of settlement transaction messages that would be created.
+    Returns a list of transaction-like dictionaries that would be created.
+    Each dict has: date, transaction_type, amount, description, payer_id, payer_name, from_to_label
     """
     if period_id is None:
         current_period = database.get_current_period()
@@ -632,8 +633,10 @@ def get_settlement_plan(period_id: int | None = None) -> list[str]:
                 fund_used = min(expense_amount, public_fund_balance)
                 public_fund_balance -= fund_used
     
-    # Calculate settlement plan
-    settlement_messages = []
+    # Calculate settlement plan as transaction records
+    from datetime import datetime
+    settlement_date = datetime.now().strftime("%Y-%m-%d")
+    settlement_transactions = []
     
     # Collect members who owe (negative balance) and who are owed (positive balance)
     debtors = []  # Members who owe money
@@ -651,11 +654,16 @@ def get_settlement_plan(period_id: int | None = None) -> list[str]:
         if creditors:
             # Distribute public fund to first creditor
             creditor, creditor_balance = creditors[0]
-            settlement_messages.append(
-                _("  Public fund ${} distributed to {}").format(
-                    _cents_to_dollars(public_fund_balance), creditor["name"]
-                )
-            )
+            # Fund distribution creates a refund (negative deposit) to creditor
+            settlement_transactions.append({
+                "date": settlement_date,
+                "transaction_type": "deposit",  # Will be displayed as Refund due to negative amount
+                "amount": -public_fund_balance,
+                "description": _("Settlement: Public fund distribution"),
+                "payer_id": creditor["id"],
+                "payer_name": creditor["name"],
+                "from_to": "To",
+            })
     
     # Calculate debt settlements: debtors pay creditors
     # Match debtors with creditors to create settlement plan
@@ -671,15 +679,28 @@ def get_settlement_plan(period_id: int | None = None) -> list[str]:
         creditor, credit_amount = working_creditors[creditor_idx]
         
         settlement_amount = min(debt_amount, credit_amount)
-        settlement_amount_str = _cents_to_dollars(settlement_amount)
         
-        settlement_messages.append(
-            _("  {} pays ${} to {}").format(
-                debtor["name"],
-                settlement_amount_str,
-                creditor["name"],
-            )
-        )
+        # Debtor makes payment (positive deposit)
+        settlement_transactions.append({
+            "date": settlement_date,
+            "transaction_type": "deposit",
+            "amount": settlement_amount,
+            "description": _("Settlement payment to {}").format(creditor["name"]),
+            "payer_id": debtor["id"],
+            "payer_name": debtor["name"],
+            "from_to": "From",
+        })
+        
+        # Creditor receives payment (negative deposit, shown as refund)
+        settlement_transactions.append({
+            "date": settlement_date,
+            "transaction_type": "deposit",  # Will be displayed as Refund due to negative amount
+            "amount": -settlement_amount,
+            "description": _("Settlement payment from {}").format(debtor["name"]),
+            "payer_id": creditor["id"],
+            "payer_name": creditor["name"],
+            "from_to": "To",
+        })
         
         # Update remaining amounts
         debt_amount -= settlement_amount
@@ -695,7 +716,7 @@ def get_settlement_plan(period_id: int | None = None) -> list[str]:
         else:
             working_creditors[creditor_idx] = (creditor, credit_amount)
     
-    return settlement_messages if settlement_messages else [_("  No settlement transactions needed (all balances already zero).")]
+    return settlement_transactions
 
 
 def settle_current_period(period_name: str | None = None) -> str:
@@ -753,9 +774,10 @@ def settle_current_period(period_name: str | None = None) -> str:
             # Distribute public fund to creditors proportionally or to first creditor
             # Simple approach: give all to first creditor
             creditor, creditor_balance = creditors[0]
+            # Negative deposit to creditor reduces their positive balance (they receive the fund)
             database.add_transaction(
                 transaction_type="deposit",
-                amount=public_fund_balance,
+                amount=-public_fund_balance,
                 description=_("Settlement: Public fund distribution"),
                 payer_id=creditor["id"],
                 period_id=period_id,
@@ -780,24 +802,22 @@ def settle_current_period(period_name: str | None = None) -> str:
         
         # Record settlement: debtor pays, creditor receives
         # Create matching transactions that zero both balances:
-        # 1. Debtor makes payment (positive deposit to creditor - reduces debtor's negative balance)
-        # 2. Creditor receives payment (positive deposit - offsets creditor's positive balance)
-        # Note: The deposit to creditor increases their balance, but we also need to zero the debtor's debt
+        # 1. Creditor receives payment (negative deposit reduces creditor's positive balance)
+        # 2. Debtor makes payment (positive deposit reduces debtor's negative balance)
         
-        # Creditor receives payment (positive deposit increases their balance, offsetting what they're owed)
+        # Creditor receives payment (negative deposit decreases their positive balance)
         database.add_transaction(
             transaction_type="deposit",
-            amount=settlement_amount,
+            amount=-settlement_amount,
             description=_("Settlement payment from {}").format(debtor["name"]),
             payer_id=creditor["id"],
             period_id=period_id,
         )
         
-        # Debtor makes payment - record as refund/negative deposit to zero their debt
-        # A positive deposit for the debtor reduces their negative balance (owes less)
+        # Debtor makes payment (positive deposit reduces their negative balance toward zero)
         database.add_transaction(
             transaction_type="deposit",
-            amount=settlement_amount,  # Positive deposit reduces negative balance
+            amount=settlement_amount,
             description=_("Settlement payment to {}").format(creditor["name"]),
             payer_id=debtor["id"],
             period_id=period_id,
