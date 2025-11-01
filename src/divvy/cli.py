@@ -120,11 +120,17 @@ def _display_view_period() -> None:
                 else:
                     payer_name = _("Member ID {}").format(tx["payer_id"])
 
+            # Check if this is a personal expense
+            is_personal_display = ""
+            if tx["transaction_type"] == "expense" and tx.get("is_personal", 0):
+                is_personal_display = _("Personal")
+            
             transactions_data.append(
                 {
                     "date": date_only,
                     "category": category_name,
                     "type": tx_type,
+                    "personal": is_personal_display,
                     "amount": amount_cents,
                     "amount_formatted": f"{amount_sign}{amount_formatted}",
                     "description": desc,
@@ -148,25 +154,30 @@ def _display_view_period() -> None:
         desc_width = max(20, max_desc_len)
         payer_width = max(12, max_payer_len)
 
+        # Calculate personal column width
+        max_personal_len = max(len(t["personal"]) for t in transactions_data) if transactions_data else 0
+        personal_width = max(8, max_personal_len)
+        
         # Print header
         header_date = _("Date")
         header_category = _("Category")
         header_type = _("Type")
+        header_personal = _("Personal")
         header_amount = _("Amount")
         header_description = _("Description")
         header_payer = _("Payer")
         print(
-            f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_amount:>12} | {header_description:<{desc_width}} | {header_payer:<{payer_width}}"
+            f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_personal:<{personal_width}} | {header_amount:>12} | {header_description:<{desc_width}} | {header_payer:<{payer_width}}"
         )
         print(
-            f"  {'-' * 12} | {'-' * category_width} | {'-' * 8} | {'-' * 12} | {'-' * desc_width} | {'-' * payer_width}"
+            f"  {'-' * 12} | {'-' * category_width} | {'-' * 8} | {'-' * personal_width} | {'-' * 12} | {'-' * desc_width} | {'-' * payer_width}"
         )
 
         # Print transactions
         for tx in transactions_data:
             desc_display = tx["description"] if tx["description"] else ""
             print(
-                f"  {tx['date']:<12} | {tx['category']:<{category_width}} | {tx['type']:<8} | {tx['amount_formatted']:>12} | {desc_display:<{desc_width}} | {tx['payer']:<{payer_width}}"
+                f"  {tx['date']:<12} | {tx['category']:<{category_width}} | {tx['type']:<8} | {tx['personal']:<{personal_width}} | {tx['amount_formatted']:>12} | {desc_display:<{desc_width}} | {tx['payer']:<{payer_width}}"
             )
     else:
         print(_("\n--- Transactions (0) ---"))

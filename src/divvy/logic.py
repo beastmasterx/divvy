@@ -313,15 +313,15 @@ def get_settlement_balances() -> dict[str, str]:
                                 member_balances[member["id"]] -= 1
                 continue
             
-            # Individual expense: credit real member for paying
-            if payer and tx["payer_id"] in member_balances:
-                member_balances[tx["payer_id"]] += tx["amount"]
-
-            # Handle personal expenses: only subtract from payer
+            # Handle personal expenses: only subtract from payer (NO credit for paying)
             if tx.get("is_personal", 0):  # Check if this is a personal expense
                 if tx["payer_id"] and tx["payer_id"] in member_balances:
                     member_balances[tx["payer_id"]] -= tx["amount"]
                 continue
+            
+            # Individual expense: credit real member for paying (not personal)
+            if payer and tx["payer_id"] in member_balances:
+                member_balances[tx["payer_id"]] += tx["amount"]
 
             # Distribute expense cost among current active members (individual split)
             num_active = len(current_active_members)
@@ -441,15 +441,15 @@ def get_period_balances(period_id: int | None = None) -> dict:
                                 member_balances[member["id"]] -= 1
                 continue
             
-            # Individual expense: credit real member for paying
-            if payer and tx["payer_id"] in member_balances:
-                member_balances[tx["payer_id"]] += tx["amount"]
-
-            # Handle personal expenses: only subtract from payer
+            # Handle personal expenses: only subtract from payer (NO credit for paying)
             if tx.get("is_personal", 0):  # Check if this is a personal expense
                 if tx["payer_id"] and tx["payer_id"] in member_balances:
                     member_balances[tx["payer_id"]] -= tx["amount"]
                 continue
+            
+            # Individual expense: credit real member for paying (not personal)
+            if payer and tx["payer_id"] in member_balances:
+                member_balances[tx["payer_id"]] += tx["amount"]
 
             # Subtract shares from all active members (for both real and shared expenses)
             # Distribute expense among active members at transaction time
@@ -533,15 +533,15 @@ def get_active_member_balances(period_id: int | None = None) -> dict[str, int]:
                                 member_balances[member["id"]] -= 1
                 continue
             
-            # Individual expense: credit real member for paying
-            if payer and tx["payer_id"] in member_balances:
-                member_balances[tx["payer_id"]] += tx["amount"]
-
-            # Handle personal expenses: only subtract from payer
+            # Handle personal expenses: only subtract from payer (NO credit for paying)
             if tx.get("is_personal", 0):  # Check if this is a personal expense
                 if tx["payer_id"] and tx["payer_id"] in member_balances:
                     member_balances[tx["payer_id"]] -= tx["amount"]
                 continue
+            
+            # Individual expense: credit real member for paying (not personal)
+            if payer and tx["payer_id"] in member_balances:
+                member_balances[tx["payer_id"]] += tx["amount"]
 
             # Subtract shares from all active members (for both real and shared expenses)
             num_active = len(active_members)

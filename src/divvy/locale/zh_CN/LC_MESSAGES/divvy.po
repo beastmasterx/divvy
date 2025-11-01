@@ -69,6 +69,9 @@ msgstr "类别"
 msgid "Type"
 msgstr "类型"
 
+msgid "Personal"
+msgstr "个人"
+
 msgid "Amount"
 msgstr "金额"
 
