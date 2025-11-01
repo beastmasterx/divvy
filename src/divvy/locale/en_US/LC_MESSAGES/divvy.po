@@ -163,7 +163,7 @@ msgid "Initializing..."
 msgstr "Initializing..."
 
 msgid "\n--- Divvy Expense Splitter ---"
-msgstr "\n--- Divvy Expense Splitter ---"
+msgstr "\n--- DIVVY ---"
 
 msgid "Current Period: {}"
 msgstr "Current Period: {}"

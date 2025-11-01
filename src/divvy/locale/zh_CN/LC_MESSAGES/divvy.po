@@ -163,7 +163,7 @@ msgid "Initializing..."
 msgstr "正在初始化..."
 
 msgid "\n--- Divvy Expense Splitter ---"
-msgstr "\n--- Divvy 费用分摊器 ---"
+msgstr "\n--- DIVVY ---"
 
 msgid "Current Period: {}"
 msgstr "当前账期：{}"

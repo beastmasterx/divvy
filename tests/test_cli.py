@@ -75,7 +75,7 @@ def test_show_menu(capsys):
     """Test that menu displays correctly."""
     cli.show_menu()
     captured = capsys.readouterr()
-    assert "Divvy Expense Splitter" in captured.out
+    assert "DIVVY" in captured.out
     assert "Add Expense" in captured.out
     assert "Add Deposit" in captured.out
     assert "View Period" in captured.out
@@ -151,13 +151,14 @@ def test_menu_choice_record_deposit(setup_members, capsys):
 
 
 def test_menu_choice_view_period_summary(setup_members, capsys):
-    """Test menu option 2: View current period summary."""
+    """Test menu option 4: View period summary with period selection."""
     # Add some transactions first
     alice = database.get_member_by_name("Alice")
     database.add_transaction("deposit", 10000, "Test deposit", alice["id"])
 
     inputs = [
-        "4",  # View period summary
+        "4",  # View period
+        "1",  # Select first period (default/current)
         "8",  # Exit
     ]
 
@@ -168,7 +169,11 @@ def test_menu_choice_view_period_summary(setup_members, capsys):
         cli.main()
 
     captured = capsys.readouterr()
-    assert "VIEW PERIOD" in captured.out or "No active period found" in captured.out
+    # Should show period selection menu and then period details
+    assert ("Select Period" in captured.out or "选择" in captured.out or 
+            "Initial Period" in captured.out or 
+            "No active period found" in captured.out or
+            "No periods available" in captured.out)
 
 
 def test_menu_choice_settle_period(setup_members, capsys):
@@ -197,9 +202,10 @@ def test_menu_choice_settle_period(setup_members, capsys):
 
 
 def test_menu_choice_show_system_status(setup_members, capsys):
-    """Test menu option 4: View Period (no longer has system status menu)."""
+    """Test menu option 4: View Period with period selection."""
     inputs = [
         "4",  # View Period
+        "1",  # Select first period (default/current)
         "8",  # Exit
     ]
 
@@ -210,7 +216,13 @@ def test_menu_choice_show_system_status(setup_members, capsys):
         cli.main()
 
     captured = capsys.readouterr()
-    assert "VIEW PERIOD" in captured.out or "No active period found" in captured.out
+    # Should show period selection or period details
+    assert ("Select Period" in captured.out or "选择" in captured.out or
+            "Initial Period" in captured.out or
+            "Started:" in captured.out or
+            "开始日期：" in captured.out or
+            "No active period found" in captured.out or
+            "No periods available" in captured.out)
 
 
 def test_menu_choice_exit(capsys):
@@ -313,12 +325,12 @@ def test_record_expense_with_empty_description(setup_members):
 
 
 def test_display_period_summary(setup_members, capsys):
-    """Test _display_period_summary function via menu option."""
+    """Test _display_view_period function via menu option."""
     alice = database.get_member_by_name("Alice")
     database.add_transaction("deposit", 10000, "Test deposit", alice["id"])
 
-    # Test via menu option which calls _display_period_summary
-    inputs = ["4", "8"]  # View period summary, then exit
+    # Test via menu option which calls select_period then _display_view_period
+    inputs = ["4", "1", "8"]  # View period, select first period, then exit
 
     with (
         patch("builtins.input", side_effect=inputs),
@@ -329,12 +341,15 @@ def test_display_period_summary(setup_members, capsys):
     captured = capsys.readouterr()
     # Either shows period summary or "No active period found"
     assert len(captured.out) > 0
+    # Should show period details like "Started:" or "开始日期："
+    assert ("Started:" in captured.out or "开始日期：" in captured.out or
+            "No active period found" in captured.out)
 
 
 def test_display_system_status(setup_members, capsys):
     """Test _display_view_period function via menu option."""
-    # Test via menu option which calls _display_view_period
-    inputs = ["4", "8"]  # View Period, then exit
+    # Test via menu option which calls select_period then _display_view_period
+    inputs = ["4", "1", "8"]  # View Period, select first period, then exit
 
     with (
         patch("builtins.input", side_effect=inputs),
@@ -343,8 +358,12 @@ def test_display_system_status(setup_members, capsys):
         cli.main()
 
     captured = capsys.readouterr()
+    # Should show period details or selection menu
     assert (
-        "VIEW PERIOD" in captured.out
+        "Started:" in captured.out
+        or "开始日期：" in captured.out
+        or "Select Period" in captured.out
+        or "选择" in captured.out
         or "No active period found" in captured.out
         or len(captured.out) > 0
     )
