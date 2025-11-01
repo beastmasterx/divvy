@@ -69,6 +69,12 @@ msgstr "Period: {} | Started: {} | {}"
 msgid "Started: {} | {}"
 msgstr "Started: {} | {}"
 
+msgid "Started: {} | Active"
+msgstr "Started: {} | Active"
+
+msgid "Started: {} | Settled: {}"
+msgstr "Started: {} | Settled: {}"
+
 msgid "Payer: {}"
 msgstr "Payer: {}"
 
@@ -137,6 +143,12 @@ msgstr "\n--- Members ({} active) ---"
 
 msgid "\n--- Members (0 active) ---"
 msgstr "\n--- Members (0 active) ---"
+
+msgid "\n--- Balances ({} active) ---"
+msgstr "\n--- Balances ({} active) ---"
+
+msgid "\n--- Balances (0 active) ---"
+msgstr "\n--- Balances (0 active) ---"
 
 msgid "  No active members."
 msgstr "  No active members."

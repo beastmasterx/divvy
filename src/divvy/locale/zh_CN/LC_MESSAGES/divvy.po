@@ -69,6 +69,12 @@ msgstr "账期：{} | 开始日期：{} | {}"
 msgid "Started: {} | {}"
 msgstr "开始日期：{} | {}"
 
+msgid "Started: {} | Active"
+msgstr "开始日期：{} | 活动中"
+
+msgid "Started: {} | Settled: {}"
+msgstr "开始日期：{} | 结算日期：{}"
+
 msgid "Payer: {}"
 msgstr "付款人: {}"
 
@@ -137,6 +143,12 @@ msgstr "\n--- 成员 ({} 活跃) ---"
 
 msgid "\n--- Members (0 active) ---"
 msgstr "\n--- 成员 (0 活跃) ---"
+
+msgid "\n--- Balances ({} active) ---"
+msgstr "\n--- 余额 ({} 活跃) ---"
+
+msgid "\n--- Balances (0 active) ---"
+msgstr "\n--- 余额 (0 活跃) ---"
 
 msgid "  No active members."
 msgstr "  没有活跃成员。"

@@ -242,14 +242,30 @@ def _display_view_period(period_id: int | None = None) -> None:
     print("\n" + "=" * 60)
     print(_("                 {}").format(period["name"]))
     print("=" * 60)
-    active_status = _("Active") if not period["is_settled"] else _("Settled")
     # Extract date only from start_date (remove time portion)
     start_date_only = period["start_date"].split()[0] if " " in period["start_date"] else period["start_date"]
-    print(
-        _("Started: {} | {}").format(
-            start_date_only, active_status
+    
+    if period["is_settled"] and period.get("settled_date"):
+        # Settled period: show settlement date
+        settled_date_only = period["settled_date"].split()[0] if " " in period["settled_date"] else period["settled_date"]
+        print(
+            _("Started: {} | Settled: {}").format(
+                start_date_only, settled_date_only
+            )
         )
-    )
+    elif period["is_settled"] and period.get("end_date"):
+        # Fallback to end_date if settled_date is not available
+        end_date_only = period["end_date"].split()[0] if " " in period["end_date"] else period["end_date"]
+        print(
+            _("Started: {} | Settled: {}").format(
+                start_date_only, end_date_only
+            )
+        )
+    else:
+        # Active period: show active status
+        print(
+            _("Started: {} | Active").format(start_date_only)
+        )
     print(
         _("Deposits: {} | Expenses: {} | Fund: {}{}").format(
             deposits_formatted, expenses_formatted, fund_sign, fund_formatted
@@ -413,7 +429,7 @@ def _display_view_period(period_id: int | None = None) -> None:
 
     # Active members with balances
     if active_members:
-        print(_("\n--- Members ({} active) ---").format(len(active_members)))
+        print(_("\n--- Balances ({} active) ---").format(len(active_members)))
         member_strings = []
         for member in active_members:
             balance_cents = active_balances.get(member["name"], 0)
@@ -425,7 +441,7 @@ def _display_view_period(period_id: int | None = None) -> None:
             )
         print("  " + " | ".join(member_strings))
     else:
-        print(_("\n--- Members (0 active) ---"))
+        print(_("\n--- Balances (0 active) ---"))
         print(_("  No active members."))
 
     print("\n" + "=" * 60 + "\n")
