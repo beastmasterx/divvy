@@ -56,9 +56,11 @@ def _display_view_period() -> None:
     print(_("                 VIEW PERIOD: {}").format(period["name"]))
     print("=" * 60)
     active_status = _("Active") if not period["is_settled"] else _("Settled")
+    # Extract date only from start_date (remove time portion)
+    start_date_only = period["start_date"].split()[0] if " " in period["start_date"] else period["start_date"]
     print(
         _("Period: {} | Started: {} | {}").format(
-            period["name"], period["start_date"], active_status
+            period["name"], start_date_only, active_status
         )
     )
     print(
