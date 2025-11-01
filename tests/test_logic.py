@@ -586,7 +586,8 @@ def test_get_settlement_plan():
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
 
-    # Create unbalanced scenario: Alice owes, Bob is owed
+    # Create unbalanced scenario where both are creditors
+    # Expected balances: Alice: +50 -15 = +35, Bob: +200 +30 -15 = +215
     database.add_transaction("deposit", 5000, "Alice deposit", alice["id"])
     database.add_transaction("deposit", 20000, "Bob deposit", bob["id"])
     logic.record_expense("Expense", "30.00", "Bob", "Other")  # Bob paid, split 15 each
@@ -691,7 +692,9 @@ def test_settlement_creditor_negative_deposit():
     current_period = database.get_current_period()
     period_id = current_period["id"]
     
-    # Alice is creditor (owed money)
+    # Create scenario where both are creditors (Alice larger, Bob smaller)
+    # Expected balances: Alice: +100 -25 = +75, Bob: +50 -25 = +25
+    # They pair together: Bob pays Alice 25, so Alice receives "Settlement payment from Bob"
     database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])
     logic.record_expense("Expense", "50.00", "Bob", "Other")
     
@@ -716,17 +719,23 @@ def test_settlement_debtor_positive_deposit():
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
     bob = database.get_member_by_name("Bob")
+    alice = database.get_member_by_name("Alice")
     
     current_period = database.get_current_period()
     period_id = current_period["id"]
     
-    # Bob is debtor (owes money)
-    logic.record_expense("Expense", "50.00", "Bob", "Other")
+    # Create scenario where Bob is debtor (owes money) and Alice is creditor (owed money)
+    # Alice pays expense, so she gets credit and Bob owes his share
+    logic.record_expense("Expense", "50.00", "Alice", "Other")
+    
+    # Expected balances:
+    # Alice: +50 (paid) -25 (share) = +25 (creditor)
+    # Bob: -25 (share) = -25 (debtor)
     
     # Settle the period
     logic.settle_current_period("Test")
     
-    # Check settlement transactions - debtor should make positive deposit
+    # Check settlement transactions - debtor (Bob) should make positive deposit
     settlement_transactions = database.get_transactions_by_period(period_id)
     bob_settlement_deposits = [
         tx for tx in settlement_transactions

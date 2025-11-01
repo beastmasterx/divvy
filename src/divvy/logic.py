@@ -649,11 +649,15 @@ def get_settlement_plan(period_id: int | None = None) -> list[dict]:
         elif balance > 0:
             creditors.append((member, balance))
     
+    # Create working copies for planning (without modifying originals)
+    working_debtors = [(debtor, debt_amt) for debtor, debt_amt in debtors]
+    working_creditors = [(creditor, credit_amt) for creditor, credit_amt in creditors]
+    
     # Handle public fund - if there's remaining balance, distribute it
     if public_fund_balance > 0:
-        if creditors:
+        if working_creditors:
             # Distribute public fund to first creditor
-            creditor, creditor_balance = creditors[0]
+            creditor, creditor_balance = working_creditors[0]
             # Fund distribution creates a refund (negative deposit) to creditor
             settlement_transactions.append({
                 "date": settlement_date,
@@ -664,15 +668,19 @@ def get_settlement_plan(period_id: int | None = None) -> list[dict]:
                 "payer_name": creditor["name"],
                 "from_to": "To",
             })
+            # Update the creditor's balance after public fund distribution
+            new_balance = creditor_balance - public_fund_balance
+            if new_balance <= 0:
+                # Balance is zero or negative, remove from creditors list
+                working_creditors.pop(0)
+            else:
+                # Update the balance in the list
+                working_creditors[0] = (creditor, new_balance)
     
     # Calculate debt settlements: debtors pay creditors
     # Match debtors with creditors to create settlement plan
     debtor_idx = 0
     creditor_idx = 0
-    
-    # Create working copies for planning (without modifying originals)
-    working_debtors = [(debtor, debt_amt) for debtor, debt_amt in debtors]
-    working_creditors = [(creditor, credit_amt) for creditor, credit_amt in creditors]
     
     while debtor_idx < len(working_debtors) and creditor_idx < len(working_creditors):
         debtor, debt_amount = working_debtors[debtor_idx]
@@ -715,6 +723,96 @@ def get_settlement_plan(period_id: int | None = None) -> list[dict]:
             creditor_idx += 1
         else:
             working_creditors[creditor_idx] = (creditor, credit_amount)
+    
+    # Handle remaining creditors (members with positive balances that weren't matched)
+    # If multiple creditors remain, pair them together (smallest pays largest)
+    # Otherwise, refund remaining creditors
+    remaining_creditors = working_creditors[creditor_idx:] if creditor_idx < len(working_creditors) else []
+    
+    if len(remaining_creditors) > 1:
+        # Pair creditors: smallest pays largest to zero smallest balance
+        remaining_creditors.sort(key=lambda x: x[1])  # Sort by amount
+        
+        while len(remaining_creditors) > 1:
+            smaller_creditor, smaller_amount = remaining_creditors[0]
+            larger_creditor, larger_amount = remaining_creditors[-1]
+            
+            # Smaller creditor pays larger creditor to zero smaller balance
+            settlement_amount = smaller_amount
+            
+            # Smaller creditor makes payment (negative deposit to reduce their positive balance)
+            settlement_transactions.append({
+                "date": settlement_date,
+                "transaction_type": "deposit",
+                "amount": -settlement_amount,
+                "description": _("Settlement payment to {}").format(larger_creditor["name"]),
+                "payer_id": smaller_creditor["id"],
+                "payer_name": smaller_creditor["name"],
+                "from_to": "To",
+            })
+            
+            # Larger creditor receives payment (negative deposit to reduce their positive balance)
+            settlement_transactions.append({
+                "date": settlement_date,
+                "transaction_type": "deposit",
+                "amount": -settlement_amount,
+                "description": _("Settlement payment from {}").format(smaller_creditor["name"]),
+                "payer_id": larger_creditor["id"],
+                "payer_name": larger_creditor["name"],
+                "from_to": "To",
+            })
+            
+            # Remove smaller creditor (now at zero)
+            remaining_creditors.pop(0)
+            
+            # Update larger creditor's remaining balance
+            new_larger_amount = larger_amount - settlement_amount
+            if new_larger_amount == 0:
+                remaining_creditors.pop()
+            else:
+                remaining_creditors[-1] = (larger_creditor, new_larger_amount)
+                remaining_creditors.sort(key=lambda x: x[1])
+        
+        # Refund any remaining single creditor
+        if len(remaining_creditors) == 1:
+            creditor, credit_amount = remaining_creditors[0]
+            settlement_transactions.append({
+                "date": settlement_date,
+                "transaction_type": "deposit",
+                "amount": -credit_amount,
+                "description": _("Settlement: Refund remaining balance"),
+                "payer_id": creditor["id"],
+                "payer_name": creditor["name"],
+                "from_to": "To",
+            })
+    elif len(remaining_creditors) == 1:
+        # Single remaining creditor - just refund
+        creditor, credit_amount = remaining_creditors[0]
+        settlement_transactions.append({
+            "date": settlement_date,
+            "transaction_type": "deposit",
+            "amount": -credit_amount,
+            "description": _("Settlement: Refund remaining balance"),
+            "payer_id": creditor["id"],
+            "payer_name": creditor["name"],
+            "from_to": "To",
+        })
+    
+    # Handle remaining debtors (members with negative balances that weren't matched)
+    # They still need to pay to zero their balance
+    while debtor_idx < len(working_debtors):
+        debtor, debt_amount = working_debtors[debtor_idx]
+        # Create a positive deposit for the debtor to pay their debt
+        settlement_transactions.append({
+            "date": settlement_date,
+            "transaction_type": "deposit",
+            "amount": debt_amount,
+            "description": _("Settlement: Pay remaining debt"),
+            "payer_id": debtor["id"],
+            "payer_name": debtor["name"],
+            "from_to": "From",
+        })
+        debtor_idx += 1
     
     return settlement_transactions
 
@@ -787,6 +885,14 @@ def settle_current_period(period_name: str | None = None) -> str:
                     _cents_to_dollars(public_fund_balance), creditor["name"]
                 )
             )
+            # Update the creditor's balance after public fund distribution
+            new_balance = creditor_balance - public_fund_balance
+            if new_balance <= 0:
+                # Balance is zero or negative, remove from creditors list
+                creditors.pop(0)
+            else:
+                # Update the balance in the list
+                creditors[0] = (creditor, new_balance)
     
     # Settle debts: debtors pay creditors
     # Match debtors with creditors to create settlement transactions
@@ -845,9 +951,111 @@ def settle_current_period(period_name: str | None = None) -> str:
         else:
             creditors[creditor_idx] = (creditor, credit_amount)
     
-    # Zero out any remaining creditor balances using public fund if available
-    # (This handles cases where total owed > total owing + public fund)
-    # Note: Public fund was already distributed above, so remaining credits should match public fund distribution
+    # Handle remaining creditors (members with positive balances that weren't matched)
+    # If multiple creditors remain, pair them together (smallest pays largest)
+    # Otherwise, refund remaining creditors
+    remaining_creditors = creditors[creditor_idx:] if creditor_idx < len(creditors) else []
+    
+    if len(remaining_creditors) > 1:
+        # Pair creditors: smallest pays largest to zero smallest balance
+        remaining_creditors.sort(key=lambda x: x[1])  # Sort by amount
+        
+        while len(remaining_creditors) > 1:
+            smaller_creditor, smaller_amount = remaining_creditors[0]
+            larger_creditor, larger_amount = remaining_creditors[-1]
+            
+            # Smaller creditor pays larger creditor to zero smaller balance
+            settlement_amount = smaller_amount
+            
+            # Smaller creditor makes payment (negative deposit to reduce their positive balance)
+            database.add_transaction(
+                transaction_type="deposit",
+                amount=-settlement_amount,
+                description=_("Settlement payment to {}").format(larger_creditor["name"]),
+                payer_id=smaller_creditor["id"],
+                period_id=period_id,
+            )
+            
+            # Larger creditor receives payment (negative deposit to reduce their positive balance)
+            database.add_transaction(
+                transaction_type="deposit",
+                amount=-settlement_amount,
+                description=_("Settlement payment from {}").format(smaller_creditor["name"]),
+                payer_id=larger_creditor["id"],
+                period_id=period_id,
+            )
+            
+            settlement_messages.append(
+                _("  {} pays ${} to {}").format(
+                    smaller_creditor["name"],
+                    _cents_to_dollars(settlement_amount),
+                    larger_creditor["name"],
+                )
+            )
+            
+            # Remove smaller creditor (now at zero)
+            remaining_creditors.pop(0)
+            
+            # Update larger creditor's remaining balance
+            new_larger_amount = larger_amount - settlement_amount
+            if new_larger_amount == 0:
+                remaining_creditors.pop()
+            else:
+                remaining_creditors[-1] = (larger_creditor, new_larger_amount)
+                remaining_creditors.sort(key=lambda x: x[1])
+        
+        # Refund any remaining single creditor
+        if len(remaining_creditors) == 1:
+            creditor, credit_amount = remaining_creditors[0]
+            database.add_transaction(
+                transaction_type="deposit",
+                amount=-credit_amount,
+                description=_("Settlement: Refund remaining balance"),
+                payer_id=creditor["id"],
+                period_id=period_id,
+            )
+            settlement_messages.append(
+                _("  {} refunded ${}").format(
+                    creditor["name"],
+                    _cents_to_dollars(credit_amount),
+                )
+            )
+    elif len(remaining_creditors) == 1:
+        # Single remaining creditor - just refund
+        creditor, credit_amount = remaining_creditors[0]
+        database.add_transaction(
+            transaction_type="deposit",
+            amount=-credit_amount,
+            description=_("Settlement: Refund remaining balance"),
+            payer_id=creditor["id"],
+            period_id=period_id,
+        )
+        settlement_messages.append(
+            _("  {} refunded ${}").format(
+                creditor["name"],
+                _cents_to_dollars(credit_amount),
+            )
+        )
+    
+    # Handle remaining debtors (members with negative balances that weren't matched)
+    # They still need to pay to zero their balance
+    while debtor_idx < len(debtors):
+        debtor, debt_amount = debtors[debtor_idx]
+        # Create a positive deposit for the debtor to pay their debt
+        database.add_transaction(
+            transaction_type="deposit",
+            amount=debt_amount,
+            description=_("Settlement: Pay remaining debt"),
+            payer_id=debtor["id"],
+            period_id=period_id,
+        )
+        settlement_messages.append(
+            _("  {} pays ${} to settle remaining debt").format(
+                debtor["name"],
+                _cents_to_dollars(debt_amount),
+            )
+        )
+        debtor_idx += 1
     
     # Settle the period
     database.settle_period(period_id)
