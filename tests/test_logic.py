@@ -408,6 +408,9 @@ def test_settle_current_period():
     assert current_period is not None
     assert current_period["is_settled"] == 0
 
+    # Get balances before settlement
+    balances_before = logic.get_active_member_balances(current_period["id"])
+
     # Settle the period
     result = logic.settle_current_period("Settled Period")
     assert "has been settled" in result
@@ -424,6 +427,12 @@ def test_settle_current_period():
     assert new_period["id"] != current_period["id"]
     assert new_period["name"] == "Settled Period"
     assert new_period["is_settled"] == 0
+    
+    # Verify settlement transactions were created with correct amounts
+    # Check that settlement transactions exist in the settled period
+    settlement_transactions = database.get_transactions_by_period(current_period["id"])
+    settlement_txs = [tx for tx in settlement_transactions if "Settlement" in (tx.get("description") or "")]
+    assert len(settlement_txs) > 0, "Settlement transactions should be created"
 
 
 def test_public_fund_deposit():
@@ -568,3 +577,163 @@ def test_public_fund_mixed_scenario():
     balances = logic.get_active_member_balances()
     assert balances["Alice"] == 20500  # +205.00 in cents
     assert balances["Bob"] == -5500  # -55.00 in cents
+
+
+def test_get_settlement_plan():
+    """Test getting settlement plan without executing it."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    bob = database.get_member_by_name("Bob")
+
+    # Create unbalanced scenario: Alice owes, Bob is owed
+    database.add_transaction("deposit", 5000, "Alice deposit", alice["id"])
+    database.add_transaction("deposit", 20000, "Bob deposit", bob["id"])
+    logic.record_expense("Expense", "30.00", "Bob", "Other")  # Bob paid, split 15 each
+
+    current_period = database.get_current_period()
+    period_id = current_period["id"]
+
+    # Get settlement plan
+    plan = logic.get_settlement_plan(period_id)
+    
+    assert isinstance(plan, list)
+    assert len(plan) > 0, "Should have settlement transactions"
+    
+    # Verify plan structure
+    for tx in plan:
+        assert "date" in tx
+        assert "transaction_type" in tx
+        assert "amount" in tx
+        assert "description" in tx
+        assert "payer_id" in tx
+        assert "payer_name" in tx
+        assert "from_to" in tx
+        
+        # Verify from_to labels
+        if tx["amount"] < 0:
+            assert tx["from_to"] == "To", "Negative amounts should be 'To'"
+        else:
+            assert tx["from_to"] == "From", "Positive amounts should be 'From'"
+
+
+def test_settlement_no_duplicate_public_fund():
+    """Test that settlement doesn't create duplicate public fund transactions."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    
+    current_period = database.get_current_period()
+    period_id = current_period["id"]
+    
+    # Add public fund deposit
+    database.add_transaction("deposit", 5000, "Public fund", virtual_member["id"])
+    
+    # Create scenario where Alice is owed money (creditor)
+    alice = database.get_member_by_name("Alice")
+    database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])
+    logic.record_expense("Expense", "20.00", "Alice", "Other")
+    
+    # Settle the period
+    logic.settle_current_period("Test Period")
+    
+    # Check settlement transactions in the settled period
+    settlement_transactions = database.get_transactions_by_period(period_id)
+    public_fund_settlements = [
+        tx for tx in settlement_transactions 
+        if "Public fund distribution" in (tx.get("description") or "")
+    ]
+    
+    # Should only have ONE public fund distribution transaction
+    assert len(public_fund_settlements) == 1, f"Expected 1 public fund transaction, got {len(public_fund_settlements)}"
+
+
+def test_settlement_zeroes_balances():
+    """Test that settlement correctly zeroes all member balances."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    bob = database.get_member_by_name("Bob")
+    
+    current_period = database.get_current_period()
+    period_id = current_period["id"]
+    
+    # Create unbalanced scenario
+    database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])  # +100
+    database.add_transaction("deposit", 5000, "Bob deposit", bob["id"])       # +50
+    logic.record_expense("Dinner", "90.00", "Alice", "Other")  # Split 45 each
+    
+    # Expected balances before settlement:
+    # Alice: +100 (deposit) +90 (paid) -45 (share) = +145
+    # Bob: +50 (deposit) -45 (share) = +5
+    
+    balances_before = logic.get_active_member_balances(period_id)
+    assert balances_before["Alice"] > 0
+    assert balances_before["Bob"] > 0
+    
+    # Settle the period
+    logic.settle_current_period("Settled")
+    
+    # Check balances in the settled period (after settlement transactions)
+    balances_after = logic.get_active_member_balances(period_id)
+    
+    # All balances should be zero (within rounding)
+    assert abs(balances_after["Alice"]) < 2, f"Alice balance should be ~0, got {balances_after['Alice']}"
+    assert abs(balances_after["Bob"]) < 2, f"Bob balance should be ~0, got {balances_after['Bob']}"
+
+
+def test_settlement_creditor_negative_deposit():
+    """Test that settlement creates negative deposits for creditors."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    alice = database.get_member_by_name("Alice")
+    
+    current_period = database.get_current_period()
+    period_id = current_period["id"]
+    
+    # Alice is creditor (owed money)
+    database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])
+    logic.record_expense("Expense", "50.00", "Bob", "Other")
+    
+    # Settle the period
+    logic.settle_current_period("Test")
+    
+    # Check settlement transactions - creditor should receive negative deposit
+    settlement_transactions = database.get_transactions_by_period(period_id)
+    alice_settlement_refunds = [
+        tx for tx in settlement_transactions
+        if tx.get("payer_id") == alice["id"] 
+        and "Settlement payment from" in (tx.get("description") or "")
+    ]
+    
+    assert len(alice_settlement_refunds) > 0, "Alice should receive settlement refunds"
+    for tx in alice_settlement_refunds:
+        assert tx["amount"] < 0, "Creditor settlement should be negative deposit (refund)"
+
+
+def test_settlement_debtor_positive_deposit():
+    """Test that settlement creates positive deposits for debtors."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    bob = database.get_member_by_name("Bob")
+    
+    current_period = database.get_current_period()
+    period_id = current_period["id"]
+    
+    # Bob is debtor (owes money)
+    logic.record_expense("Expense", "50.00", "Bob", "Other")
+    
+    # Settle the period
+    logic.settle_current_period("Test")
+    
+    # Check settlement transactions - debtor should make positive deposit
+    settlement_transactions = database.get_transactions_by_period(period_id)
+    bob_settlement_deposits = [
+        tx for tx in settlement_transactions
+        if tx.get("payer_id") == bob["id"]
+        and "Settlement payment to" in (tx.get("description") or "")
+    ]
+    
+    assert len(bob_settlement_deposits) > 0, "Bob should make settlement deposits"
+    for tx in bob_settlement_deposits:
+        assert tx["amount"] > 0, "Debtor settlement should be positive deposit"
