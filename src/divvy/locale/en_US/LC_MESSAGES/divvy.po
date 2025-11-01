@@ -69,8 +69,17 @@ msgstr "Category"
 msgid "Type"
 msgstr "Type"
 
+msgid "Split"
+msgstr "Split"
+
 msgid "Personal"
 msgstr "Personal"
+
+msgid "Shared"
+msgstr "Shared"
+
+msgid "Individual"
+msgstr "Individual"
 
 msgid "Amount"
 msgstr "Amount"

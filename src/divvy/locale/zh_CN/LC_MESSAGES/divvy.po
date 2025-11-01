@@ -69,8 +69,17 @@ msgstr "类别"
 msgid "Type"
 msgstr "类型"
 
+msgid "Split"
+msgstr "分摊类型"
+
 msgid "Personal"
 msgstr "个人"
+
+msgid "Shared"
+msgstr "共享"
+
+msgid "Individual"
+msgstr "分摊"
 
 msgid "Amount"
 msgstr "金额"
