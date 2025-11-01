@@ -1,0 +1,335 @@
+# English translations for Divvy
+# Copyright (C) 2025
+msgid ""
+msgstr ""
+"Project-Id-Version: Divvy 1.0\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# CLI messages
+msgid "Enter your choice: "
+msgstr "Enter your choice: "
+
+msgid "Enter your choice (1-{}): "
+msgstr "Enter your choice (1-{}): "
+
+msgid "Invalid choice. Please enter a number between 1 and {}."
+msgstr "Invalid choice. Please enter a number between 1 and {}."
+
+msgid "Invalid input. Please enter a number."
+msgstr "Invalid input. Please enter a number."
+
+msgid "No {} available."
+msgstr "No {} available."
+
+msgid "\n--- Select {} ---"
+msgstr "\n--- Select {} ---"
+
+msgid "------------------------"
+msgstr "------------------------"
+
+msgid "No active period found."
+msgstr "No active period found."
+
+msgid "                 VIEW PERIOD: {}"
+msgstr "                 VIEW PERIOD: {}"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Settled"
+msgstr "Settled"
+
+msgid "Period: {} | Started: {} | {}"
+msgstr "Period: {} | Started: {} | {}"
+
+msgid "Deposits: {} | Expenses: {} | Net: {}{}"
+msgstr "Deposits: {} | Expenses: {} | Net: {}{}"
+
+msgid "\n--- Transactions ({}) ---"
+msgstr "\n--- Transactions ({}) ---"
+
+msgid "\n--- Transactions (0) ---"
+msgstr "\n--- Transactions (0) ---"
+
+msgid "  No transactions in this period."
+msgstr "  No transactions in this period."
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Category"
+msgstr "Category"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Amount"
+msgstr "Amount"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Payer"
+msgstr "Payer"
+
+msgid "Unknown"
+msgstr "Unknown"
+
+msgid "Member ID {}"
+msgstr "Member ID {}"
+
+msgid "Refund"
+msgstr "Refund"
+
+msgid "\n--- Members ({} active) ---"
+msgstr "\n--- Members ({} active) ---"
+
+msgid "\n--- Members (0 active) ---"
+msgstr "\n--- Members (0 active) ---"
+
+msgid "  No active members."
+msgstr "  No active members."
+
+msgid "No active members available."
+msgstr "No active members available."
+
+msgid "None"
+msgstr "None"
+
+msgid "Initializing..."
+msgstr "Initializing..."
+
+msgid "\n--- Divvy Expense Splitter ---"
+msgstr "\n--- Divvy Expense Splitter ---"
+
+msgid "Current Period: {}"
+msgstr "Current Period: {}"
+
+msgid "1. Add Expense"
+msgstr "1. Add Expense"
+
+msgid "2. Add Deposit"
+msgstr "2. Add Deposit"
+
+msgid "3. Add Refund"
+msgstr "3. Add Refund"
+
+msgid "4. View Period"
+msgstr "4. View Period"
+
+msgid "5. Close period"
+msgstr "5. Close period"
+
+msgid "6. Add member"
+msgstr "6. Add member"
+
+msgid "7. Remove Member"
+msgstr "7. Remove Member"
+
+msgid "8. Exit"
+msgstr "8. Exit"
+
+msgid "-----------------------------"
+msgstr "-----------------------------"
+
+msgid "Enter expense description (optional): "
+msgstr "Enter expense description (optional): "
+
+msgid "Enter total amount: "
+msgstr "Enter total amount: "
+
+msgid "Error: Amount cannot be empty."
+msgstr "Error: Amount cannot be empty."
+
+msgid "Expense recording cancelled."
+msgstr "Expense recording cancelled."
+
+msgid "Enter deposit description (optional): "
+msgstr "Enter deposit description (optional): "
+
+msgid "Enter deposit amount: "
+msgstr "Enter deposit amount: "
+
+msgid "Deposit recording cancelled."
+msgstr "Deposit recording cancelled."
+
+msgid "No members available."
+msgstr "No members available."
+
+msgid "Member to refund"
+msgstr "Member to refund"
+
+msgid "Refund cancelled."
+msgstr "Refund cancelled."
+
+msgid "Enter refund description (optional): "
+msgstr "Enter refund description (optional): "
+
+msgid "Enter refund amount: "
+msgstr "Enter refund amount: "
+
+msgid "Close this period? (y/n): "
+msgstr "Close this period? (y/n): "
+
+msgid "Period closing cancelled."
+msgstr "Period closing cancelled."
+
+msgid "Enter name for new period (press Enter for auto-generated): "
+msgstr "Enter name for new period (press Enter for auto-generated): "
+
+msgid "Enter the member's name: "
+msgstr "Enter the member's name: "
+
+msgid "Member name cannot be empty."
+msgstr "Member name cannot be empty."
+
+msgid "Error: Member '{}' already exists and is active."
+msgstr "Error: Member '{}' already exists and is active."
+
+msgid "Member '{}' is inactive. Rejoin? (y/n): "
+msgstr "Member '{}' is inactive. Rejoin? (y/n): "
+
+msgid "Rejoin cancelled."
+msgstr "Rejoin cancelled."
+
+msgid "No active members to remove."
+msgstr "No active members to remove."
+
+msgid "Member to remove"
+msgstr "Member to remove"
+
+msgid "Member removal cancelled."
+msgstr "Member removal cancelled."
+
+msgid "\n⚠️  Warning: '{}' is owed {}."
+msgstr "\n⚠️  Warning: '{}' is owed {}."
+
+msgid "   Other members should settle this balance before removal."
+msgstr "   Other members should settle this balance before removal."
+
+msgid "Remove member '{}' anyway? (y/n): "
+msgstr "Remove member '{}' anyway? (y/n): "
+
+msgid "\n⚠️  Warning: '{}' owes {}."
+msgstr "\n⚠️  Warning: '{}' owes {}."
+
+msgid "   This balance should be settled before removal."
+msgstr "   This balance should be settled before removal."
+
+msgid "Remove member '{}' (Balance: $0.00)? (y/n): "
+msgstr "Remove member '{}' (Balance: $0.00)? (y/n): "
+
+msgid "Exiting Divvy. Goodbye!"
+msgstr "Exiting Divvy. Goodbye!"
+
+msgid "Invalid choice, please try again."
+msgstr "Invalid choice, please try again."
+
+# Logic messages
+msgid "Invalid amount format. Please enter a number."
+msgstr "Invalid amount format. Please enter a number."
+
+msgid "Error: Member '{}' exists but is inactive. Please use rejoin option."
+msgstr "Error: Member '{}' exists but is inactive. Please use rejoin option."
+
+msgid "Error: Could not add member '{}'."
+msgstr "Error: Could not add member '{}'."
+
+msgid "Member '{}' added successfully."
+msgstr "Member '{}' added successfully."
+
+msgid "Error: Payer '{}' not found."
+msgstr "Error: Payer '{}' not found."
+
+msgid "Error: Category '{}' not found."
+msgstr "Error: Category '{}' not found."
+
+msgid "Error: No active members to split the expense among."
+msgstr "Error: No active members to split the expense among."
+
+msgid "Internal Error: Could not determine remainder payer."
+msgstr "Internal Error: Could not determine remainder payer."
+
+msgid "(no description)"
+msgstr "(no description)"
+
+msgid "Expense '{}' of {} recorded successfully. Remainder of {} assigned to {}."
+msgstr "Expense '{}' of {} recorded successfully. Remainder of {} assigned to {}."
+
+msgid "Deposit '{}' of {} from {} recorded successfully."
+msgstr "Deposit '{}' of {} from {} recorded successfully."
+
+msgid "Error: Member '{}' not found."
+msgstr "Error: Member '{}' not found."
+
+msgid "Refund to {}"
+msgstr "Refund to {}"
+
+msgid "Refund: {}"
+msgstr "Refund: {}"
+
+msgid "Refund '{}' of {} to {} recorded successfully."
+msgstr "Refund '{}' of {} to {} recorded successfully."
+
+msgid "Is owed {}"
+msgstr "Is owed {}"
+
+msgid "Owes {}"
+msgstr "Owes {}"
+
+msgid "N/A"
+msgstr "N/A"
+
+msgid "Error: Member '{}' is already inactive."
+msgstr "Error: Member '{}' is already inactive."
+
+msgid "Member '{}' has been removed (deactivated)."
+msgstr "Member '{}' has been removed (deactivated)."
+
+msgid "Error: Member '{}' is already active."
+msgstr "Error: Member '{}' is already active."
+
+msgid "Member '{}' has been reactivated (rejoined)."
+msgstr "Member '{}' has been reactivated (rejoined)."
+
+msgid "Error: No active period to settle."
+msgstr "Error: No active period to settle."
+
+msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
+msgstr "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
+
+# Category translations
+msgid "Rent"
+msgstr "Rent"
+
+msgid "Utilities (Water & Electricity)"
+msgstr "Utilities (Water & Electricity)"
+
+msgid "Gas Bill"
+msgstr "Gas Bill"
+
+msgid "Groceries"
+msgstr "Groceries"
+
+msgid "Daily Necessities"
+msgstr "Daily Necessities"
+
+msgid "Dining Out / Takeaway"
+msgstr "Dining Out / Takeaway"
+
+msgid "Transportation"
+msgstr "Transportation"
+
+msgid "Other"
+msgstr "Other"
+
+# Transaction type translations
+msgid "Expense"
+msgstr "Expense"
+
+msgid "Deposit"
+msgstr "Deposit"
+

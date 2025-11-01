@@ -1,0 +1,335 @@
+# Chinese (Simplified) translations for Divvy
+# Copyright (C) 2025
+msgid ""
+msgstr ""
+"Project-Id-Version: Divvy 1.0\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# CLI messages
+msgid "Enter your choice: "
+msgstr "请输入您的选择："
+
+msgid "Enter your choice (1-{}): "
+msgstr "请输入您的选择 (1-{})："
+
+msgid "Invalid choice. Please enter a number between 1 and {}."
+msgstr "无效选择。请输入 1 到 {} 之间的数字。"
+
+msgid "Invalid input. Please enter a number."
+msgstr "无效输入。请输入数字。"
+
+msgid "No {} available."
+msgstr "没有可用的{}。"
+
+msgid "\n--- Select {} ---"
+msgstr "\n--- 选择 {} ---"
+
+msgid "------------------------"
+msgstr "------------------------"
+
+msgid "No active period found."
+msgstr "未找到活动期间。"
+
+msgid "                 VIEW PERIOD: {}"
+msgstr "                 查看期间：{}"
+
+msgid "Active"
+msgstr "活动中"
+
+msgid "Settled"
+msgstr "已结算"
+
+msgid "Period: {} | Started: {} | {}"
+msgstr "期间：{} | 开始日期：{} | {}"
+
+msgid "Deposits: {} | Expenses: {} | Net: {}{}"
+msgstr "存款：{} | 支出：{} | 净额：{}{}"
+
+msgid "\n--- Transactions ({}) ---"
+msgstr "\n--- 交易 ({}) ---"
+
+msgid "\n--- Transactions (0) ---"
+msgstr "\n--- 交易 (0) ---"
+
+msgid "  No transactions in this period."
+msgstr "  此期间内无交易。"
+
+msgid "Date"
+msgstr "日期"
+
+msgid "Category"
+msgstr "类别"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Amount"
+msgstr "金额"
+
+msgid "Description"
+msgstr "描述"
+
+msgid "Payer"
+msgstr "付款人"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Member ID {}"
+msgstr "成员 ID {}"
+
+msgid "Refund"
+msgstr "退款"
+
+msgid "\n--- Members ({} active) ---"
+msgstr "\n--- 成员 ({} 活跃) ---"
+
+msgid "\n--- Members (0 active) ---"
+msgstr "\n--- 成员 (0 活跃) ---"
+
+msgid "  No active members."
+msgstr "  没有活跃成员。"
+
+msgid "No active members available."
+msgstr "没有可用的活跃成员。"
+
+msgid "None"
+msgstr "无"
+
+msgid "Initializing..."
+msgstr "正在初始化..."
+
+msgid "\n--- Divvy Expense Splitter ---"
+msgstr "\n--- Divvy 费用分摊器 ---"
+
+msgid "Current Period: {}"
+msgstr "当前期间：{}"
+
+msgid "1. Add Expense"
+msgstr "1. 添加支出"
+
+msgid "2. Add Deposit"
+msgstr "2. 添加存款"
+
+msgid "3. Add Refund"
+msgstr "3. 添加退款"
+
+msgid "4. View Period"
+msgstr "4. 查看期间"
+
+msgid "5. Close period"
+msgstr "5. 关闭期间"
+
+msgid "6. Add member"
+msgstr "6. 添加成员"
+
+msgid "7. Remove Member"
+msgstr "7. 移除成员"
+
+msgid "8. Exit"
+msgstr "8. 退出"
+
+msgid "-----------------------------"
+msgstr "-----------------------------"
+
+msgid "Enter expense description (optional): "
+msgstr "请输入支出描述（可选）："
+
+msgid "Enter total amount: "
+msgstr "请输入总金额："
+
+msgid "Error: Amount cannot be empty."
+msgstr "错误：金额不能为空。"
+
+msgid "Expense recording cancelled."
+msgstr "支出记录已取消。"
+
+msgid "Enter deposit description (optional): "
+msgstr "请输入存款描述（可选）："
+
+msgid "Enter deposit amount: "
+msgstr "请输入存款金额："
+
+msgid "Deposit recording cancelled."
+msgstr "存款记录已取消。"
+
+msgid "No members available."
+msgstr "没有可用成员。"
+
+msgid "Member to refund"
+msgstr "要退款的成员"
+
+msgid "Refund cancelled."
+msgstr "退款已取消。"
+
+msgid "Enter refund description (optional): "
+msgstr "请输入退款描述（可选）："
+
+msgid "Enter refund amount: "
+msgstr "请输入退款金额："
+
+msgid "Close this period? (y/n): "
+msgstr "关闭此期间？(y/n)："
+
+msgid "Period closing cancelled."
+msgstr "期间关闭已取消。"
+
+msgid "Enter name for new period (press Enter for auto-generated): "
+msgstr "请输入新期间名称（按 Enter 自动生成）："
+
+msgid "Enter the member's name: "
+msgstr "请输入成员姓名："
+
+msgid "Member name cannot be empty."
+msgstr "成员姓名不能为空。"
+
+msgid "Error: Member '{}' already exists and is active."
+msgstr "错误：成员 '{}' 已存在且处于活跃状态。"
+
+msgid "Member '{}' is inactive. Rejoin? (y/n): "
+msgstr "成员 '{}' 处于非活跃状态。重新加入？(y/n)："
+
+msgid "Rejoin cancelled."
+msgstr "重新加入已取消。"
+
+msgid "No active members to remove."
+msgstr "没有可移除的活跃成员。"
+
+msgid "Member to remove"
+msgstr "要移除的成员"
+
+msgid "Member removal cancelled."
+msgstr "成员移除已取消。"
+
+msgid "\n⚠️  Warning: '{}' is owed {}."
+msgstr "\n⚠️  警告：欠 '{}' {}。"
+
+msgid "   Other members should settle this balance before removal."
+msgstr "   其他成员应在移除前结算此余额。"
+
+msgid "Remove member '{}' anyway? (y/n): "
+msgstr "仍要移除成员 '{}'？(y/n)："
+
+msgid "\n⚠️  Warning: '{}' owes {}."
+msgstr "\n⚠️  警告：'{}' 欠 {}。"
+
+msgid "   This balance should be settled before removal."
+msgstr "   应在移除前结算此余额。"
+
+msgid "Remove member '{}' (Balance: $0.00)? (y/n): "
+msgstr "移除成员 '{}'（余额：$0.00）？(y/n)："
+
+msgid "Exiting Divvy. Goodbye!"
+msgstr "退出 Divvy。再见！"
+
+msgid "Invalid choice, please try again."
+msgstr "无效选择，请重试。"
+
+# Logic messages
+msgid "Invalid amount format. Please enter a number."
+msgstr "无效金额格式。请输入数字。"
+
+msgid "Error: Member '{}' exists but is inactive. Please use rejoin option."
+msgstr "错误：成员 '{}' 存在但处于非活跃状态。请使用重新加入选项。"
+
+msgid "Error: Could not add member '{}'."
+msgstr "错误：无法添加成员 '{}'。"
+
+msgid "Member '{}' added successfully."
+msgstr "成员 '{}' 添加成功。"
+
+msgid "Error: Payer '{}' not found."
+msgstr "错误：未找到付款人 '{}'。"
+
+msgid "Error: Category '{}' not found."
+msgstr "错误：未找到类别 '{}'。"
+
+msgid "Error: No active members to split the expense among."
+msgstr "错误：没有活跃成员可以分摊支出。"
+
+msgid "Internal Error: Could not determine remainder payer."
+msgstr "内部错误：无法确定余款付款人。"
+
+msgid "(no description)"
+msgstr "（无描述）"
+
+msgid "Expense '{}' of {} recorded successfully. Remainder of {} assigned to {}."
+msgstr "支出 '{}' 金额 {} 记录成功。余款 {} 已分配给 {}。"
+
+msgid "Deposit '{}' of {} from {} recorded successfully."
+msgstr "存款 '{}' 金额 {} 来自 {} 记录成功。"
+
+msgid "Error: Member '{}' not found."
+msgstr "错误：未找到成员 '{}'。"
+
+msgid "Refund to {}"
+msgstr "退款给 {}"
+
+msgid "Refund: {}"
+msgstr "退款：{}"
+
+msgid "Refund '{}' of {} to {} recorded successfully."
+msgstr "退款 '{}' 金额 {} 给 {} 记录成功。"
+
+msgid "Is owed {}"
+msgstr "被欠 {}"
+
+msgid "Owes {}"
+msgstr "欠 {}"
+
+msgid "N/A"
+msgstr "不适用"
+
+msgid "Error: Member '{}' is already inactive."
+msgstr "错误：成员 '{}' 已处于非活跃状态。"
+
+msgid "Member '{}' has been removed (deactivated)."
+msgstr "成员 '{}' 已被移除（停用）。"
+
+msgid "Error: Member '{}' is already active."
+msgstr "错误：成员 '{}' 已处于活跃状态。"
+
+msgid "Member '{}' has been reactivated (rejoined)."
+msgstr "成员 '{}' 已被重新激活（重新加入）。"
+
+msgid "Error: No active period to settle."
+msgstr "错误：没有可结算的活动期间。"
+
+msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
+msgstr "期间 '{}' 已结算。\n新期间 '{}' 已创建。\n期间总计：存款 ${}，支出 ${}"
+
+# Category translations
+msgid "Rent"
+msgstr "房租"
+
+msgid "Utilities (Water & Electricity)"
+msgstr "水电费"
+
+msgid "Gas Bill"
+msgstr "燃气费"
+
+msgid "Groceries"
+msgstr "食品杂货"
+
+msgid "Daily Necessities"
+msgstr "日用品"
+
+msgid "Dining Out / Takeaway"
+msgstr "外出就餐 / 外卖"
+
+msgid "Transportation"
+msgstr "交通"
+
+msgid "Other"
+msgstr "其他"
+
+# Transaction type translations
+msgid "Expense"
+msgstr "支出"
+
+msgid "Deposit"
+msgstr "存款"
+

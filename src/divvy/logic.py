@@ -1,4 +1,5 @@
 from . import database
+from .i18n import _
 
 # --- Helper functions ---
 
@@ -13,7 +14,7 @@ def _dollars_to_cents(dollars_str: str) -> int:
     try:
         return int(float(dollars_str) * 100)
     except ValueError as err:
-        raise ValueError("Invalid amount format. Please enter a number.") from err
+        raise ValueError(_("Invalid amount format. Please enter a number.")) from err
 
 
 # --- Business logic functions ---
@@ -28,16 +29,16 @@ def add_new_member(name: str) -> str:
     existing_member = database.get_member_by_name(name)
     if existing_member:
         if existing_member["is_active"]:
-            return f"Error: Member '{name}' already exists and is active."
+            return _("Error: Member '{}' already exists and is active.").format(name)
         else:
-            return f"Error: Member '{name}' exists but is inactive. Please use rejoin option."
+            return _("Error: Member '{}' exists but is inactive. Please use rejoin option.").format(name)
 
     # Add the new member
     new_member_id = database.add_member(name)
     if new_member_id is None:  # Should not happen if check for existing_member passed
-        return f"Error: Could not add member '{name}'."
+        return _("Error: Could not add member '{}'.").format(name)
 
-    return f"Member '{name}' added successfully."
+    return _("Member '{}' added successfully.").format(name)
 
 
 def record_expense(
@@ -61,21 +62,21 @@ def record_expense(
 
     payer = database.get_member_by_name(payer_name)
     if not payer:
-        return f"Error: Payer '{payer_name}' not found."
+        return _("Error: Payer '{}' not found.").format(payer_name)
     payer_id_for_transaction = payer["id"]
 
     category = database.get_category_by_name(category_name)
     if not category:
-        return f"Error: Category '{category_name}' not found."
+        return _("Error: Category '{}' not found.").format(category_name)
 
     active_members = database.get_active_members()
     if not active_members:
-        return "Error: No active members to split the expense among."
+        return _("Error: No active members to split the expense among.")
 
     num_active_members = len(active_members)
     remainder = amount_cents % num_active_members
 
-    remainder_payer_name = "N/A"
+    remainder_payer_name = _("N/A")
     remainder_payer_id = None
 
     if remainder > 0:  # Only assign remainder if there is one
@@ -102,7 +103,7 @@ def record_expense(
         if (
             remainder_payer_id is None
         ):  # Should not happen if logic is correct and active_members is not empty
-            return "Internal Error: Could not determine remainder payer."
+            return _("Internal Error: Could not determine remainder payer.")
 
     # Record the expense transaction
     database.add_transaction(
@@ -113,12 +114,15 @@ def record_expense(
         category_id=category["id"],
     )
 
-    description_display = description if description else "(no description)"
+    description_display = description if description else _("(no description)")
     return (
-        f"Expense '{description_display}' of "
-        f"{_cents_to_dollars(amount_cents)} recorded successfully. "
-        f"Remainder of {_cents_to_dollars(remainder)} assigned to "
-        f"{remainder_payer_name}."
+        _("Expense '{}' of {} recorded successfully. "
+          "Remainder of {} assigned to {}.").format(
+            description_display,
+            _cents_to_dollars(amount_cents),
+            _cents_to_dollars(remainder),
+            remainder_payer_name,
+        )
     )
 
 
@@ -140,7 +144,7 @@ def record_deposit(
 
     payer = database.get_member_by_name(payer_name)
     if not payer:
-        return f"Error: Payer '{payer_name}' not found."
+        return _("Error: Payer '{}' not found.").format(payer_name)
 
     # Record the deposit transaction
     database.add_transaction(
@@ -151,11 +155,13 @@ def record_deposit(
         category_id=None,
     )
 
-    description_display = description if description else "(no description)"
+    description_display = description if description else _("(no description)")
     return (
-        f"Deposit '{description_display}' of "
-        f"{_cents_to_dollars(amount_cents)} from {payer_name} "
-        f"recorded successfully."
+        _("Deposit '{}' of {} from {} recorded successfully.").format(
+            description_display,
+            _cents_to_dollars(amount_cents),
+            payer_name,
+        )
     )
 
 
@@ -177,13 +183,14 @@ def record_refund(
 
     recipient = database.get_member_by_name(recipient_name)
     if not recipient:
-        return f"Error: Member '{recipient_name}' not found."
+        return _("Error: Member '{}' not found.").format(recipient_name)
 
     # Record refund as negative deposit (reduces recipient's balance)
     # Note: We store as positive amount, but mark it as refund in description
-    refund_desc = description if description else f"Refund to {recipient_name}"
-    if not description or not description.startswith("Refund"):
-        refund_desc = f"Refund: {refund_desc}" if description else f"Refund to {recipient_name}"
+    refund_base = _("Refund to {}").format(recipient_name)
+    refund_desc = description if description else refund_base
+    if not description or not description.startswith(_("Refund")):
+        refund_desc = _("Refund: {}").format(refund_desc) if description else refund_base
 
     database.add_transaction(
         transaction_type="deposit",
@@ -195,9 +202,11 @@ def record_refund(
 
     description_display = refund_desc
     return (
-        f"Refund '{description_display}' of "
-        f"{_cents_to_dollars(amount_cents)} to {recipient_name} "
-        f"recorded successfully."
+        _("Refund '{}' of {} to {} recorded successfully.").format(
+            description_display,
+            _cents_to_dollars(amount_cents),
+            recipient_name,
+        )
     )
 
 
@@ -240,11 +249,11 @@ def get_settlement_balances() -> dict[str, str]:
     for member_id, balance in member_balances.items():
         member_name = database.get_member_by_id(member_id)["name"]
         if balance > 0:
-            formatted_balances[member_name] = f"Is owed {_cents_to_dollars(balance)}"
+            formatted_balances[member_name] = _("Is owed {}").format(_cents_to_dollars(balance))
         elif balance < 0:
-            formatted_balances[member_name] = f"Owes {_cents_to_dollars(abs(balance))}"
+            formatted_balances[member_name] = _("Owes {}").format(_cents_to_dollars(abs(balance)))
         else:
-            formatted_balances[member_name] = "Settled"
+            formatted_balances[member_name] = _("Settled")
 
     return formatted_balances
 
@@ -256,13 +265,13 @@ def remove_member(name: str) -> str:
     """
     member = database.get_member_by_name(name)
     if not member:
-        return f"Error: Member '{name}' not found."
+        return _("Error: Member '{}' not found.").format(name)
 
     if not member["is_active"]:
-        return f"Error: Member '{name}' is already inactive."
+        return _("Error: Member '{}' is already inactive.").format(name)
 
     database.deactivate_member(member["id"])
-    return f"Member '{name}' has been removed (deactivated)."
+    return _("Member '{}' has been removed (deactivated).").format(name)
 
 
 def rejoin_member(name: str) -> str:
@@ -272,13 +281,13 @@ def rejoin_member(name: str) -> str:
     """
     member = database.get_member_by_name(name)
     if not member:
-        return f"Error: Member '{name}' not found."
+        return _("Error: Member '{}' not found.").format(name)
 
     if member["is_active"]:
-        return f"Error: Member '{name}' is already active."
+        return _("Error: Member '{}' is already active.").format(name)
 
     database.reactivate_member(member["id"])
-    return f"Member '{name}' has been reactivated (rejoined)."
+    return _("Member '{}' has been reactivated (rejoined).").format(name)
 
 
 def get_period_balances(period_id: int | None = None) -> dict:
@@ -331,11 +340,11 @@ def get_period_balances(period_id: int | None = None) -> dict:
     for member_id, balance in member_balances.items():
         member_name = database.get_member_by_id(member_id)["name"]
         if balance > 0:
-            formatted_balances[member_name] = f"Is owed {_cents_to_dollars(balance)}"
+            formatted_balances[member_name] = _("Is owed {}").format(_cents_to_dollars(balance))
         elif balance < 0:
-            formatted_balances[member_name] = f"Owes {_cents_to_dollars(abs(balance))}"
+            formatted_balances[member_name] = _("Owes {}").format(_cents_to_dollars(abs(balance)))
         else:
-            formatted_balances[member_name] = "Settled"
+            formatted_balances[member_name] = _("Settled")
 
     return formatted_balances
 
@@ -434,7 +443,7 @@ def settle_current_period(period_name: str | None = None) -> str:
     """
     current_period = database.get_current_period()
     if not current_period:
-        return "Error: No active period to settle."
+        return _("Error: No active period to settle.")
 
     period_id = current_period["id"]
     period_summary = get_period_summary(period_id)
@@ -455,10 +464,14 @@ def settle_current_period(period_name: str | None = None) -> str:
     database.reset_all_member_remainder_status()
 
     return (
-        f"Period '{current_period['name']}' has been settled.\n"
-        f"New period '{new_period['name']}' created.\n"
-        f"Period totals: Deposits ${period_summary['totals']['deposits_formatted']}, "
-        f"Expenses ${period_summary['totals']['expenses_formatted']}"
+        _("Period '{}' has been settled.\n"
+          "New period '{}' created.\n"
+          "Period totals: Deposits ${}, Expenses ${}").format(
+            current_period["name"],
+            new_period["name"],
+            period_summary["totals"]["deposits_formatted"],
+            period_summary["totals"]["expenses_formatted"],
+        )
     )
 
 

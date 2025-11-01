@@ -96,6 +96,55 @@ After activating your environment, start the application:
 ./divvy
 ```
 
+### Language Selection
+
+Divvy supports multiple languages (English and Chinese). The language is automatically detected from your environment, or you can set it explicitly:
+
+**Using Environment Variable:**
+
+```bash
+# Set to Chinese (Simplified)
+export DIVVY_LANG=zh_CN
+# or
+export LANG=zh_CN.UTF-8
+
+# Set to English
+export DIVVY_LANG=en_US
+# or
+export LANG=en_US.UTF-8
+
+# Then run the application
+./divvy
+```
+
+**Supported Language Codes:**
+- `en`, `en_US` - English (United States) - Default
+- `zh`, `zh_CN`, `zh_CN.UTF-8` - Chinese (Simplified)
+
+The application checks language settings in this order:
+1. `DIVVY_LANG` environment variable (application-specific)
+2. `LANG` environment variable (system default)
+3. System locale settings
+4. Falls back to English (`en_US`) if no match is found
+
+**Compiling Translations:**
+
+If you modify translation files (`.po` files), compile them to binary format (`.mo`) using:
+
+```bash
+python compile_translations.py
+```
+
+Or manually using `msgfmt`:
+
+```bash
+msgfmt -o src/divvy/locale/en_US/LC_MESSAGES/divvy.mo \
+       src/divvy/locale/en_US/LC_MESSAGES/divvy.po
+
+msgfmt -o src/divvy/locale/zh_CN/LC_MESSAGES/divvy.mo \
+       src/divvy/locale/zh_CN/LC_MESSAGES/divvy.po
+```
+
 The interactive menu will guide you through all operations:
 
 ```
@@ -166,15 +215,26 @@ divvy/
 │       ├── cli.py           # Command-line interface
 │       ├── database.py       # Database operations
 │       ├── logic.py          # Business logic
-│       └── schema.sql        # Database schema
+│       ├── i18n.py          # Internationalization support
+│       ├── schema.sql        # Database schema
+│       └── locale/          # Translation files
+│           ├── en_US/
+│           │   └── LC_MESSAGES/
+│           │       ├── divvy.po  # English translations (source)
+│           │       └── divvy.mo  # English translations (compiled)
+│           └── zh_CN/
+│               └── LC_MESSAGES/
+│                   ├── divvy.po  # Chinese translations (source)
+│                   └── divvy.mo  # Chinese translations (compiled)
 ├── tests/
 │   ├── test_cli.py          # CLI tests
 │   ├── test_database.py     # Database tests
 │   └── test_logic.py        # Logic tests
 ├── environment.yml          # Conda environment configuration
+├── compile_translations.py  # Script to compile translation files
 ├── LICENSE                  # Apache License 2.0
 ├── divvy                    # Convenience launcher script
-└── README.md               # This file
+└── README.md                # This file
 ```
 
 ## Testing
