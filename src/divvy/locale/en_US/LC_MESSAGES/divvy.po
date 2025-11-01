@@ -48,8 +48,8 @@ msgstr "Settled"
 msgid "Period: {} | Started: {} | {}"
 msgstr "Period: {} | Started: {} | {}"
 
-msgid "Deposits: {} | Expenses: {} | Net: {}{}"
-msgstr "Deposits: {} | Expenses: {} | Net: {}{}"
+msgid "Deposits: {} | Expenses: {} | Fund: {}{}"
+msgstr "Deposits: {} | Expenses: {} | Fund: {}{}"
 
 msgid "\n--- Transactions ({}) ---"
 msgstr "\n--- Transactions ({}) ---"
@@ -321,6 +321,30 @@ msgstr "Error: No active period to settle."
 
 msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
 msgstr "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
+
+msgid "Settlement: Public fund distribution"
+msgstr "Settlement: Public fund distribution"
+
+msgid "  Public fund ${} distributed to {}"
+msgstr "  Fund ${} goes to {}"
+
+msgid "\n--- Settlement Plan ---"
+msgstr "\n--- Settlement Plan ---"
+
+msgid "Settlement payment to {}"
+msgstr "Settlement payment to {}"
+
+msgid "Settlement payment from {}"
+msgstr "Settlement payment from {}"
+
+msgid "  {} pays ${} to {}"
+msgstr "  {} pays ${} to {}"
+
+msgid "Period '{}' has been settled.\nNew period '{}' created."
+msgstr "Period '{}' has been settled.\nNew period '{}' created."
+
+msgid "  No settlement transactions needed (all balances already zero)."
+msgstr "  No settlement transactions needed (all balances already zero)."
 
 # Category translations
 msgid "Utilities (Water & Electricity & Gas)"

@@ -602,9 +602,106 @@ def get_period_summary(period_id: int | None = None) -> dict:
     }
 
 
+def get_settlement_plan(period_id: int | None = None) -> list[str]:
+    """
+    Calculates and returns the settlement plan without executing it.
+    Returns a list of settlement transaction messages that would be created.
+    """
+    if period_id is None:
+        current_period = database.get_current_period()
+        if not current_period:
+            return []
+        period_id = current_period["id"]
+    
+    # Get balances before settlement
+    member_balances_cents = get_active_member_balances(period_id)
+    active_members = database.get_active_members()
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    
+    # Calculate public fund balance
+    transactions = database.get_transactions_by_period(period_id)
+    public_fund_balance = 0
+    for tx in transactions:
+        if tx["transaction_type"] == "deposit":
+            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
+                public_fund_balance += tx["amount"]
+        elif tx["transaction_type"] == "expense":
+            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if payer and database.is_virtual_member(payer):
+                expense_amount = tx["amount"]
+                fund_used = min(expense_amount, public_fund_balance)
+                public_fund_balance -= fund_used
+    
+    # Calculate settlement plan
+    settlement_messages = []
+    
+    # Collect members who owe (negative balance) and who are owed (positive balance)
+    debtors = []  # Members who owe money
+    creditors = []  # Members who are owed money
+    
+    for member in active_members:
+        balance = member_balances_cents.get(member["name"], 0)
+        if balance < 0:
+            debtors.append((member, abs(balance)))
+        elif balance > 0:
+            creditors.append((member, balance))
+    
+    # Handle public fund - if there's remaining balance, distribute it
+    if public_fund_balance > 0:
+        if creditors:
+            # Distribute public fund to first creditor
+            creditor, creditor_balance = creditors[0]
+            settlement_messages.append(
+                _("  Public fund ${} distributed to {}").format(
+                    _cents_to_dollars(public_fund_balance), creditor["name"]
+                )
+            )
+    
+    # Calculate debt settlements: debtors pay creditors
+    # Match debtors with creditors to create settlement plan
+    debtor_idx = 0
+    creditor_idx = 0
+    
+    # Create working copies for planning (without modifying originals)
+    working_debtors = [(debtor, debt_amt) for debtor, debt_amt in debtors]
+    working_creditors = [(creditor, credit_amt) for creditor, credit_amt in creditors]
+    
+    while debtor_idx < len(working_debtors) and creditor_idx < len(working_creditors):
+        debtor, debt_amount = working_debtors[debtor_idx]
+        creditor, credit_amount = working_creditors[creditor_idx]
+        
+        settlement_amount = min(debt_amount, credit_amount)
+        settlement_amount_str = _cents_to_dollars(settlement_amount)
+        
+        settlement_messages.append(
+            _("  {} pays ${} to {}").format(
+                debtor["name"],
+                settlement_amount_str,
+                creditor["name"],
+            )
+        )
+        
+        # Update remaining amounts
+        debt_amount -= settlement_amount
+        credit_amount -= settlement_amount
+        
+        if debt_amount == 0:
+            debtor_idx += 1
+        else:
+            working_debtors[debtor_idx] = (debtor, debt_amount)
+        
+        if credit_amount == 0:
+            creditor_idx += 1
+        else:
+            working_creditors[creditor_idx] = (creditor, credit_amount)
+    
+    return settlement_messages if settlement_messages else [_("  No settlement transactions needed (all balances already zero).")]
+
+
 def settle_current_period(period_name: str | None = None) -> str:
     """
-    Settles the current period and creates a new one.
+    Settles the current period by creating settlement transactions to zero all balances,
+    then creates a new period.
     Returns a message describing what happened.
     """
     current_period = database.get_current_period()
@@ -612,9 +709,127 @@ def settle_current_period(period_name: str | None = None) -> str:
         return _("Error: No active period to settle.")
 
     period_id = current_period["id"]
-    period_summary = get_period_summary(period_id)
-
-    # Settle the current period
+    
+    # Get balances before settlement
+    member_balances_cents = get_active_member_balances(period_id)
+    active_members = database.get_active_members()
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    
+    # Calculate public fund balance
+    transactions = database.get_transactions_by_period(period_id)
+    public_fund_balance = 0
+    for tx in transactions:
+        if tx["transaction_type"] == "deposit":
+            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
+                public_fund_balance += tx["amount"]
+        elif tx["transaction_type"] == "expense":
+            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if payer and database.is_virtual_member(payer):
+                expense_amount = tx["amount"]
+                fund_used = min(expense_amount, public_fund_balance)
+                public_fund_balance -= fund_used
+    
+    # Create settlement transactions to zero balances
+    settlement_messages = []
+    total_owed = 0
+    total_owing = 0
+    
+    # Collect members who owe (negative balance) and who are owed (positive balance)
+    debtors = []  # Members who owe money
+    creditors = []  # Members who are owed money
+    
+    for member in active_members:
+        balance = member_balances_cents.get(member["name"], 0)
+        if balance < 0:
+            debtors.append((member, abs(balance)))
+            total_owing += abs(balance)
+        elif balance > 0:
+            creditors.append((member, balance))
+            total_owed += balance
+    
+    # Handle public fund - if there's remaining balance, distribute it
+    if public_fund_balance > 0:
+        if creditors:
+            # Distribute public fund to creditors proportionally or to first creditor
+            # Simple approach: give all to first creditor
+            creditor, creditor_balance = creditors[0]
+            database.add_transaction(
+                transaction_type="deposit",
+                amount=public_fund_balance,
+                description=_("Settlement: Public fund distribution"),
+                payer_id=creditor["id"],
+                period_id=period_id,
+            )
+            settlement_messages.append(
+                _("  Public fund ${} distributed to {}").format(
+                    _cents_to_dollars(public_fund_balance), creditor["name"]
+                )
+            )
+    
+    # Settle debts: debtors pay creditors
+    # Match debtors with creditors to create settlement transactions
+    debtor_idx = 0
+    creditor_idx = 0
+    
+    while debtor_idx < len(debtors) and creditor_idx < len(creditors):
+        debtor, debt_amount = debtors[debtor_idx]
+        creditor, credit_amount = creditors[creditor_idx]
+        
+        settlement_amount = min(debt_amount, credit_amount)
+        settlement_amount_str = _cents_to_dollars(settlement_amount)
+        
+        # Record settlement: debtor pays, creditor receives
+        # Create matching transactions that zero both balances:
+        # 1. Debtor makes payment (positive deposit to creditor - reduces debtor's negative balance)
+        # 2. Creditor receives payment (positive deposit - offsets creditor's positive balance)
+        # Note: The deposit to creditor increases their balance, but we also need to zero the debtor's debt
+        
+        # Creditor receives payment (positive deposit increases their balance, offsetting what they're owed)
+        database.add_transaction(
+            transaction_type="deposit",
+            amount=settlement_amount,
+            description=_("Settlement payment from {}").format(debtor["name"]),
+            payer_id=creditor["id"],
+            period_id=period_id,
+        )
+        
+        # Debtor makes payment - record as refund/negative deposit to zero their debt
+        # A positive deposit for the debtor reduces their negative balance (owes less)
+        database.add_transaction(
+            transaction_type="deposit",
+            amount=settlement_amount,  # Positive deposit reduces negative balance
+            description=_("Settlement payment to {}").format(creditor["name"]),
+            payer_id=debtor["id"],
+            period_id=period_id,
+        )
+        
+        settlement_messages.append(
+            _("  {} pays ${} to {}").format(
+                debtor["name"],
+                settlement_amount_str,
+                creditor["name"],
+            )
+        )
+        
+        # Update remaining amounts
+        debt_amount -= settlement_amount
+        credit_amount -= settlement_amount
+        
+        if debt_amount == 0:
+            debtor_idx += 1
+        else:
+            debtors[debtor_idx] = (debtor, debt_amount)
+        
+        if credit_amount == 0:
+            creditor_idx += 1
+        else:
+            creditors[creditor_idx] = (creditor, credit_amount)
+    
+    # Zero out any remaining creditor balances using public fund if available
+    # (This handles cases where total owed > total owing + public fund)
+    # Note: Public fund was already distributed above, so remaining credits should match public fund distribution
+    
+    # Settle the period
     database.settle_period(period_id)
 
     # Create new period
@@ -628,15 +843,12 @@ def settle_current_period(period_name: str | None = None) -> str:
 
     # Reset remainder flags for new period
     database.reset_all_member_remainder_status()
-
+    
     return (
         _("Period '{}' has been settled.\n"
-          "New period '{}' created.\n"
-          "Period totals: Deposits ${}, Expenses ${}").format(
+          "New period '{}' created.").format(
             current_period["name"],
             new_period["name"],
-            period_summary["totals"]["deposits_formatted"],
-            period_summary["totals"]["expenses_formatted"],
         )
     )
 

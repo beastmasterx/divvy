@@ -48,8 +48,8 @@ msgstr "已结算"
 msgid "Period: {} | Started: {} | {}"
 msgstr "期间：{} | 开始日期：{} | {}"
 
-msgid "Deposits: {} | Expenses: {} | Net: {}{}"
-msgstr "存款：{} | 支出：{} | 净额：{}{}"
+msgid "Deposits: {} | Expenses: {} | Fund: {}{}"
+msgstr "存款：{} | 支出：{} | 基金：{}{}"
 
 msgid "\n--- Transactions ({}) ---"
 msgstr "\n--- 交易 ({}) ---"
@@ -321,6 +321,30 @@ msgstr "错误：没有可结算的活动期间。"
 
 msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
 msgstr "期间 '{}' 已结算。\n新期间 '{}' 已创建。\n期间总计：存款 ${}，支出 ${}"
+
+msgid "Settlement: Public fund distribution"
+msgstr "结算：公共资金分配"
+
+msgid "  Public fund ${} distributed to {}"
+msgstr "  基金 ${} 分配给 {}"
+
+msgid "\n--- Settlement Plan ---"
+msgstr "\n--- 结算计划 ---"
+
+msgid "Settlement payment to {}"
+msgstr "结算付款给 {}"
+
+msgid "Settlement payment from {}"
+msgstr "结算付款来自 {}"
+
+msgid "  {} pays ${} to {}"
+msgstr "  {} 支付 ${} 给 {}"
+
+msgid "Period '{}' has been settled.\nNew period '{}' created."
+msgstr "期间 '{}' 已结算。\n新期间 '{}' 已创建。"
+
+msgid "  No settlement transactions needed (all balances already zero)."
+msgstr "  无需结算交易（所有余额已为零）。"
 
 # Category translations
 msgid "Utilities (Water & Electricity & Gas)"

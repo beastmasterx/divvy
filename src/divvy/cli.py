@@ -46,17 +46,28 @@ def _display_view_period() -> None:
     active_members = database.get_active_members()
     active_balances = logic.get_active_member_balances(period["id"])
 
-    # Calculate net
-    net_cents = totals["deposits"] - totals["expenses"]
-    net_formatted = logic._cents_to_dollars(net_cents)
-    net_sign = "+" if net_cents >= 0 else "-"
+    # Calculate public fund balance for the period
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    public_fund_balance = 0
+    for tx in transactions:
+        if tx["transaction_type"] == "deposit":
+            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
+                public_fund_balance += tx["amount"]
+        elif tx["transaction_type"] == "expense":
+            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if payer and database.is_virtual_member(payer):
+                expense_amount = tx["amount"]
+                fund_used = min(expense_amount, public_fund_balance)
+                public_fund_balance -= fund_used
 
     # Format deposits and expenses with signs
     deposits_formatted = f"+{totals['deposits_formatted']}"
     expenses_formatted = f"-{totals['expenses_formatted']}"
+    fund_formatted = logic._cents_to_dollars(public_fund_balance)
+    fund_sign = "+" if public_fund_balance >= 0 else "-"
 
     print("\n" + "=" * 60)
-    print(_("                 VIEW PERIOD: {}").format(period["name"]))
+    print(_("                 {}").format(period["name"]))
     print("=" * 60)
     active_status = _("Active") if not period["is_settled"] else _("Settled")
     # Extract date only from start_date (remove time portion)
@@ -67,8 +78,8 @@ def _display_view_period() -> None:
         )
     )
     print(
-        _("Deposits: {} | Expenses: {} | Net: {}{}").format(
-            deposits_formatted, expenses_formatted, net_sign, net_formatted
+        _("Deposits: {} | Expenses: {} | Fund: {}{}").format(
+            deposits_formatted, expenses_formatted, fund_sign, fund_formatted
         )
     )
 
@@ -363,6 +374,18 @@ def main():
         elif choice == "5":
             # Show period status first
             _display_view_period()
+
+            # Show settlement plan before asking for confirmation
+            current_period = database.get_current_period()
+            if current_period:
+                settlement_plan = logic.get_settlement_plan(current_period["id"])
+                if settlement_plan:
+                    print(_("\n--- Settlement Plan ---"))
+                    for line in settlement_plan:
+                        print(line)
+                    print(_("----------------------\n"))
+                else:
+                    print(_("\nNo settlement transactions needed (all balances already zero).\n"))
 
             # Ask for confirmation
             response = input(_("Close this period? (y/n): "))
