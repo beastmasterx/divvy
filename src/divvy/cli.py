@@ -2,6 +2,55 @@ from . import database, logic
 from .i18n import _, set_language, translate_category, translate_transaction_type
 
 
+def _get_display_width(text: str) -> int:
+    """
+    Calculate display width of text for table alignment.
+    Chinese/wide characters count as 2, ASCII as 1.
+    """
+    width = 0
+    for char in text:
+        # Check if character is wide (Chinese, Japanese, Korean, etc.)
+        # Unicode ranges for wide characters
+        if ord(char) > 0x1100:
+            # Wide characters (CJK, emoji, etc.) - approximate check
+            if (
+                (0x2E80 <= ord(char) <= 0x9FFF) or  # CJK
+                (0xAC00 <= ord(char) <= 0xD7AF) or  # Hangul
+                (0x3040 <= ord(char) <= 0x309F) or  # Hiragana
+                (0x30A0 <= ord(char) <= 0x30FF) or  # Katakana
+                ord(char) > 0xFF00  # Fullwidth chars
+            ):
+                width += 2
+            else:
+                width += 1
+        else:
+            width += 1
+    return width
+
+
+def _pad_to_display_width(text: str, target_width: int, align: str = "<") -> str:
+    """
+    Pad text to target display width, accounting for wide characters.
+    align: '<' for left, '>' for right, '^' for center
+    """
+    current_width = _get_display_width(text)
+    if current_width >= target_width:
+        return text
+    
+    padding_needed = target_width - current_width
+    
+    if align == "<":
+        return text + " " * padding_needed
+    elif align == ">":
+        return " " * padding_needed + text
+    elif align == "^":
+        left_pad = padding_needed // 2
+        right_pad = padding_needed - left_pad
+        return " " * left_pad + text + " " * right_pad
+    else:
+        return text + " " * padding_needed
+
+
 def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | None:
     """Displays a numbered list and returns the selected item."""
     if not items:
@@ -87,19 +136,16 @@ def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
             }
         )
     
-    # Calculate column widths
-    max_category_len = max(len(t["category"]) for t in transactions_data) if transactions_data else 10
-    max_desc_len = max(len(t["description"]) for t in transactions_data) if transactions_data else 10
-    max_payer_len = max(len(t["payer"]) for t in transactions_data) if transactions_data else 8
+    # Calculate column widths using display width (not character count)
+    max_category_width = (
+        max(_get_display_width(t["category"]) for t in transactions_data) if transactions_data else 10
+    )
+    max_desc_width = (
+        max(_get_display_width(t["description"]) for t in transactions_data) if transactions_data else 10
+    )
+    max_payer_width = max(_get_display_width(t["payer"]) for t in transactions_data) if transactions_data else 8
     
-    category_width = max(15, max_category_len)
-    desc_width = max(20, max_desc_len)
-    payer_width = max(12, max_payer_len)
-    
-    # Calculate split column width (blank for settlement, but need space)
-    split_width = 10
-    
-    # Print header
+    # Use display width for headers too
     header_date = _("Date")
     header_category = _("Category")
     header_type = _("Type")
@@ -107,19 +153,45 @@ def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
     header_amount = _("Amount")
     header_description = _("Description")
     header_from_to = _("From/To")
-    print(
-        f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_split:<{split_width}} | {header_amount:>12} | {header_description:<{desc_width}} | {header_from_to:<{payer_width}}"
+    
+    category_width = max(max_category_width, _get_display_width(header_category))
+    desc_width = max(max_desc_width, _get_display_width(header_description))
+    payer_width = max(max_payer_width, _get_display_width(header_from_to))
+    split_width = max(10, _get_display_width(header_split))
+    
+    # Ensure minimum widths
+    category_width = max(15, category_width)
+    desc_width = max(20, desc_width)
+    payer_width = max(12, payer_width)
+    
+    # Print header with proper padding for display width
+    header_line = (
+        f"  {_pad_to_display_width(header_date, 12)} | "
+        f"{_pad_to_display_width(header_category, category_width)} | "
+        f"{_pad_to_display_width(header_type, 8)} | "
+        f"{_pad_to_display_width(header_split, split_width)} | "
+        f"{_pad_to_display_width(header_amount, 12, '>')} | "
+        f"{_pad_to_display_width(header_description, desc_width)} | "
+        f"{_pad_to_display_width(header_from_to, payer_width)}"
     )
+    print(header_line)
     print(
         f"  {'-' * 12} | {'-' * category_width} | {'-' * 8} | {'-' * split_width} | {'-' * 12} | {'-' * desc_width} | {'-' * payer_width}"
     )
     
-    # Print transactions
+    # Print transactions with proper padding for display width
     for tx in transactions_data:
         desc_display = tx["description"] if tx["description"] else ""
-        print(
-            f"  {tx['date']:<12} | {tx['category']:<{category_width}} | {tx['type']:<8} | {tx['personal']:<{split_width}} | {tx['amount_formatted']:>12} | {desc_display:<{desc_width}} | {tx['payer']:<{payer_width}}"
+        tx_line = (
+            f"  {_pad_to_display_width(tx['date'], 12)} | "
+            f"{_pad_to_display_width(tx['category'], category_width)} | "
+            f"{_pad_to_display_width(tx['type'], 8)} | "
+            f"{_pad_to_display_width(tx['personal'], split_width)} | "
+            f"{_pad_to_display_width(tx['amount_formatted'], 12, '>')} | "
+            f"{_pad_to_display_width(desc_display, desc_width)} | "
+            f"{_pad_to_display_width(tx['payer'], payer_width)}"
         )
+        print(tx_line)
     
     print(_("----------------------\n"))
 
@@ -270,24 +342,17 @@ def _display_view_period() -> None:
         # Sort by date, category, type, payer
         transactions_data.sort(key=lambda x: (x["date"], x["category"], x["type"], x["payer"]))
 
-        # Calculate column widths
-        max_category_len = (
-            max(len(t["category"]) for t in transactions_data) if transactions_data else 10
+        # Calculate column widths using display width (not character count)
+        max_category_width = (
+            max(_get_display_width(t["category"]) for t in transactions_data) if transactions_data else 10
         )
-        max_desc_len = (
-            max(len(t["description"]) for t in transactions_data) if transactions_data else 10
+        max_desc_width = (
+            max(_get_display_width(t["description"]) for t in transactions_data) if transactions_data else 10
         )
-        max_payer_len = max(len(t["payer"]) for t in transactions_data) if transactions_data else 8
-
-        category_width = max(15, max_category_len)
-        desc_width = max(20, max_desc_len)
-        payer_width = max(12, max_payer_len)
-
-        # Calculate split column width
-        max_split_len = max(len(t["personal"]) for t in transactions_data) if transactions_data else 0
-        split_width = max(10, max_split_len)  # "Individual" is longest (10 chars)
+        max_payer_width = max(_get_display_width(t["payer"]) for t in transactions_data) if transactions_data else 8
+        max_split_width = max(_get_display_width(t["personal"]) for t in transactions_data) if transactions_data else 0
         
-        # Print header
+        # Use display width for headers too
         header_date = _("Date")
         header_category = _("Category")
         header_type = _("Type")
@@ -295,19 +360,46 @@ def _display_view_period() -> None:
         header_amount = _("Amount")
         header_description = _("Description")
         header_from_to = _("From/To")
-        print(
-            f"  {header_date:<12} | {header_category:<{category_width}} | {header_type:<8} | {header_split:<{split_width}} | {header_amount:>12} | {header_description:<{desc_width}} | {header_from_to:<{payer_width}}"
+        
+        category_width = max(max_category_width, _get_display_width(header_category))
+        desc_width = max(max_desc_width, _get_display_width(header_description))
+        payer_width = max(max_payer_width, _get_display_width(header_from_to))
+        split_width = max(max_split_width, _get_display_width(header_split))
+        
+        # Ensure minimum widths
+        category_width = max(15, category_width)
+        desc_width = max(20, desc_width)
+        payer_width = max(12, payer_width)
+        split_width = max(10, split_width)
+        
+        # Print header with proper padding for display width
+        header_line = (
+            f"  {_pad_to_display_width(header_date, 12)} | "
+            f"{_pad_to_display_width(header_category, category_width)} | "
+            f"{_pad_to_display_width(header_type, 8)} | "
+            f"{_pad_to_display_width(header_split, split_width)} | "
+            f"{_pad_to_display_width(header_amount, 12, '>')} | "
+            f"{_pad_to_display_width(header_description, desc_width)} | "
+            f"{_pad_to_display_width(header_from_to, payer_width)}"
         )
+        print(header_line)
         print(
             f"  {'-' * 12} | {'-' * category_width} | {'-' * 8} | {'-' * split_width} | {'-' * 12} | {'-' * desc_width} | {'-' * payer_width}"
         )
 
-        # Print transactions
+        # Print transactions with proper padding for display width
         for tx in transactions_data:
             desc_display = tx["description"] if tx["description"] else ""
-            print(
-                f"  {tx['date']:<12} | {tx['category']:<{category_width}} | {tx['type']:<8} | {tx['personal']:<{split_width}} | {tx['amount_formatted']:>12} | {desc_display:<{desc_width}} | {tx['payer']:<{payer_width}}"
+            tx_line = (
+                f"  {_pad_to_display_width(tx['date'], 12)} | "
+                f"{_pad_to_display_width(tx['category'], category_width)} | "
+                f"{_pad_to_display_width(tx['type'], 8)} | "
+                f"{_pad_to_display_width(tx['personal'], split_width)} | "
+                f"{_pad_to_display_width(tx['amount_formatted'], 12, '>')} | "
+                f"{_pad_to_display_width(desc_display, desc_width)} | "
+                f"{_pad_to_display_width(tx['payer'], payer_width)}"
             )
+            print(tx_line)
     else:
         print(_("\n--- Transactions (0) ---"))
         print(_("  No transactions in this period."))
