@@ -114,16 +114,25 @@ def record_expense(
         category_id=category["id"],
     )
 
-    description_display = description if description else _("(no description)")
-    return (
-        _("Expense '{}' of {} recorded successfully. "
-          "Remainder of {} assigned to {}.").format(
-            description_display,
-            _cents_to_dollars(amount_cents),
-            _cents_to_dollars(remainder),
-            remainder_payer_name,
+    if description:
+        return (
+            _("Expense '{}' of {} recorded successfully. "
+              "Remainder of {} assigned to {}.").format(
+                description,
+                _cents_to_dollars(amount_cents),
+                _cents_to_dollars(remainder),
+                remainder_payer_name,
+            )
         )
-    )
+    else:
+        return (
+            _("Expense of {} recorded successfully. "
+              "Remainder of {} assigned to {}.").format(
+                _cents_to_dollars(amount_cents),
+                _cents_to_dollars(remainder),
+                remainder_payer_name,
+            )
+        )
 
 
 def record_deposit(
@@ -155,14 +164,21 @@ def record_deposit(
         category_id=None,
     )
 
-    description_display = description if description else _("(no description)")
-    return (
-        _("Deposit '{}' of {} from {} recorded successfully.").format(
-            description_display,
-            _cents_to_dollars(amount_cents),
-            payer_name,
+    if description:
+        return (
+            _("Deposit '{}' of {} from {} recorded successfully.").format(
+                description,
+                _cents_to_dollars(amount_cents),
+                payer_name,
+            )
         )
-    )
+    else:
+        return (
+            _("Deposit of {} from {} recorded successfully.").format(
+                _cents_to_dollars(amount_cents),
+                payer_name,
+            )
+        )
 
 
 def record_refund(
@@ -200,14 +216,22 @@ def record_refund(
         category_id=None,
     )
 
-    description_display = refund_desc
-    return (
-        _("Refund '{}' of {} to {} recorded successfully.").format(
-            description_display,
-            _cents_to_dollars(amount_cents),
-            recipient_name,
+    # Use original description for display, not refund_desc (which always has a value)
+    if description:
+        return (
+            _("Refund '{}' of {} to {} recorded successfully.").format(
+                description,
+                _cents_to_dollars(amount_cents),
+                recipient_name,
+            )
         )
-    )
+    else:
+        return (
+            _("Refund of {} to {} recorded successfully.").format(
+                _cents_to_dollars(amount_cents),
+                recipient_name,
+            )
+        )
 
 
 def get_settlement_balances() -> dict[str, str]:

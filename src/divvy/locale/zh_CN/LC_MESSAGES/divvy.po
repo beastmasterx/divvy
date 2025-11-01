@@ -253,14 +253,17 @@ msgstr "错误：没有活跃成员可以分摊支出。"
 msgid "Internal Error: Could not determine remainder payer."
 msgstr "内部错误：无法确定余款付款人。"
 
-msgid "(no description)"
-msgstr "（无描述）"
-
 msgid "Expense '{}' of {} recorded successfully. Remainder of {} assigned to {}."
 msgstr "支出 '{}' 金额 {} 记录成功。余款 {} 已分配给 {}。"
 
+msgid "Expense of {} recorded successfully. Remainder of {} assigned to {}."
+msgstr "支出 金额 {} 记录成功。余款 {} 已分配给 {}。"
+
 msgid "Deposit '{}' of {} from {} recorded successfully."
 msgstr "存款 '{}' 金额 {} 来自 {} 记录成功。"
+
+msgid "Deposit of {} from {} recorded successfully."
+msgstr "存款 金额 {} 来自 {} 记录成功。"
 
 msgid "Error: Member '{}' not found."
 msgstr "错误：未找到成员 '{}'。"
@@ -273,6 +276,9 @@ msgstr "退款：{}"
 
 msgid "Refund '{}' of {} to {} recorded successfully."
 msgstr "退款 '{}' 金额 {} 给 {} 记录成功。"
+
+msgid "Refund of {} to {} recorded successfully."
+msgstr "退款 金额 {} 给 {} 记录成功。"
 
 msgid "Is owed {}"
 msgstr "被欠 {}"

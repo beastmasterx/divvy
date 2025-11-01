@@ -225,7 +225,7 @@ def test_record_expense_with_null_description():
     logic.add_new_member("Bob")
 
     result = logic.record_expense(None, "10.00", "Alice", "Groceries")
-    assert "Expense '(no description)'" in result
+    assert "Expense of 10.00 recorded successfully" in result
 
     # Verify transaction recorded with NULL description
     with database.get_db_connection() as conn:
@@ -267,7 +267,7 @@ def test_record_deposit_with_null_description():
     logic.add_new_member("Alice")
 
     result = logic.record_deposit(None, "25.00", "Alice")
-    assert "Deposit '(no description)'" in result
+    assert "Deposit of 25.00 from Alice recorded successfully" in result
     assert "25.00" in result
 
     # Verify transaction recorded with NULL description

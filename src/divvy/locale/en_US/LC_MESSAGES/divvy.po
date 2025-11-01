@@ -253,14 +253,17 @@ msgstr "Error: No active members to split the expense among."
 msgid "Internal Error: Could not determine remainder payer."
 msgstr "Internal Error: Could not determine remainder payer."
 
-msgid "(no description)"
-msgstr "(no description)"
-
 msgid "Expense '{}' of {} recorded successfully. Remainder of {} assigned to {}."
 msgstr "Expense '{}' of {} recorded successfully. Remainder of {} assigned to {}."
 
+msgid "Expense of {} recorded successfully. Remainder of {} assigned to {}."
+msgstr "Expense of {} recorded successfully. Remainder of {} assigned to {}."
+
 msgid "Deposit '{}' of {} from {} recorded successfully."
 msgstr "Deposit '{}' of {} from {} recorded successfully."
+
+msgid "Deposit of {} from {} recorded successfully."
+msgstr "Deposit of {} from {} recorded successfully."
 
 msgid "Error: Member '{}' not found."
 msgstr "Error: Member '{}' not found."
@@ -273,6 +276,9 @@ msgstr "Refund: {}"
 
 msgid "Refund '{}' of {} to {} recorded successfully."
 msgstr "Refund '{}' of {} to {} recorded successfully."
+
+msgid "Refund of {} to {} recorded successfully."
+msgstr "Refund of {} to {} recorded successfully."
 
 msgid "Is owed {}"
 msgstr "Is owed {}"
