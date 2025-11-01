@@ -37,25 +37,25 @@ msgid "------------------------"
 msgstr "------------------------"
 
 msgid "No active period found."
-msgstr "未找到活动期间。"
+msgstr "未找到活动账期。"
 
 msgid "Period not found."
-msgstr "未找到期间。"
+msgstr "未找到账期。"
 
 msgid "No periods available."
-msgstr "没有可用的期间。"
+msgstr "没有可用的账期。"
 
 msgid "Period"
-msgstr "期间"
+msgstr "账期"
 
 msgid " [Current]"
 msgstr " [当前]"
 
 msgid "Period selection cancelled."
-msgstr "期间选择已取消。"
+msgstr "账期选择已取消。"
 
 msgid "                 VIEW PERIOD: {}"
-msgstr "                 查看期间：{}"
+msgstr "                 查看账期：{}"
 
 msgid "Active"
 msgstr "活动中"
@@ -64,7 +64,7 @@ msgid "Settled"
 msgstr "已结算"
 
 msgid "Period: {} | Started: {} | {}"
-msgstr "期间：{} | 开始日期：{} | {}"
+msgstr "账期：{} | 开始日期：{} | {}"
 
 msgid "Started: {} | {}"
 msgstr "开始日期：{} | {}"
@@ -82,7 +82,7 @@ msgid "\n--- Transactions (0) ---"
 msgstr "\n--- 交易 (0) ---"
 
 msgid "  No transactions in this period."
-msgstr "  此期间内无交易。"
+msgstr "  此账期内无交易。"
 
 msgid "Date"
 msgstr "日期"
@@ -154,7 +154,7 @@ msgid "\n--- Divvy Expense Splitter ---"
 msgstr "\n--- Divvy 费用分摊器 ---"
 
 msgid "Current Period: {}"
-msgstr "当前期间：{}"
+msgstr "当前账期：{}"
 
 msgid "1. Add Expense"
 msgstr "1. 添加支出"
@@ -166,10 +166,10 @@ msgid "3. Add Refund"
 msgstr "3. 添加退款"
 
 msgid "4. View Period"
-msgstr "4. 查看期间"
+msgstr "4. 查看账期"
 
 msgid "5. Close period"
-msgstr "5. 关闭期间"
+msgstr "5. 关闭账期"
 
 msgid "6. Add member"
 msgstr "6. 添加成员"
@@ -220,13 +220,13 @@ msgid "Enter refund amount: "
 msgstr "请输入退款金额："
 
 msgid "Close this period? (y/n): "
-msgstr "关闭此期间？(y/n)："
+msgstr "关闭此账期？(y/n)："
 
 msgid "Period closing cancelled."
-msgstr "期间关闭已取消。"
+msgstr "账期关闭已取消。"
 
 msgid "Enter name for new period (press Enter for auto-generated): "
-msgstr "请输入新期间名称（按 Enter 自动生成）："
+msgstr "请输入新账期名称（按 Enter 自动生成）："
 
 msgid "Enter the member's name: "
 msgstr "请输入成员姓名："
@@ -350,10 +350,10 @@ msgid "Member '{}' has been reactivated (rejoined)."
 msgstr "成员 '{}' 已被重新激活（重新加入）。"
 
 msgid "Error: No active period to settle."
-msgstr "错误：没有可结算的活动期间。"
+msgstr "错误：没有可结算的活动账期。"
 
 msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
-msgstr "期间 '{}' 已结算。\n新期间 '{}' 已创建。\n期间总计：存款 ${}，支出 ${}"
+msgstr "账期 '{}' 已结算。\n新账期 '{}' 已创建。\n账期总计：存款 ${}，支出 ${}"
 
 msgid "Settlement: Public fund distribution"
 msgstr "结算：公共资金分配"
@@ -374,7 +374,7 @@ msgid "  {} pays ${} to {}"
 msgstr "  {} 支付 ${} 给 {}"
 
 msgid "Period '{}' has been settled.\nNew period '{}' created."
-msgstr "期间 '{}' 已结算。\n新期间 '{}' 已创建。"
+msgstr "账期 '{}' 已结算。\n新账期 '{}' 已创建。"
 
 msgid "  No settlement transactions needed (all balances already zero)."
 msgstr "  无需结算交易（所有余额已为零）。"
