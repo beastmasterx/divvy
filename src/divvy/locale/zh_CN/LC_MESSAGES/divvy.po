@@ -21,6 +21,9 @@ msgstr "无效选择。请输入 1 到 {} 之间的数字。"
 msgid "Invalid input. Please enter a number."
 msgstr "无效输入。请输入数字。"
 
+msgid "Input cannot be empty. Please enter a number."
+msgstr "输入不能为空。请输入数字。"
+
 msgid "No {} available."
 msgstr "没有可用的{}。"
 
@@ -308,14 +311,8 @@ msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: D
 msgstr "期间 '{}' 已结算。\n新期间 '{}' 已创建。\n期间总计：存款 ${}，支出 ${}"
 
 # Category translations
-msgid "Rent"
-msgstr "房租"
-
-msgid "Utilities (Water & Electricity)"
-msgstr "水电费"
-
-msgid "Gas Bill"
-msgstr "燃气费"
+msgid "Utilities (Water & Electricity & Gas)"
+msgstr "水电燃气费"
 
 msgid "Groceries"
 msgstr "食品杂货"
@@ -323,11 +320,8 @@ msgstr "食品杂货"
 msgid "Daily Necessities"
 msgstr "日用品"
 
-msgid "Dining Out / Takeaway"
-msgstr "外出就餐 / 外卖"
-
-msgid "Transportation"
-msgstr "交通"
+msgid "Rent"
+msgstr "房租"
 
 msgid "Other"
 msgstr "其他"

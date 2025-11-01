@@ -21,6 +21,9 @@ msgstr "Invalid choice. Please enter a number between 1 and {}."
 msgid "Invalid input. Please enter a number."
 msgstr "Invalid input. Please enter a number."
 
+msgid "Input cannot be empty. Please enter a number."
+msgstr "Input cannot be empty. Please enter a number."
+
 msgid "No {} available."
 msgstr "No {} available."
 
@@ -308,14 +311,8 @@ msgid "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: D
 msgstr "Period '{}' has been settled.\nNew period '{}' created.\nPeriod totals: Deposits ${}, Expenses ${}"
 
 # Category translations
-msgid "Rent"
-msgstr "Rent"
-
-msgid "Utilities (Water & Electricity)"
-msgstr "Utilities (Water & Electricity)"
-
-msgid "Gas Bill"
-msgstr "Gas Bill"
+msgid "Utilities (Water & Electricity & Gas)"
+msgstr "Utilities (Water & Electricity & Gas)"
 
 msgid "Groceries"
 msgstr "Groceries"
@@ -323,11 +320,8 @@ msgstr "Groceries"
 msgid "Daily Necessities"
 msgstr "Daily Necessities"
 
-msgid "Dining Out / Takeaway"
-msgstr "Dining Out / Takeaway"
-
-msgid "Transportation"
-msgstr "Transportation"
+msgid "Rent"
+msgstr "Rent"
 
 msgid "Other"
 msgstr "Other"

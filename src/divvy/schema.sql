@@ -34,15 +34,12 @@ CREATE TABLE IF NOT EXISTS transactions (
     FOREIGN KEY (period_id) REFERENCES periods (id)
 );
 
--- Pre-populate with some default categories for shared living scenario
+-- Pre-populate with default categories
 INSERT INTO
     categories (name)
 VALUES
-    ('Rent'),
-    ('Utilities (Water & Electricity)'),
-    ('Gas Bill'),
+    ('Utilities (Water & Electricity & Gas)'),
     ('Groceries'),
     ('Daily Necessities'),
-    ('Dining Out / Takeaway'),
-    ('Transportation'),
+    ('Rent'),
     ('Other');

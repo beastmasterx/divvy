@@ -146,13 +146,10 @@ set_language()
 def _get_category_translations() -> dict[str, str]:
     """Get category translations dictionary (called after language is set)."""
     return {
-        "Rent": _("Rent"),
-        "Utilities (Water & Electricity)": _("Utilities (Water & Electricity)"),
-        "Gas Bill": _("Gas Bill"),
+        "Utilities (Water & Electricity & Gas)": _("Utilities (Water & Electricity & Gas)"),
         "Groceries": _("Groceries"),
         "Daily Necessities": _("Daily Necessities"),
-        "Dining Out / Takeaway": _("Dining Out / Takeaway"),
-        "Transportation": _("Transportation"),
+        "Rent": _("Rent"),
         "Other": _("Other"),
     }
 

@@ -15,7 +15,10 @@ def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | No
 
     while True:
         try:
-            choice = input(_("Enter your choice (1-{}): ").format(len(items)))
+            choice = input(_("Enter your choice (1-{}): ").format(len(items))).strip()
+            if not choice:
+                print(_("Input cannot be empty. Please enter a number."))
+                continue
             index = int(choice) - 1
             if 0 <= index < len(items):
                 return items[index]

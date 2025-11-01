@@ -90,7 +90,7 @@ def test_record_expense_no_remainder():
     logic.add_new_member("Bob")
     logic.add_new_member("Charlie")
 
-    result = logic.record_expense("Dinner", "30.00", "Alice", "Dining Out / Takeaway")
+    result = logic.record_expense("Dinner", "30.00", "Alice", "Other")
     assert (
         result
         == "Expense 'Dinner' of 30.00 recorded successfully. Remainder of 0.00 assigned to N/A."
@@ -104,7 +104,7 @@ def test_record_expense_no_remainder():
         assert tx is not None
         assert tx["amount"] == 3000
         assert tx["payer_id"] == database.get_member_by_name("Alice")["id"]
-        assert tx["category_id"] == database.get_category_by_name("Dining Out / Takeaway")["id"]
+        assert tx["category_id"] == database.get_category_by_name("Other")["id"]
         assert tx["period_id"] is not None  # Should be assigned to a period
 
     # Verify remainder status (should all be False as no remainder was assigned)
@@ -121,7 +121,7 @@ def test_record_expense_with_remainder_round_robin():
 
     # Expense 1: 10.00 / 3 = 3.33 with 1 cent remainder
     # Alice should get the remainder (first in order)
-    result1 = logic.record_expense("Coffee", "10.00", "Alice", "Dining Out / Takeaway")
+    result1 = logic.record_expense("Coffee", "10.00", "Alice", "Other")
     assert (
         result1
         == "Expense 'Coffee' of 10.00 recorded successfully. Remainder of 0.01 assigned to Alice."
@@ -154,7 +154,7 @@ def test_record_expense_with_remainder_round_robin():
 
     # Expense 4: 10.00 / 3 = 3.33 with 1 cent remainder
     # All members have paid a remainder, so status should reset, and Alice gets it again
-    result4 = logic.record_expense("Lunch", "10.00", "Alice", "Dining Out / Takeaway")
+    result4 = logic.record_expense("Lunch", "10.00", "Alice", "Other")
     assert (
         result4
         == "Expense 'Lunch' of 10.00 recorded successfully. Remainder of 0.01 assigned to Alice."
@@ -201,7 +201,7 @@ def test_get_settlement_balances_mixed_transactions():
 
     # Expense 1: Dinner 30.00, Alice pays. Split among Alice, Bob, Charlie.
     # Each share: 10.00. Alice paid 30, owes 10. Net +20. Bob owes 10. Charlie owes 10.
-    logic.record_expense("Dinner", "30.00", "Alice", "Dining Out / Takeaway")
+    logic.record_expense("Dinner", "30.00", "Alice", "Other")
 
     # Expense 2: Groceries 10.00, Bob pays. Split among Alice, Bob, Charlie.
     # Each share: 3.33 (1 cent remainder to Alice from round-robin)
@@ -289,7 +289,7 @@ def test_get_period_balances():
 
     # Add deposit and expense in current period
     database.add_transaction("deposit", 10000, "Alice's deposit", alice["id"])
-    logic.record_expense("Lunch", "20.00", "Alice", "Dining Out / Takeaway")
+    logic.record_expense("Lunch", "20.00", "Alice", "Other")
 
     balances = logic.get_period_balances()
     assert "Alice" in balances
@@ -380,7 +380,7 @@ def test_get_period_summary():
 
     # Add transactions
     database.add_transaction("deposit", 10000, "Alice's deposit", alice["id"])
-    logic.record_expense("Dinner", "30.00", "Alice", "Dining Out / Takeaway")
+    logic.record_expense("Dinner", "30.00", "Alice", "Other")
 
     summary = logic.get_period_summary()
     assert summary is not None
@@ -401,7 +401,7 @@ def test_settle_current_period():
 
     # Add some transactions
     database.add_transaction("deposit", 10000, "Alice's deposit", alice["id"])
-    logic.record_expense("Dinner", "30.00", "Alice", "Dining Out / Takeaway")
+    logic.record_expense("Dinner", "30.00", "Alice", "Other")
 
     # Get current period
     current_period = database.get_current_period()
