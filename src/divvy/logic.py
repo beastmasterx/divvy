@@ -46,6 +46,7 @@ def record_expense(
     amount_str: str,
     payer_name: str,
     category_name: str,
+    is_personal: bool = False,
 ) -> str:
     """
     Records a new expense.
@@ -69,6 +70,33 @@ def record_expense(
     if not category:
         return _("Error: Category '{}' not found.").format(category_name)
 
+    # For personal expenses, only the payer owes the amount (no split, no remainder logic)
+    if is_personal:
+        # Record the personal expense transaction
+        database.add_transaction(
+            transaction_type="expense",
+            amount=amount_cents,
+            description=description,
+            payer_id=payer_id_for_transaction,
+            category_id=category["id"],
+            is_personal=True,
+        )
+        
+        if description:
+            return (
+                _("Personal expense '{}' of {} recorded successfully.").format(
+                    description,
+                    _cents_to_dollars(amount_cents),
+                )
+            )
+        else:
+            return (
+                _("Personal expense of {} recorded successfully.").format(
+                    _cents_to_dollars(amount_cents),
+                )
+            )
+
+    # For shared/individual expenses, split among active members
     active_members = database.get_active_members()
     if not active_members:
         return _("Error: No active members to split the expense among.")
@@ -105,13 +133,14 @@ def record_expense(
         ):  # Should not happen if logic is correct and active_members is not empty
             return _("Internal Error: Could not determine remainder payer.")
 
-    # Record the expense transaction
+    # Record the expense transaction (not personal)
     database.add_transaction(
         transaction_type="expense",
         amount=amount_cents,
         description=description,
         payer_id=payer_id_for_transaction,
         category_id=category["id"],
+        is_personal=False,
     )
 
     if description:
@@ -243,24 +272,58 @@ def get_settlement_balances() -> dict[str, str]:
     all_members = database.get_all_members()
     all_transactions = database.get_all_transactions()
     current_active_members = database.get_active_members()
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
 
     member_balances = {member["id"]: 0 for member in all_members}
+    # Track public fund balance (virtual member's balance, can't go negative)
+    public_fund_balance = 0
 
     # Calculate initial contributions and expenses
+    # Process transactions in chronological order to track public fund correctly
     for tx in all_transactions:
         if tx["transaction_type"] == "deposit":
-            # Only credit if payer exists in member_balances (excludes virtual member)
+            # Credit deposits to payer (including virtual member for public fund)
             if tx["payer_id"] and tx["payer_id"] in member_balances:
                 member_balances[tx["payer_id"]] += tx["amount"]
+            # If virtual member deposits, add to public fund
+            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
+                public_fund_balance += tx["amount"]
         elif tx["transaction_type"] == "expense":
-            # Skip crediting if payer is virtual member (shared expense)
             payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
-            if payer and not database.is_virtual_member(payer):
-                # Credit real member for paying the expense
-                if tx["payer_id"] in member_balances:
-                    member_balances[tx["payer_id"]] += tx["amount"]
+            is_virtual = payer and database.is_virtual_member(payer)
+            
+            if is_virtual:
+                # Shared expense: use public fund first, then split remainder
+                expense_amount = tx["amount"]
+                # Use public fund (can't go negative)
+                fund_used = min(expense_amount, public_fund_balance)
+                public_fund_balance -= fund_used
+                remaining_to_split = expense_amount - fund_used
+                
+                # Split remaining amount among members
+                if remaining_to_split > 0:
+                    num_active = len(current_active_members)
+                    if num_active > 0:
+                        base_share = remaining_to_split // num_active
+                        remainder = remaining_to_split % num_active
+                        
+                        for i, member in enumerate(current_active_members):
+                            member_balances[member["id"]] -= base_share
+                            if i < remainder:
+                                member_balances[member["id"]] -= 1
+                continue
+            
+            # Individual expense: credit real member for paying
+            if payer and tx["payer_id"] in member_balances:
+                member_balances[tx["payer_id"]] += tx["amount"]
 
-            # Distribute expense cost among current active members
+            # Handle personal expenses: only subtract from payer
+            if tx.get("is_personal", 0):  # Check if this is a personal expense
+                if tx["payer_id"] and tx["payer_id"] in member_balances:
+                    member_balances[tx["payer_id"]] -= tx["amount"]
+                continue
+
+            # Distribute expense cost among current active members (individual split)
             num_active = len(current_active_members)
             if num_active == 0:  # Should not happen if record_expense prevents it
                 continue
@@ -338,22 +401,55 @@ def get_period_balances(period_id: int | None = None) -> dict:
     transactions = database.get_transactions_by_period(period_id)
     active_members = database.get_active_members()
     all_members = database.get_all_members()
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
 
     # Calculate period balances
     member_balances = {member["id"]: 0 for member in all_members}
+    # Track public fund balance (virtual member's balance, can't go negative)
+    public_fund_balance = 0
 
     for tx in transactions:
         if tx["transaction_type"] == "deposit":
-            # Only credit if payer exists in member_balances (excludes virtual member)
+            # Credit deposits to payer (including virtual member for public fund)
             if tx["payer_id"] and tx["payer_id"] in member_balances:
                 member_balances[tx["payer_id"]] += tx["amount"]
+            # If virtual member deposits, add to public fund
+            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
+                public_fund_balance += tx["amount"]
         elif tx["transaction_type"] == "expense":
-            # Skip crediting if payer is virtual member (shared expense)
             payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
-            if payer and not database.is_virtual_member(payer):
-                # Credit real member for paying the expense
-                if tx["payer_id"] in member_balances:
-                    member_balances[tx["payer_id"]] += tx["amount"]
+            is_virtual = payer and database.is_virtual_member(payer)
+            
+            if is_virtual:
+                # Shared expense: use public fund first, then split remainder
+                expense_amount = tx["amount"]
+                # Use public fund (can't go negative)
+                fund_used = min(expense_amount, public_fund_balance)
+                public_fund_balance -= fund_used
+                remaining_to_split = expense_amount - fund_used
+                
+                # Split remaining amount among members
+                if remaining_to_split > 0:
+                    num_active = len(active_members)
+                    if num_active > 0:
+                        base_share = remaining_to_split // num_active
+                        remainder = remaining_to_split % num_active
+                        
+                        for i, member in enumerate(active_members):
+                            member_balances[member["id"]] -= base_share
+                            if i < remainder:
+                                member_balances[member["id"]] -= 1
+                continue
+            
+            # Individual expense: credit real member for paying
+            if payer and tx["payer_id"] in member_balances:
+                member_balances[tx["payer_id"]] += tx["amount"]
+
+            # Handle personal expenses: only subtract from payer
+            if tx.get("is_personal", 0):  # Check if this is a personal expense
+                if tx["payer_id"] and tx["payer_id"] in member_balances:
+                    member_balances[tx["payer_id"]] -= tx["amount"]
+                continue
 
             # Subtract shares from all active members (for both real and shared expenses)
             # Distribute expense among active members at transaction time
@@ -397,21 +493,55 @@ def get_active_member_balances(period_id: int | None = None) -> dict[str, int]:
 
     transactions = database.get_transactions_by_period(period_id)
     active_members = database.get_active_members()
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
 
     # Calculate balances
     member_balances = {member["id"]: 0 for member in active_members}
+    # Track public fund balance (virtual member's balance, can't go negative)
+    public_fund_balance = 0
 
     for tx in transactions:
         if tx["transaction_type"] == "deposit":
+            # Credit deposits to payer (including virtual member for public fund)
             if tx["payer_id"] and tx["payer_id"] in member_balances:
                 member_balances[tx["payer_id"]] += tx["amount"]
+            # If virtual member deposits, add to public fund
+            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
+                public_fund_balance += tx["amount"]
         elif tx["transaction_type"] == "expense":
-            # Skip crediting if payer is virtual member (shared expense)
             payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
-            if payer and not database.is_virtual_member(payer):
-                # Credit real member for paying the expense
-                if tx["payer_id"] in member_balances:
-                    member_balances[tx["payer_id"]] += tx["amount"]
+            is_virtual = payer and database.is_virtual_member(payer)
+            
+            if is_virtual:
+                # Shared expense: use public fund first, then split remainder
+                expense_amount = tx["amount"]
+                # Use public fund (can't go negative)
+                fund_used = min(expense_amount, public_fund_balance)
+                public_fund_balance -= fund_used
+                remaining_to_split = expense_amount - fund_used
+                
+                # Split remaining amount among members
+                if remaining_to_split > 0:
+                    num_active = len(active_members)
+                    if num_active > 0:
+                        base_share = remaining_to_split // num_active
+                        remainder = remaining_to_split % num_active
+                        
+                        for i, member in enumerate(active_members):
+                            member_balances[member["id"]] -= base_share
+                            if i < remainder:
+                                member_balances[member["id"]] -= 1
+                continue
+            
+            # Individual expense: credit real member for paying
+            if payer and tx["payer_id"] in member_balances:
+                member_balances[tx["payer_id"]] += tx["amount"]
+
+            # Handle personal expenses: only subtract from payer
+            if tx.get("is_personal", 0):  # Check if this is a personal expense
+                if tx["payer_id"] and tx["payer_id"] in member_balances:
+                    member_balances[tx["payer_id"]] -= tx["amount"]
+                continue
 
             # Subtract shares from all active members (for both real and shared expenses)
             num_active = len(active_members)

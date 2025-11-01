@@ -262,9 +262,11 @@ def add_transaction(
     payer_id: int | None = None,
     category_id: int | None = None,
     period_id: int | None = None,
+    is_personal: bool = False,
 ) -> int:
     """Adds a new transaction to the database and returns its ID.
-    If period_id is None, uses the current active period."""
+    If period_id is None, uses the current active period.
+    is_personal: If True, expense only affects payer (not split among members)."""
     if period_id is None:
         current_period = get_current_period()
         if current_period is None:
@@ -275,8 +277,8 @@ def add_transaction(
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO transactions (transaction_type, description, amount, payer_id, category_id, period_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-            (transaction_type, description, amount, payer_id, category_id, period_id),
+            "INSERT INTO transactions (transaction_type, description, amount, payer_id, category_id, period_id, is_personal) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            (transaction_type, description, amount, payer_id, category_id, period_id, 1 if is_personal else 0),
         )
         transaction_id = cursor.fetchone()[0]
         conn.commit()

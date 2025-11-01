@@ -337,7 +337,13 @@ msgstr "存款"
 msgid "Group"
 msgstr "共享支出"
 
-# Shared expense prompt
-msgid "Is this a shared expense (no individual payer)? (y/n, default: n): "
-msgstr "这是共享支出（无个人付款人）吗？(y/n，默认: n)："
+# Expense type prompt
+msgid "Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): "
+msgstr "支出类型 - (s)共享、(p)个人还是(i)分摊？(默认: i)："
+
+msgid "Personal expense '{}' of {} recorded successfully."
+msgstr "个人支出 '{}' 金额 {} 记录成功。"
+
+msgid "Personal expense of {} recorded successfully."
+msgstr "个人支出 金额 {} 记录成功。"
 

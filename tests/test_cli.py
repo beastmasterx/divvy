@@ -97,12 +97,12 @@ def test_menu_choice_add_member(setup_members, capsys):
 
 def test_menu_choice_record_expense(setup_members, capsys):
     """Test menu option 1: Record an expense."""
-    # Mock the selections: description, amount, shared expense (no), payer (select 1=Alice), category (select first)
+    # Mock the selections: description, amount, expense type (i=individual), payer (select 1=Alice), category (select first)
     inputs = [
         "1",  # Menu choice
         "Test expense",  # Description
         "10.00",  # Amount
-        "n",  # Not a shared expense
+        "i",  # Individual split (default)
         "1",  # Select Alice as payer
         "1",  # Select first category
         "8",  # Exit
@@ -278,7 +278,7 @@ def test_select_payer_for_expense(setup_members, capsys):
 
 
 def test_select_payer_for_deposit(setup_members, capsys):
-    """Test select_payer for deposit (no Public Fund option)."""
+    """Test select_payer for deposit (includes Group/public fund option)."""
     with patch("builtins.input", return_value="1"):
         result = cli.select_payer(for_expense=False)
         assert result == "Alice"
@@ -291,7 +291,7 @@ def test_record_expense_with_empty_description(setup_members):
         "1",  # Menu choice
         "",  # Empty description
         "10.00",  # Amount
-        "n",  # Not a shared expense
+        "i",  # Individual split (default)
         "1",  # Select Alice
         "1",  # Select category
         "8",  # Exit
@@ -356,7 +356,7 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         "1",  # Menu choice
         "Rent payment",  # Description
         "3000.00",  # Amount
-        "y",  # Yes, this is a shared expense
+        "s",  # Shared expense
         "1",  # Select first category (Rent)
         "8",  # Exit
     ]
@@ -374,6 +374,41 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         tx = cursor.fetchone()
         assert tx is not None
         assert tx["amount"] == 300000  # 3000.00 in cents
+        
+        # Verify payer is virtual member
+        payer = database.get_member_by_id(tx["payer_id"])
+        assert payer is not None
+        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+
+
+def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
+    """Test menu option 2: Record a deposit to public fund (Group)."""
+    # setup_members creates 2 members (Alice, Bob), Group is 3rd option
+    active_members = database.get_active_members()
+    group_option = str(len(active_members) + 1)  # Group is after all active members
+    
+    inputs = [
+        "2",  # Menu choice
+        "Public fund",  # Description
+        "100.00",  # Amount
+        group_option,  # Select Group (last option)
+        "8",  # Exit
+    ]
+
+    with (
+        patch("builtins.input", side_effect=inputs),
+        contextlib.suppress(SystemExit, KeyboardInterrupt),
+    ):
+        cli.main()
+
+    # Verify transaction was created with virtual member as payer
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE description = 'Public fund'")
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx["amount"] == 10000  # 100.00 in cents
+        assert tx["transaction_type"] == "deposit"
         
         # Verify payer is virtual member
         payer = database.get_member_by_id(tx["payer_id"])

@@ -424,3 +424,147 @@ def test_settle_current_period():
     assert new_period["id"] != current_period["id"]
     assert new_period["name"] == "Settled Period"
     assert new_period["is_settled"] == 0
+
+
+def test_public_fund_deposit():
+    """Test depositing to public fund (virtual member)."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    
+    # Deposit to public fund
+    result = logic.record_deposit(
+        "Public fund contribution", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME
+    )
+    assert "100.00" in result
+    
+    # Verify transaction recorded
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM transactions WHERE description = 'Public fund contribution'")
+        tx = cursor.fetchone()
+        assert tx is not None
+        assert tx["amount"] == 10000  # 100.00 in cents
+        payer = database.get_member_by_id(tx["payer_id"])
+        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+
+
+def test_shared_expense_with_sufficient_public_fund():
+    """Test shared expense when public fund has sufficient balance."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    
+    # Deposit 100 to public fund
+    database.add_transaction("deposit", 10000, "Public fund", virtual_member["id"])
+    
+    # Shared expense: 50 (fully covered by public fund)
+    logic.record_expense(
+        "Utilities", "50.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
+    )
+    
+    # Expected: Fund covers all, members owe nothing
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == 0
+    assert balances["Bob"] == 0
+
+
+def test_shared_expense_with_insufficient_public_fund():
+    """Test shared expense when public fund is insufficient."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    
+    # Deposit 30 to public fund
+    database.add_transaction("deposit", 3000, "Public fund", virtual_member["id"])
+    
+    # Shared expense: 100 (fund has 30, remainder 70 split between 2 members)
+    logic.record_expense(
+        "Rent", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+    )
+    
+    # Expected balances:
+    # Fund covers 30, remainder 70 split: 35 each
+    # Alice: -35 (owes 35)
+    # Bob: -35 (owes 35)
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == -3500  # -35.00 in cents
+    assert balances["Bob"] == -3500  # -35.00 in cents
+
+
+def test_public_fund_cannot_go_negative():
+    """Test that public fund balance never goes negative."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    
+    # No deposit to public fund (fund = 0)
+    
+    # Shared expense: 100 (fund is 0, all split between members)
+    logic.record_expense(
+        "Rent", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+    )
+    
+    # Expected: Fund stays at 0 (not -100), all 100 split between members
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == -5000  # -50.00 in cents (100/2)
+    assert balances["Bob"] == -5000  # -50.00 in cents
+
+
+def test_public_fund_accumulation():
+    """Test that public fund accumulates over multiple deposits."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    
+    # Multiple deposits to public fund: 10 + 20 + 5 = 35.00
+    database.add_transaction("deposit", 1000, "Fund deposit 1", virtual_member["id"])
+    database.add_transaction("deposit", 2000, "Fund deposit 2", virtual_member["id"])
+    database.add_transaction("deposit", 500, "Fund deposit 3", virtual_member["id"])
+    
+    # Shared expense: 20.00 (fund has 35.00, covers fully)
+    logic.record_expense(
+        "Utilities", "20.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
+    )
+    
+    # Fund should have 15.00 remaining (35.00 - 20.00), members owe nothing
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == 0
+    assert balances["Bob"] == 0
+    
+    # Another shared expense: 10.00 (fund has 15.00, covers fully)
+    logic.record_expense(
+        "Maintenance", "10.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Other"
+    )
+    
+    # Fund should have 5.00 remaining (15.00 - 10.00), members still owe nothing
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == 0
+    assert balances["Bob"] == 0
+
+
+def test_public_fund_mixed_scenario():
+    """Test public fund with deposits, expenses, and individual transactions."""
+    logic.add_new_member("Alice")
+    logic.add_new_member("Bob")
+    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    alice = database.get_member_by_name("Alice")
+    
+    # Alice deposits 200
+    database.add_transaction("deposit", 20000, "Alice's deposit", alice["id"])
+    
+    # Public fund deposit: 50
+    database.add_transaction("deposit", 5000, "Public fund", virtual_member["id"])
+    
+    # Shared expense: 100 (fund has 50, covers 50, remainder 50 split)
+    logic.record_expense(
+        "Rent", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+    )
+    
+    # Individual expense: 60, Alice pays
+    logic.record_expense("Groceries", "60.00", "Alice", "Groceries")
+    
+    # Expected balances:
+    # Alice: +200 (deposit) +60 (paid) -25 (share rent) -30 (share groceries) = +205
+    # Bob: 0 (deposit) -25 (share rent) -30 (share groceries) = -55
+    balances = logic.get_active_member_balances()
+    assert balances["Alice"] == 20500  # +205.00 in cents
+    assert balances["Bob"] == -5500  # -55.00 in cents

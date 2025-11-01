@@ -193,12 +193,30 @@ def _display_view_period() -> None:
 
 
 def select_payer(for_expense: bool = False) -> str | None:
-    """Selects a payer from active members."""
+    """Selects a payer from active members.
+    For deposits, includes virtual member (Group) as an option for public fund.
+    For expenses, only shows regular active members."""
     members = database.get_active_members()
 
     if not members:
         print(_("No active members available."))
         return None
+
+    # For deposits, add virtual member as an option for public fund
+    if not for_expense:
+        virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+        if virtual_member:
+            # Create a display version with translated name
+            members_with_group = members + [
+                {**virtual_member, "name": database.get_member_display_name(virtual_member)}
+            ]
+            payer = select_from_list(members_with_group, "name", _("Payer"))
+            if payer:
+                # Return internal name if virtual member selected
+                if payer.get("id") == virtual_member["id"]:
+                    return database.VIRTUAL_MEMBER_INTERNAL_NAME
+                return payer["name"]
+            return None
 
     payer = select_from_list(members, "name", _("Payer"))
     return payer["name"] if payer else None
@@ -246,16 +264,24 @@ def main():
                 print(_("Error: Amount cannot be empty."))
                 continue
 
-            # Ask if it's a shared expense
-            is_shared = input(_("Is this a shared expense (no individual payer)? (y/n, default: n): ")).strip().lower()
+            # Ask if it's a shared expense or personal expense
+            expense_type = input(_("Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): ")).strip().lower()
 
-            if is_shared in ("y", "yes"):
+            if expense_type in ("s", "shared"):
                 payer_name = database.VIRTUAL_MEMBER_INTERNAL_NAME
-            else:
+                is_personal = False
+            elif expense_type in ("p", "personal"):
                 payer_name = select_payer(for_expense=True)
                 if payer_name is None:
                     print(_("Expense recording cancelled."))
                     continue
+                is_personal = True
+            else:  # individual (default)
+                payer_name = select_payer(for_expense=True)
+                if payer_name is None:
+                    print(_("Expense recording cancelled."))
+                    continue
+                is_personal = False
 
             categories = database.get_all_categories()
             # Create a display version with translated names but keep original for lookup
@@ -269,7 +295,7 @@ def main():
             category_name = category["name"]  # Use original name for database lookup
 
             desc = description if description else None
-            result = logic.record_expense(desc, amount_str, payer_name, category_name)
+            result = logic.record_expense(desc, amount_str, payer_name, category_name, is_personal=is_personal)
             print(result)
 
         elif choice == "2":

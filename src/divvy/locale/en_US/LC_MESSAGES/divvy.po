@@ -337,7 +337,13 @@ msgstr "Deposit"
 msgid "Group"
 msgstr "Group"
 
-# Shared expense prompt
-msgid "Is this a shared expense (no individual payer)? (y/n, default: n): "
-msgstr "Is this a shared expense (no individual payer)? (y/n, default: n): "
+# Expense type prompt
+msgid "Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): "
+msgstr "Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): "
+
+msgid "Personal expense '{}' of {} recorded successfully."
+msgstr "Personal expense '{}' of {} recorded successfully."
+
+msgid "Personal expense of {} recorded successfully."
+msgstr "Personal expense of {} recorded successfully."
 

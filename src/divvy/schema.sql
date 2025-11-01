@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     payer_id INTEGER,
     category_id INTEGER,
     period_id INTEGER NOT NULL,
+    is_personal BOOLEAN NOT NULL DEFAULT 0, -- If 1, expense only affects payer (not split)
     TIMESTAMP DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (payer_id) REFERENCES members (id),
     FOREIGN KEY (category_id) REFERENCES categories (id),
