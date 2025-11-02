@@ -11,11 +11,15 @@ dependencies = [
 
 [project.optional-dependencies]
 postgresql = ["psycopg2-binary>=2.9.0"]
-mysql = ["pymysql>=1.0.0"]
+mysql = [
+    "pymysql>=1.0.0",
+    "cryptography>=3.0.0",
+]
 mssql = ["pyodbc>=4.0.0"]
 all-databases = [
     "psycopg2-binary>=2.9.0",
     "pymysql>=1.0.0",
+    "cryptography>=3.0.0",
     "pyodbc>=4.0.0",
 ]
 
