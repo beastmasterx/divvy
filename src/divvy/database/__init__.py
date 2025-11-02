@@ -19,7 +19,7 @@ from .models import Base, Category, Member, Period, Transaction
 from .session import create_session, get_session
 
 # Virtual member constants
-VIRTUAL_MEMBER_INTERNAL_NAME = "_system_group_"
+PUBLIC_FUND_MEMBER_INTERNAL_NAME = "_system_group_"
 SYSTEM_MEMBER_PREFIX = "_system_"
 
 # Backwards compatibility
@@ -107,7 +107,7 @@ def get_all_members() -> list[dict]:
     with get_session() as session:
         members = (
             session.query(Member)
-            .filter(Member.name != VIRTUAL_MEMBER_INTERNAL_NAME)
+            .filter(Member.name != PUBLIC_FUND_MEMBER_INTERNAL_NAME)
             .order_by(Member.id)
             .all()
         )
@@ -119,7 +119,7 @@ def get_active_members() -> list[dict]:
     with get_session() as session:
         members = (
             session.query(Member)
-            .filter(Member.is_active.is_(True), Member.name != VIRTUAL_MEMBER_INTERNAL_NAME)
+            .filter(Member.is_active.is_(True), Member.name != PUBLIC_FUND_MEMBER_INTERNAL_NAME)
             .order_by(Member.id)
             .all()
         )
@@ -248,10 +248,10 @@ def initialize_first_period_if_needed():
 
 def ensure_virtual_member_exists():
     """Ensures the virtual member exists for shared expenses."""
-    virtual_member = get_member_by_name(VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = get_member_by_name(PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     if not virtual_member:
         with get_session() as session:
-            virtual_member_obj = Member(name=VIRTUAL_MEMBER_INTERNAL_NAME, is_active=False)
+            virtual_member_obj = Member(name=PUBLIC_FUND_MEMBER_INTERNAL_NAME, is_active=False)
             session.add(virtual_member_obj)
             session.commit()
 
@@ -344,7 +344,7 @@ def get_category_by_id(category_id: int) -> dict | None:
 # Export all public API
 __all__ = [
     # Constants
-    "VIRTUAL_MEMBER_INTERNAL_NAME",
+    "PUBLIC_FUND_MEMBER_INTERNAL_NAME",
     "SYSTEM_MEMBER_PREFIX",
     "SCHEMA_FILE",
     # Models

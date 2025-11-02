@@ -2,19 +2,14 @@
 Pytest configuration and shared fixtures for database tests.
 Provides SQLAlchemy-based test database setup.
 """
-import os
 from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.divvy.database import Base, Member, Period, Category
-from src.divvy.database.connection import get_engine, reset_engine
-from src.divvy import database
-
-# Virtual member constant
-VIRTUAL_MEMBER_INTERNAL_NAME = "_system_group_"
+from src.divvy.database import Base, Member, Period, Category, PUBLIC_FUND_MEMBER_INTERNAL_NAME
+from src.divvy.database.connection import reset_engine
 
 
 @pytest.fixture(scope="function")
@@ -49,9 +44,9 @@ def test_db_engine():
     if not session.query(Period).filter_by(is_settled=False).first():
         session.add(Period(name="Initial Period", is_settled=False))
     
-    # Ensure virtual member exists
-    if not session.query(Member).filter_by(name=VIRTUAL_MEMBER_INTERNAL_NAME).first():
-        session.add(Member(name=VIRTUAL_MEMBER_INTERNAL_NAME, is_active=False))
+    # Ensure public fund member exists
+    if not session.query(Member).filter_by(name=PUBLIC_FUND_MEMBER_INTERNAL_NAME).first():
+        session.add(Member(name=PUBLIC_FUND_MEMBER_INTERNAL_NAME, is_active=False))
     
     session.commit()
     session.close()
@@ -70,7 +65,6 @@ def mock_database_engine(test_db_engine):
     This fixture runs automatically for all tests.
     """
     from sqlalchemy.orm import sessionmaker
-    from src.divvy.database.session import _get_session_factory
     
     # Reset any existing engine
     reset_engine()

@@ -272,7 +272,7 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         # Verify payer is virtual member
         payer = database.get_member_by_id(tx.payer_id)
         assert payer is not None
-        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+        assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
 
 
 def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
@@ -305,4 +305,4 @@ def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
         # Verify payer is virtual member
         payer = database.get_member_by_id(tx.payer_id)
         assert payer is not None
-        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+        assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME

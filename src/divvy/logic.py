@@ -272,7 +272,7 @@ def get_settlement_balances() -> dict[str, str]:
     all_members = database.get_all_members()
     all_transactions = database.get_all_transactions()
     current_active_members = database.get_active_members()
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
 
     member_balances = {member["id"]: 0 for member in all_members}
     # Track public fund balance (virtual member's balance, can't go negative)
@@ -401,7 +401,7 @@ def get_period_balances(period_id: int | None = None) -> dict:
     transactions = database.get_transactions_by_period(period_id)
     active_members = database.get_active_members()
     all_members = database.get_all_members()
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
 
     # Calculate period balances
     member_balances = {member["id"]: 0 for member in all_members}
@@ -493,7 +493,7 @@ def get_active_member_balances(period_id: int | None = None) -> dict[str, int]:
 
     transactions = database.get_transactions_by_period(period_id)
     active_members = database.get_active_members()
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
 
     # Calculate balances
     member_balances = {member["id"]: 0 for member in active_members}
@@ -617,7 +617,7 @@ def get_settlement_plan(period_id: int | None = None) -> list[dict]:
     # Get balances before settlement
     member_balances_cents = get_active_member_balances(period_id)
     active_members = database.get_active_members()
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Calculate public fund balance
     transactions = database.get_transactions_by_period(period_id)
@@ -832,7 +832,7 @@ def settle_current_period(period_name: str | None = None) -> str:
     # Get balances before settlement
     member_balances_cents = get_active_member_balances(period_id)
     active_members = database.get_active_members()
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Calculate public fund balance
     transactions = database.get_transactions_by_period(period_id)

@@ -230,7 +230,7 @@ def _display_view_period(period_id: int | None = None) -> None:
     active_balances = logic.get_active_member_balances(period["id"])
 
     # Calculate public fund balance for the period
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     public_fund_balance = 0
     for tx in transactions:
         if tx["transaction_type"] == "deposit":
@@ -561,7 +561,7 @@ def select_payer(for_expense: bool = False) -> str | None:
 
     # For deposits, add virtual member as an option for public fund
     if not for_expense:
-        virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+        virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
         if virtual_member:
             # Create a display version with translated name
             members_with_group = members + [
@@ -571,7 +571,7 @@ def select_payer(for_expense: bool = False) -> str | None:
             if payer:
                 # Return internal name if virtual member selected
                 if payer.get("id") == virtual_member["id"]:
-                    return database.VIRTUAL_MEMBER_INTERNAL_NAME
+                    return database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
                 return payer["name"]
             return None
 
@@ -666,7 +666,7 @@ def main():
             expense_type = input(_("Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): ")).strip().lower()
 
             if expense_type in ("s", "shared"):
-                payer_name = database.VIRTUAL_MEMBER_INTERNAL_NAME
+                payer_name = database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
                 is_personal = False
             elif expense_type in ("p", "personal"):
                 payer_name = select_payer(for_expense=True)

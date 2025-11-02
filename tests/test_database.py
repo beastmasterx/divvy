@@ -212,7 +212,7 @@ def test_virtual_member_not_in_active_members():
     
     # Virtual member should not appear
     member_names = [m["name"] for m in active_members]
-    assert database.VIRTUAL_MEMBER_INTERNAL_NAME not in member_names
+    assert database.PUBLIC_FUND_MEMBER_INTERNAL_NAME not in member_names
     assert "Alice" in member_names
 
 
@@ -226,13 +226,13 @@ def test_virtual_member_not_in_all_members():
     
     # Virtual member should not appear
     member_names = [m["name"] for m in all_members]
-    assert database.VIRTUAL_MEMBER_INTERNAL_NAME not in member_names
+    assert database.PUBLIC_FUND_MEMBER_INTERNAL_NAME not in member_names
     assert "Alice" in member_names
 
 
 def test_is_virtual_member():
     """Test is_virtual_member function."""
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     regular_member_id = database.add_member("Alice")
     regular_member_dict = database.get_member_by_id(regular_member_id)
     
@@ -243,7 +243,7 @@ def test_is_virtual_member():
 
 def test_get_member_display_name():
     """Test get_member_display_name function."""
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     regular_member_id = database.add_member("Alice")
     regular_member_dict = database.get_member_by_id(regular_member_id)
     

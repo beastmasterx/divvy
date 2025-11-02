@@ -246,7 +246,7 @@ def test_record_shared_expense():
 
     # Record shared expense (rent) - no individual payer
     result = logic.record_expense(
-        "Rent", "3000.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+        "Rent", "3000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
     )
     assert "3000.00 recorded successfully" in result
 
@@ -257,7 +257,7 @@ def test_record_shared_expense():
         assert tx.amount == 300000  # 3000.00 in cents
         
         payer = database.get_member_by_id(tx.payer_id)
-        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+        assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
 
 
 def test_shared_expense_balance_calculation():
@@ -272,7 +272,7 @@ def test_shared_expense_balance_calculation():
 
     # Shared expense: Rent 3000.00 (no one pays, everyone owes their share)
     logic.record_expense(
-        "Rent", "3000.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+        "Rent", "3000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
     )
 
     # Expected balances:
@@ -297,7 +297,7 @@ def test_mixed_shared_and_individual_expenses():
 
     # Shared expense: Rent 1000.00 (split equally, no credit)
     logic.record_expense(
-        "Rent", "1000.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+        "Rent", "1000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
     )
 
     # Individual expense: Groceries 60.00, Alice pays
@@ -382,7 +382,7 @@ def test_public_fund_deposit():
     
     # Deposit to public fund
     result = logic.record_deposit(
-        "Public fund contribution", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME
+        "Public fund contribution", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
     )
     assert "100.00" in result
     
@@ -392,21 +392,21 @@ def test_public_fund_deposit():
         assert tx is not None
         assert tx.amount == 10000  # 100.00 in cents
         payer = database.get_member_by_id(tx.payer_id)
-        assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
+        assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
 
 
 def test_shared_expense_with_sufficient_public_fund():
     """Test shared expense when public fund has sufficient balance."""
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Deposit 100 to public fund
     database.add_transaction("deposit", 10000, "Public fund", virtual_member["id"])
     
     # Shared expense: 50 (fully covered by public fund)
     logic.record_expense(
-        "Utilities", "50.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
+        "Utilities", "50.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
     )
     
     # Expected: Fund covers all, members owe nothing
@@ -419,14 +419,14 @@ def test_shared_expense_with_insufficient_public_fund():
     """Test shared expense when public fund is insufficient."""
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Deposit 30 to public fund
     database.add_transaction("deposit", 3000, "Public fund", virtual_member["id"])
     
     # Shared expense: 100 (fund has 30, remainder 70 split between 2 members)
     logic.record_expense(
-        "Rent", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+        "Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
     )
     
     # Expected balances:
@@ -447,7 +447,7 @@ def test_public_fund_cannot_go_negative():
     
     # Shared expense: 100 (fund is 0, all split between members)
     logic.record_expense(
-        "Rent", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+        "Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
     )
     
     # Expected: Fund stays at 0 (not -100), all 100 split between members
@@ -460,7 +460,7 @@ def test_public_fund_accumulation():
     """Test that public fund accumulates over multiple deposits."""
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Multiple deposits to public fund: 10 + 20 + 5 = 35.00
     database.add_transaction("deposit", 1000, "Fund deposit 1", virtual_member["id"])
@@ -469,7 +469,7 @@ def test_public_fund_accumulation():
     
     # Shared expense: 20.00 (fund has 35.00, covers fully)
     logic.record_expense(
-        "Utilities", "20.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
+        "Utilities", "20.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
     )
     
     # Fund should have 15.00 remaining (35.00 - 20.00), members owe nothing
@@ -479,7 +479,7 @@ def test_public_fund_accumulation():
     
     # Another shared expense: 10.00 (fund has 15.00, covers fully)
     logic.record_expense(
-        "Maintenance", "10.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Other"
+        "Maintenance", "10.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Other"
     )
     
     # Fund should have 5.00 remaining (15.00 - 10.00), members still owe nothing
@@ -492,7 +492,7 @@ def test_public_fund_mixed_scenario():
     """Test public fund with deposits, expenses, and individual transactions."""
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     alice = database.get_member_by_name("Alice")
     
     # Alice deposits 200
@@ -503,7 +503,7 @@ def test_public_fund_mixed_scenario():
     
     # Shared expense: 100 (fund has 50, covers 50, remainder 50 split)
     logic.record_expense(
-        "Rent", "100.00", database.VIRTUAL_MEMBER_INTERNAL_NAME, "Rent"
+        "Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
     )
     
     # Individual expense: 60, Alice pays
@@ -560,7 +560,7 @@ def test_settlement_no_duplicate_public_fund():
     """Test that settlement doesn't create duplicate public fund transactions."""
     logic.add_new_member("Alice")
     logic.add_new_member("Bob")
-    virtual_member = database.get_member_by_name(database.VIRTUAL_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     current_period = database.get_current_period()
     period_id = current_period["id"]
