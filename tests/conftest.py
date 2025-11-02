@@ -2,14 +2,29 @@
 Pytest configuration and shared fixtures for database tests.
 Provides SQLAlchemy-based test database setup.
 """
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.divvy.config import load_env_files
 from src.divvy.database import Base, Member, Period, Category, PUBLIC_FUND_MEMBER_INTERNAL_NAME
 from src.divvy.database.connection import reset_engine
+
+# Load .env files before tests run
+# This ensures DIVVY_LANG and other config from .env files are available during tests
+_load_env_called = False
+
+def pytest_configure(config):
+    """Pytest hook called at test session start."""
+    global _load_env_called
+    if not _load_env_called:
+        # Load .env files from project root
+        project_root = Path(__file__).parent.parent
+        load_env_files(project_root=project_root, verbose=False)
+        _load_env_called = True
 
 
 @pytest.fixture(scope="function")
