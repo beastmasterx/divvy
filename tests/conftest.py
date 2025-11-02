@@ -70,7 +70,7 @@ def mock_database_engine(test_db_engine):
     This fixture runs automatically for all tests.
     """
     from sqlalchemy.orm import sessionmaker
-    from src.divvy.database.session import SessionLocal
+    from src.divvy.database.session import _get_session_factory
     
     # Reset any existing engine
     reset_engine()
@@ -82,8 +82,11 @@ def mock_database_engine(test_db_engine):
     with patch("src.divvy.database.connection.get_engine", return_value=test_db_engine):
         with patch("src.divvy.database.session.get_engine", return_value=test_db_engine):
             with patch("src.divvy.database.get_engine", return_value=test_db_engine):
-                # Also patch SessionLocal to use our test session factory
-                with patch("src.divvy.database.session.SessionLocal", TestSessionLocal):
+                # Patch _get_session_factory to return our test session factory
+                with patch("src.divvy.database.session._get_session_factory", return_value=TestSessionLocal):
+                    # Reset the module-level _SessionLocal to force reinitialization
+                    import src.divvy.database.session as session_module
+                    session_module._SessionLocal = None
                     yield
     
     # Reset after test

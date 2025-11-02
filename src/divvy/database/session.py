@@ -8,8 +8,23 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .connection import get_engine
 
-# Create session factory
-SessionLocal = sessionmaker(bind=get_engine(), autocommit=False, autoflush=False)
+# Lazy session factory - only creates engine when first used
+# This allows .env files to be loaded before engine creation
+_SessionLocal = None
+
+
+def _get_session_factory():
+    """Get or create the session factory (lazy initialization)."""
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(bind=get_engine(), autocommit=False, autoflush=False)
+    return _SessionLocal
+
+
+# For backwards compatibility, expose SessionLocal as a callable
+def SessionLocal():
+    """Create a new session using the lazy-initialized factory."""
+    return _get_session_factory()()
 
 
 @contextmanager
@@ -23,7 +38,7 @@ def get_session():
             # Session commits automatically on success
             # Rolls back on exception
     """
-    session = SessionLocal()
+    session = _get_session_factory()()
     try:
         yield session
         session.commit()
@@ -44,5 +59,5 @@ def create_session() -> Session:
     Returns:
         SQLAlchemy Session instance
     """
-    return SessionLocal()
+    return _get_session_factory()()
 
