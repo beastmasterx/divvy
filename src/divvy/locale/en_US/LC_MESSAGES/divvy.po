@@ -391,6 +391,12 @@ msgstr "Period '{}' has been settled.\nNew period '{}' created."
 msgid "  No settlement transactions needed (all balances already zero)."
 msgstr "  No settlement transactions needed (all balances already zero)."
 
+msgid "No settlement transactions needed (all balances already zero)."
+msgstr "No settlement transactions needed (all balances already zero)."
+
+msgid "\nNo settlement transactions needed (all balances already zero).\n"
+msgstr "\nNo settlement transactions needed (all balances already zero).\n"
+
 # Category translations
 msgid "Utilities (Water & Electricity & Gas)"
 msgstr "Utilities (Water & Electricity & Gas)"

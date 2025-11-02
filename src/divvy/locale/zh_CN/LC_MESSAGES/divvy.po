@@ -391,6 +391,12 @@ msgstr "账期 '{}' 已结算。\n新账期 '{}' 已创建。"
 msgid "  No settlement transactions needed (all balances already zero)."
 msgstr "  无需结算交易（所有余额已为零）。"
 
+msgid "No settlement transactions needed (all balances already zero)."
+msgstr "无需结算交易（所有余额已为零）。"
+
+msgid "\nNo settlement transactions needed (all balances already zero).\n"
+msgstr "\n无需结算交易（所有余额已为零）。\n"
+
 # Category translations
 msgid "Utilities (Water & Electricity & Gas)"
 msgstr "水电燃气费"
