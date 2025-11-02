@@ -8,3 +8,6 @@ dependencies:
   - pytest-cov>=4.0.0
   - ruff>=0.0.137
   - sqlalchemy>=2.0.0
+  - pip
+  - pip:
+    - python-dotenv>=1.0.0

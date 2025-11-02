@@ -1,3 +1,13 @@
+import os
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    # dotenv is optional - provide a no-op function if not installed
+    def load_dotenv(*args, **kwargs):
+        pass
+
 from . import database, logic
 from .i18n import _, set_language, translate_category, translate_transaction_type
 
@@ -593,6 +603,18 @@ def show_menu():
 
 def main():
     """The main function and entry point for the CLI application."""
+    # Load environment variables from .env file if it exists
+    # Look for .env in project root (up to 3 levels up from src/divvy/cli.py)
+    project_root = Path(__file__).parent.parent.parent
+    env_file = project_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=False)  # Don't override existing env vars
+    
+    # Also try loading from current working directory
+    cwd_env = Path.cwd() / ".env"
+    if cwd_env.exists() and cwd_env != env_file:
+        load_dotenv(cwd_env, override=False)
+    
     # Ensure the database is initialized before starting
     database.initialize_database()
     

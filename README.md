@@ -103,11 +103,57 @@ After activating your environment, start the application:
 ./divvy
 ```
 
-### Language Selection
+### Configuration
+
+Divvy supports configuration through environment variables, which can be set either directly in your shell or via a `.env` file.
+
+#### Using `.env` File (Recommended)
+
+Create a `.env` file in the project root directory or your current working directory:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env with your settings
+nano .env  # or use your preferred editor
+```
+
+Example `.env` file:
+
+```bash
+# Database Configuration
+DIVVY_DATABASE_URL=postgresql://user:password@localhost:5432/divvy
+
+# Language/Internationalization
+DIVVY_LANG=en_US
+```
+
+**Note:** The `.env` file is automatically loaded when the CLI starts. Values from the `.env` file will be used unless the same environment variables are already set in your shell (shell environment variables take precedence).
+
+#### Using Environment Variables Directly
+
+You can also set environment variables directly in your shell:
+
+**Database Configuration:**
+
+```bash
+# SQLite (default)
+export DIVVY_DATABASE_URL=sqlite:///data/expenses.db
+
+# PostgreSQL
+export DIVVY_DATABASE_URL=postgresql://user:password@localhost:5432/divvy
+
+# MySQL
+export DIVVY_DATABASE_URL=mysql://user:password@localhost:3306/divvy
+
+# MSSQL
+export DIVVY_DATABASE_URL=mssql+pyodbc://user:password@localhost:1433/divvy?driver=ODBC+Driver+17+for+SQL+Server
+```
+
+**Language Selection:**
 
 Divvy supports multiple languages (English and Chinese). The language is automatically detected from your environment, or you can set it explicitly:
-
-**Using Environment Variable:**
 
 ```bash
 # Set to Chinese (Simplified)
