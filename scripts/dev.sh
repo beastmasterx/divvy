@@ -27,8 +27,9 @@ if command -v conda &>/dev/null && [ -n "$ENV_NAME" ]; then
     fi
 fi
 
-# Set development environment and run CLI
+# Set development environment and logging
 export DIVVY_ENV=dev
+export DIVVY_LOG_LEVEL=INFO
 cd "$PROJECT_ROOT"
 PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli "$@"
 

@@ -23,7 +23,7 @@ def pytest_configure(config):
     if not _load_env_called:
         # Load .env files from project root
         project_root = Path(__file__).parent.parent
-        load_env_files(project_root=project_root, verbose=True)
+        load_env_files(project_root=project_root)
         _load_env_called = True
 
 

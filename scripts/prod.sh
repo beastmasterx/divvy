@@ -27,8 +27,9 @@ if command -v conda &>/dev/null && [ -n "$ENV_NAME" ]; then
     fi
 fi
 
-# Set production environment and run CLI
+# Set production environment and logging (quiet)
 export DIVVY_ENV=production
+export LOG_LEVEL=WARNING
 cd "$PROJECT_ROOT"
 PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli "$@"
 

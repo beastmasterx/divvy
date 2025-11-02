@@ -28,6 +28,7 @@ if command -v conda &>/dev/null && [ -n "$ENV_NAME" ]; then
 fi
 
 # Unset DIVVY_ENV to ensure base .env is used
+# Logging level can be set in .env file (defaults to WARNING)
 unset DIVVY_ENV
 cd "$PROJECT_ROOT"
 PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli "$@"

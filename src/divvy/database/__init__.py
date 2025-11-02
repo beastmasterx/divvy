@@ -3,10 +3,14 @@ Database module for Divvy application.
 Refactored to use SQLAlchemy ORM while maintaining backwards compatibility.
 Supports SQLite, PostgreSQL, MySQL, and MSSQL via environment variable DIVVY_DATABASE_URL.
 """
+import logging
 import os
 from datetime import datetime, UTC
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 # Import ORM components from submodules
 from .connection import (
@@ -63,7 +67,7 @@ def initialize_database():
                 session.add(Category(name=cat_name))
         session.commit()
     
-    print("Database initialized successfully.")
+    logger.info("Database initialized successfully.")
     # Ensure current period exists after initialization
     initialize_first_period_if_needed()
     # Ensure virtual member exists

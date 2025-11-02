@@ -596,7 +596,8 @@ def main():
     """The main function and entry point for the CLI application."""
     # Load environment variables from .env files
     # Supports environment-specific files like .env.dev, .env.production, etc.
-    load_env_files(verbose=True)
+    # Logging is configured automatically based on LOG_LEVEL and DIVVY_LOG_LEVEL
+    load_env_files()
     
     # Ensure the database is initialized before starting
     database.initialize_database()

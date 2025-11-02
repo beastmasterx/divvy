@@ -164,6 +164,10 @@ DIVVY_DATABASE_URL=postgresql://user:password@localhost:5432/divvy
 
 # Language/Internationalization
 DIVVY_LANG=en_US
+
+# Logging Configuration
+LOG_LEVEL=WARNING          # Controls all Python logging (default: WARNING)
+DIVVY_LOG_LEVEL=INFO      # Controls only Divvy logging (inherits LOG_LEVEL if not set)
 ```
 
 **Note:** The `.env` file is automatically loaded when the CLI starts. Values from the `.env` file will be used unless the same environment variables are already set in your shell (shell environment variables take precedence).
@@ -257,6 +261,39 @@ The application checks language settings in this order:
 2. `LANG` environment variable (system default)
 3. System locale settings
 4. Falls back to English (`en_US`) if no match is found
+
+**Logging Configuration:**
+
+Divvy uses Python's standard logging system with two levels of control:
+
+- **`LOG_LEVEL`**: Controls root Python logging (affects all libraries including third-party). 
+  - Default: `WARNING`
+  - Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+
+- **`DIVVY_LOG_LEVEL`**: Controls only Divvy application logging (inherits `LOG_LEVEL` if not set).
+  - If not set, inherits from `LOG_LEVEL`
+  - Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+
+**Examples:**
+
+```bash
+# Development: Verbose Divvy logging, quiet third-party libraries
+LOG_LEVEL=WARNING
+DIVVY_LOG_LEVEL=DEBUG
+
+# Debug everything (including SQLAlchemy queries)
+LOG_LEVEL=DEBUG
+
+# Production: Quiet everything
+LOG_LEVEL=WARNING
+# DIVVY_LOG_LEVEL not set, inherits WARNING
+
+# Show info for Divvy, but suppress third-party debug messages
+LOG_LEVEL=WARNING
+DIVVY_LOG_LEVEL=INFO
+```
+
+**Note:** Third-party loggers (SQLAlchemy, database drivers) are automatically silenced to `WARNING` level to reduce noise, even when `LOG_LEVEL` is set to `DEBUG` or `INFO`.
 
 **Compiling Translations:**
 
