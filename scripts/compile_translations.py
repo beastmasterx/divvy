@@ -2,14 +2,25 @@
 """
 Script to compile gettext translation files (.po) to binary (.mo) format.
 Run this script after updating translation files.
+
+Usage:
+    python scripts/compile_translations.py
+
+    Or from the project root:
+    python -m scripts.compile_translations
+
+The script will:
+    1. Look for .po files in src/divvy/locale/*/LC_MESSAGES/
+    2. Compile them to .mo files using msgfmt (if available)
+    3. Fall back to Python's gettext module if msgfmt is not installed
 """
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-# Get the project root directory
-PROJECT_ROOT = Path(__file__).parent
+# Get the project root directory (go up one level from scripts/)
+PROJECT_ROOT = Path(__file__).parent.parent
 LOCALE_DIR = PROJECT_ROOT / "src" / "divvy" / "locale"
 
 def compile_translations():

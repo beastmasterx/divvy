@@ -300,7 +300,7 @@ DIVVY_LOG_LEVEL=INFO
 If you modify translation files (`.po` files), compile them to binary format (`.mo`) using:
 
 ```bash
-python compile_translations.py
+python scripts/compile_translations.py
 ```
 
 Or manually using `msgfmt`:
@@ -430,8 +430,8 @@ divvy/
 │   ├── test.sh              # Test environment script
 │   ├── prod.sh              # Production environment script
 │   ├── run.sh               # Default run script
-│   └── test-all.sh          # Run all tests with coverage
-├── compile_translations.py  # Script to compile translation files
+│   ├── test-all.sh          # Run all tests with coverage
+│   └── compile_translations.py  # Script to compile translation files
 ├── LICENSE                  # Apache License 2.0
 └── README.md                # This file
 ```
