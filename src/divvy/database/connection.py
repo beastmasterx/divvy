@@ -3,12 +3,91 @@ Database connection factory supporting multiple database backends.
 Supports SQLite, PostgreSQL, MySQL, and MSSQL.
 """
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import URL, make_url
+from sqlalchemy.exc import OperationalError
 
 # Determine the absolute path to the project root and the database file
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 DB_FILE = os.path.join(PROJECT_ROOT, "data", "expenses.db")
+
+
+def ensure_database_exists(database_url: str) -> None:
+    """
+    Ensure the database exists before connecting to it.
+    Creates the database if it doesn't exist (for PostgreSQL, MySQL, MSSQL).
+    SQLite databases are created automatically, so this is a no-op for SQLite.
+    
+    Args:
+        database_url: Full database connection URL (string or URL object)
+    """
+    # Parse URL using SQLAlchemy's URL builder
+    url = make_url(database_url)
+    
+    # SQLite databases are created automatically
+    if url.drivername and "sqlite" in url.drivername.lower():
+        return
+    
+    # No database name specified
+    if not url.database:
+        return
+    
+    database_name = url.database
+    
+    # Build admin connection URL using SQLAlchemy's URL builder
+    # Connect to system/admin database to create the target database
+    admin_url: URL | None = None
+    
+    if "mysql" in (url.drivername or "").lower():
+        # For MySQL, connect to 'mysql' system database
+        admin_url = url.set(database="mysql")
+    elif "postgresql" in (url.drivername or "").lower():
+        # For PostgreSQL, connect to 'postgres' system database
+        admin_url = url.set(database="postgres")
+    elif "mssql" in (url.drivername or "").lower():
+        # For MSSQL, connect without database (uses default)
+        admin_url = url.set(database=None)
+    else:
+        # Unknown database type, skip
+        return
+    
+    if not admin_url:
+        return
+    
+    try:
+        # Connect to admin database and create target database if it doesn't exist
+        if "postgresql" in (url.drivername or "").lower():
+            # PostgreSQL: Need autocommit mode for CREATE DATABASE
+            admin_engine = create_engine(admin_url, echo=False, isolation_level="AUTOCOMMIT")
+        else:
+            admin_engine = create_engine(admin_url, echo=False)
+        
+        with admin_engine.connect() as conn:
+            if "mysql" in (url.drivername or "").lower():
+                # MySQL: CREATE DATABASE IF NOT EXISTS
+                conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{database_name}`"))
+                conn.commit()
+            elif "postgresql" in (url.drivername or "").lower():
+                # PostgreSQL: Check if exists first, then create
+                result = conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :dbname"),
+                    {"dbname": database_name}
+                )
+                if not result.fetchone():
+                    conn.execute(text(f'CREATE DATABASE "{database_name}"'))
+            elif "mssql" in (url.drivername or "").lower():
+                # MSSQL: CREATE DATABASE IF NOT EXISTS
+                conn.execute(text(f"IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{database_name}') CREATE DATABASE [{database_name}]"))
+                conn.commit()
+        admin_engine.dispose()
+    except OperationalError:
+        # Database already exists or insufficient permissions - continue anyway
+        # The actual connection will fail later if there's a real problem
+        pass
+    except Exception:
+        # Any other error - continue anyway, connection attempt will show proper error
+        pass
 
 
 def get_database_url() -> str:
@@ -27,6 +106,8 @@ def get_database_url() -> str:
     database_url = os.getenv("DIVVY_DATABASE_URL")
     
     if database_url:
+        # Ensure database exists before returning URL
+        ensure_database_exists(database_url)
         return database_url
     
     # Default to SQLite
