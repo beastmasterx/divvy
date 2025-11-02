@@ -242,12 +242,22 @@ def _display_view_period(period_id: int | None = None) -> None:
     print("\n" + "=" * 60)
     print(_("                 {}").format(period["name"]))
     print("=" * 60)
-    # Extract date only from start_date (remove time portion)
-    start_date_only = period["start_date"].split()[0] if " " in period["start_date"] else period["start_date"]
+    # Extract date only from start_date (handle both datetime objects and strings)
+    start_date = period["start_date"]
+    if hasattr(start_date, "strftime"):
+        # datetime object
+        start_date_only = start_date.strftime("%Y-%m-%d")
+    else:
+        # string (backwards compatibility)
+        start_date_only = start_date.split()[0] if " " in str(start_date) else str(start_date)
     
     if period["is_settled"] and period.get("settled_date"):
         # Settled period: show settlement date
-        settled_date_only = period["settled_date"].split()[0] if " " in period["settled_date"] else period["settled_date"]
+        settled_date = period["settled_date"]
+        if hasattr(settled_date, "strftime"):
+            settled_date_only = settled_date.strftime("%Y-%m-%d")
+        else:
+            settled_date_only = settled_date.split()[0] if " " in str(settled_date) else str(settled_date)
         print(
             _("Started: {} | Settled: {}").format(
                 start_date_only, settled_date_only
@@ -255,7 +265,11 @@ def _display_view_period(period_id: int | None = None) -> None:
         )
     elif period["is_settled"] and period.get("end_date"):
         # Fallback to end_date if settled_date is not available
-        end_date_only = period["end_date"].split()[0] if " " in period["end_date"] else period["end_date"]
+        end_date = period["end_date"]
+        if hasattr(end_date, "strftime"):
+            end_date_only = end_date.strftime("%Y-%m-%d")
+        else:
+            end_date_only = end_date.split()[0] if " " in str(end_date) else str(end_date)
         print(
             _("Started: {} | Settled: {}").format(
                 start_date_only, end_date_only
@@ -290,8 +304,13 @@ def _display_view_period(period_id: int | None = None) -> None:
             # For deposits/refunds, leave category blank (not "Uncategorized")
 
             # SQLite column names: check for TIMESTAMP (as defined in schema) or lowercase variant
-            timestamp_str = tx.get("TIMESTAMP", tx.get("timestamp", ""))
-            date_only = timestamp_str.split()[0] if " " in timestamp_str else timestamp_str
+            timestamp = tx.get("TIMESTAMP", tx.get("timestamp", ""))
+            # Handle both datetime objects and strings
+            if hasattr(timestamp, "strftime"):
+                date_only = timestamp.strftime("%Y-%m-%d")
+            else:
+                timestamp_str = str(timestamp)
+                date_only = timestamp_str.split()[0] if " " in timestamp_str else timestamp_str
 
             tx_type = translate_transaction_type(tx["transaction_type"])
             amount_cents = tx["amount"]
@@ -464,8 +483,14 @@ def select_period() -> dict | None:
     # Create display strings for periods
     periods_for_display = []
     for period in all_periods:
-        # Extract date only from start_date (remove time portion)
-        start_date_only = period["start_date"].split()[0] if " " in period["start_date"] else period["start_date"]
+        # Extract date only from start_date (handle both datetime objects and strings)
+        start_date = period["start_date"]
+        if hasattr(start_date, "strftime"):
+            # datetime object
+            start_date_only = start_date.strftime("%Y-%m-%d")
+        else:
+            # string (backwards compatibility)
+            start_date_only = start_date.split()[0] if " " in str(start_date) else str(start_date)
         status = _("Active") if not period["is_settled"] else _("Settled")
         
         # Mark the current active period

@@ -1,67 +1,11 @@
 import contextlib
-import os
-import sqlite3
 from unittest.mock import patch
 
 import pytest
 
 from src.divvy import cli, database
-
-# Path to the schema file
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-SCHEMA_FILE = os.path.join(PROJECT_ROOT, "src", "divvy", "schema.sql")
-
-
-class DatabaseConnection:
-    """Context manager wrapper for database connection."""
-
-    def __init__(self, conn):
-        self.conn = conn
-
-    def __enter__(self):
-        return self.conn
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-
-@pytest.fixture
-def db_connection():
-    """Fixture for a temporary, in-memory SQLite database connection."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-
-    with open(SCHEMA_FILE) as f:
-        schema_sql = f.read()
-    conn.executescript(schema_sql)
-    conn.commit()
-
-    # Ensure there's an initial period - create it directly since we're using in-memory DB
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
-        ("Initial Period",),
-    )
-    # Ensure virtual member exists for shared expenses
-    cursor.execute(
-        "INSERT OR IGNORE INTO members (name, is_active) VALUES (?, 0)",
-        (database.VIRTUAL_MEMBER_INTERNAL_NAME,),
-    )
-    conn.commit()
-
-    yield conn
-    conn.close()
-
-
-@pytest.fixture(autouse=True)
-def mock_get_db_connection(db_connection):
-    """Mock database.get_db_connection to use the in-memory test database."""
-
-    def get_connection():
-        return DatabaseConnection(db_connection)
-
-    with patch("src.divvy.database.get_db_connection", side_effect=get_connection):
-        yield
+from src.divvy.database import Transaction
+from src.divvy.database.session import get_session
 
 
 @pytest.fixture
@@ -115,12 +59,10 @@ def test_menu_choice_record_expense(setup_members, capsys):
         cli.main()
 
     # Verify transaction was created
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE description = 'Test expense'")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(description="Test expense").first()
         assert tx is not None
-        assert tx["amount"] == 1000
+        assert tx.amount == 1000
 
 
 def test_menu_choice_record_deposit(setup_members, capsys):
@@ -140,17 +82,17 @@ def test_menu_choice_record_deposit(setup_members, capsys):
         cli.main()
 
     # Verify deposit transaction was created
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM transactions WHERE transaction_type = 'deposit' AND description = 'Monthly deposit'"
+    with get_session() as session:
+        tx = (
+            session.query(Transaction)
+            .filter_by(transaction_type="deposit", description="Monthly deposit")
+            .first()
         )
-        tx = cursor.fetchone()
         assert tx is not None
-        assert tx["amount"] == 5000
+        assert tx.amount == 5000
 
 
-def test_menu_choice_view_period_summary(setup_members, capsys):
+def test_menu_choice_view_period(setup_members, capsys):
     """Test menu option 4: View period summary with period selection."""
     # Add some transactions first
     alice = database.get_member_by_name("Alice")
@@ -172,6 +114,8 @@ def test_menu_choice_view_period_summary(setup_members, capsys):
     # Should show period selection menu and then period details
     assert ("Select Period" in captured.out or "选择" in captured.out or 
             "Initial Period" in captured.out or 
+            "Started:" in captured.out or
+            "开始日期：" in captured.out or
             "No active period found" in captured.out or
             "No periods available" in captured.out)
 
@@ -199,30 +143,6 @@ def test_menu_choice_settle_period(setup_members, capsys):
     periods = database.get_all_periods()
     settled_periods = [p for p in periods if p["is_settled"] == 1]
     assert len(settled_periods) > 0
-
-
-def test_menu_choice_show_system_status(setup_members, capsys):
-    """Test menu option 4: View Period with period selection."""
-    inputs = [
-        "4",  # View Period
-        "1",  # Select first period (default/current)
-        "8",  # Exit
-    ]
-
-    with (
-        patch("builtins.input", side_effect=inputs),
-        contextlib.suppress(SystemExit, KeyboardInterrupt),
-    ):
-        cli.main()
-
-    captured = capsys.readouterr()
-    # Should show period selection or period details
-    assert ("Select Period" in captured.out or "选择" in captured.out or
-            "Initial Period" in captured.out or
-            "Started:" in captured.out or
-            "开始日期：" in captured.out or
-            "No active period found" in captured.out or
-            "No periods available" in captured.out)
 
 
 def test_menu_choice_exit(capsys):
@@ -316,57 +236,14 @@ def test_record_expense_with_empty_description(setup_members):
         cli.main()
 
     # Verify transaction has None description
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions ORDER BY id DESC LIMIT 1")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = (
+            session.query(Transaction)
+            .order_by(Transaction.id.desc())
+            .first()
+        )
         assert tx is not None
-        assert tx["description"] is None or tx["description"] == ""
-
-
-def test_display_period_summary(setup_members, capsys):
-    """Test _display_view_period function via menu option."""
-    alice = database.get_member_by_name("Alice")
-    database.add_transaction("deposit", 10000, "Test deposit", alice["id"])
-
-    # Test via menu option which calls select_period then _display_view_period
-    inputs = ["4", "1", "8"]  # View period, select first period, then exit
-
-    with (
-        patch("builtins.input", side_effect=inputs),
-        contextlib.suppress(SystemExit, KeyboardInterrupt),
-    ):
-        cli.main()
-
-    captured = capsys.readouterr()
-    # Either shows period summary or "No active period found"
-    assert len(captured.out) > 0
-    # Should show period details like "Started:" or "开始日期："
-    assert ("Started:" in captured.out or "开始日期：" in captured.out or
-            "No active period found" in captured.out)
-
-
-def test_display_system_status(setup_members, capsys):
-    """Test _display_view_period function via menu option."""
-    # Test via menu option which calls select_period then _display_view_period
-    inputs = ["4", "1", "8"]  # View Period, select first period, then exit
-
-    with (
-        patch("builtins.input", side_effect=inputs),
-        contextlib.suppress(SystemExit, KeyboardInterrupt),
-    ):
-        cli.main()
-
-    captured = capsys.readouterr()
-    # Should show period details or selection menu
-    assert (
-        "Started:" in captured.out
-        or "开始日期：" in captured.out
-        or "Select Period" in captured.out
-        or "选择" in captured.out
-        or "No active period found" in captured.out
-        or len(captured.out) > 0
-    )
+        assert tx.description is None or tx.description == ""
 
 
 def test_menu_choice_record_shared_expense(setup_members, capsys):
@@ -387,15 +264,13 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         cli.main()
 
     # Verify transaction was created with virtual member as payer
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE description = 'Rent payment'")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(description="Rent payment").first()
         assert tx is not None
-        assert tx["amount"] == 300000  # 3000.00 in cents
+        assert tx.amount == 300000  # 3000.00 in cents
         
         # Verify payer is virtual member
-        payer = database.get_member_by_id(tx["payer_id"])
+        payer = database.get_member_by_id(tx.payer_id)
         assert payer is not None
         assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
 
@@ -421,15 +296,13 @@ def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
         cli.main()
 
     # Verify transaction was created with virtual member as payer
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE description = 'Public fund'")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(description="Public fund").first()
         assert tx is not None
-        assert tx["amount"] == 10000  # 100.00 in cents
-        assert tx["transaction_type"] == "deposit"
+        assert tx.amount == 10000  # 100.00 in cents
+        assert tx.transaction_type == "deposit"
         
         # Verify payer is virtual member
-        payer = database.get_member_by_id(tx["payer_id"])
+        payer = database.get_member_by_id(tx.payer_id)
         assert payer is not None
         assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME

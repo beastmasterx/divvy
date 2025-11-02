@@ -7,3 +7,4 @@ dependencies:
   - pytest>=7.0.0
   - pytest-cov>=4.0.0
   - ruff>=0.0.137
+  - sqlalchemy>=2.0.0

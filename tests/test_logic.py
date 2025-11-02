@@ -1,67 +1,8 @@
-import os
-import sqlite3
-from unittest.mock import patch
-
 import pytest
 
 from src.divvy import database, logic
-
-# Path to the schema file
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-SCHEMA_FILE = os.path.join(PROJECT_ROOT, "src", "divvy", "schema.sql")
-
-
-class DatabaseConnection:
-    """Context manager wrapper for database connection."""
-
-    def __init__(self, conn):
-        self.conn = conn
-
-    def __enter__(self):
-        return self.conn
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # Don't close in tests - fixture handles it
-        pass
-
-
-@pytest.fixture
-def db_connection():
-    """Fixture for a temporary, in-memory SQLite database connection."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-
-    with open(SCHEMA_FILE) as f:
-        schema_sql = f.read()
-    conn.executescript(schema_sql)
-    conn.commit()
-
-    # Ensure there's an initial period - create it directly since we're using in-memory DB
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
-        ("Initial Period",),
-    )
-    # Ensure virtual member exists for shared expenses
-    cursor.execute(
-        "INSERT OR IGNORE INTO members (name, is_active) VALUES (?, 0)",
-        (database.VIRTUAL_MEMBER_INTERNAL_NAME,),
-    )
-    conn.commit()
-
-    yield conn
-    conn.close()
-
-
-@pytest.fixture(autouse=True)
-def mock_get_db_connection(db_connection):
-    """Mock database.get_db_connection to use the in-memory test database."""
-
-    def get_connection():
-        return DatabaseConnection(db_connection)
-
-    with patch("src.divvy.database.get_db_connection", side_effect=get_connection):
-        yield
+from src.divvy.database import Transaction
+from src.divvy.database.session import get_session
 
 
 def test_add_new_member():
@@ -76,12 +17,13 @@ def test_add_new_member():
     assert member["paid_remainder_in_cycle"] == 0
 
     # Check no transactions recorded (except default categories and periods)
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) FROM transactions WHERE transaction_type IN ('deposit', 'expense')"
+    with get_session() as session:
+        count = (
+            session.query(Transaction)
+            .filter(Transaction.transaction_type.in_(["deposit", "expense"]))
+            .count()
         )
-        assert cursor.fetchone()[0] == 0
+        assert count == 0
 
 
 def test_record_expense_no_remainder():
@@ -97,15 +39,13 @@ def test_record_expense_no_remainder():
     )
 
     # Verify transaction recorded
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE description = 'Dinner'")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(description="Dinner").first()
         assert tx is not None
-        assert tx["amount"] == 3000
-        assert tx["payer_id"] == database.get_member_by_name("Alice")["id"]
-        assert tx["category_id"] == database.get_category_by_name("Other")["id"]
-        assert tx["period_id"] is not None  # Should be assigned to a period
+        assert tx.amount == 3000
+        assert tx.payer_id == database.get_member_by_name("Alice")["id"]
+        assert tx.category_id == database.get_category_by_name("Other")["id"]
+        assert tx.period_id is not None  # Should be assigned to a period
 
     # Verify remainder status (should all be False as no remainder was assigned)
     members = database.get_active_members()
@@ -228,15 +168,16 @@ def test_record_expense_with_null_description():
     assert "Expense of 10.00 recorded successfully" in result
 
     # Verify transaction recorded with NULL description
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM transactions WHERE payer_id = ? ORDER BY id DESC LIMIT 1",
-            (database.get_member_by_name("Alice")["id"],),
+    with get_session() as session:
+        alice_id = database.get_member_by_name("Alice")["id"]
+        tx = (
+            session.query(Transaction)
+            .filter_by(payer_id=alice_id)
+            .order_by(Transaction.id.desc())
+            .first()
         )
-        tx = cursor.fetchone()
         assert tx is not None
-        assert tx["description"] is None
+        assert tx.description is None
 
 
 def test_record_deposit():
@@ -249,17 +190,17 @@ def test_record_deposit():
     assert "Alice" in result
 
     # Verify transaction recorded
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM transactions WHERE transaction_type = 'deposit' AND payer_id = ?",
-            (database.get_member_by_name("Alice")["id"],),
+    with get_session() as session:
+        alice_id = database.get_member_by_name("Alice")["id"]
+        tx = (
+            session.query(Transaction)
+            .filter_by(transaction_type="deposit", payer_id=alice_id)
+            .first()
         )
-        tx = cursor.fetchone()
         assert tx is not None
-        assert tx["amount"] == 5000
-        assert tx["description"] == "Monthly contribution"
-        assert tx["period_id"] is not None
+        assert tx.amount == 5000
+        assert tx.description == "Monthly contribution"
+        assert tx.period_id is not None
 
 
 def test_record_deposit_with_null_description():
@@ -271,14 +212,15 @@ def test_record_deposit_with_null_description():
     assert "25.00" in result
 
     # Verify transaction recorded with NULL description
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM transactions WHERE transaction_type = 'deposit' ORDER BY id DESC LIMIT 1"
+    with get_session() as session:
+        tx = (
+            session.query(Transaction)
+            .filter_by(transaction_type="deposit")
+            .order_by(Transaction.id.desc())
+            .first()
         )
-        tx = cursor.fetchone()
         assert tx is not None
-        assert tx["description"] is None
+        assert tx.description is None
 
 
 def test_get_period_balances():
@@ -309,14 +251,12 @@ def test_record_shared_expense():
     assert "3000.00 recorded successfully" in result
 
     # Verify transaction recorded with virtual member as payer
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE description = 'Rent'")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(description="Rent").first()
         assert tx is not None
-        assert tx["amount"] == 300000  # 3000.00 in cents
+        assert tx.amount == 300000  # 3000.00 in cents
         
-        payer = database.get_member_by_id(tx["payer_id"])
+        payer = database.get_member_by_id(tx.payer_id)
         assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
 
 
@@ -447,13 +387,11 @@ def test_public_fund_deposit():
     assert "100.00" in result
     
     # Verify transaction recorded
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE description = 'Public fund contribution'")
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(description="Public fund contribution").first()
         assert tx is not None
-        assert tx["amount"] == 10000  # 100.00 in cents
-        payer = database.get_member_by_id(tx["payer_id"])
+        assert tx.amount == 10000  # 100.00 in cents
+        payer = database.get_member_by_id(tx.payer_id)
         assert payer["name"] == database.VIRTUAL_MEMBER_INTERNAL_NAME
 
 

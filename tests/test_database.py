@@ -1,67 +1,8 @@
-import os
-import sqlite3
-from unittest.mock import patch
-
 import pytest
 
 from src.divvy import database
-
-# Path to the schema file
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-SCHEMA_FILE = os.path.join(PROJECT_ROOT, "src", "divvy", "schema.sql")
-
-
-class DatabaseConnection:
-    """Context manager wrapper for database connection."""
-
-    def __init__(self, conn):
-        self.conn = conn
-
-    def __enter__(self):
-        return self.conn
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # Don't close in tests - fixture handles it
-        pass
-
-
-@pytest.fixture
-def db_connection():
-    """Fixture for a temporary, in-memory SQLite database connection."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-
-    with open(SCHEMA_FILE) as f:
-        schema_sql = f.read()
-    conn.executescript(schema_sql)
-    conn.commit()
-
-    # Ensure there's an initial period - create it directly since we're using in-memory DB
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO periods (name, start_date, is_settled) VALUES (?, CURRENT_TIMESTAMP, 0)",
-        ("Initial Period",),
-    )
-    # Ensure virtual member exists for shared expenses
-    cursor.execute(
-        "INSERT OR IGNORE INTO members (name, is_active) VALUES (?, 0)",
-        (database.VIRTUAL_MEMBER_INTERNAL_NAME,),
-    )
-    conn.commit()
-
-    yield conn
-    conn.close()
-
-
-@pytest.fixture(autouse=True)
-def mock_get_db_connection(db_connection):
-    """Mock database.get_db_connection to use the in-memory test database."""
-
-    def get_connection():
-        return DatabaseConnection(db_connection)
-
-    with patch("src.divvy.database.get_db_connection", side_effect=get_connection):
-        yield
+from src.divvy.database import Transaction
+from src.divvy.database.session import get_session
 
 
 def test_add_member():
@@ -158,14 +99,12 @@ def test_add_transaction():
     )
     assert tx_id is not None
 
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE id = ?", (tx_id,))
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(id=tx_id).first()
         assert tx is not None
-        assert tx["amount"] == 5000
-        assert tx["description"] == "Test expense"
-        assert tx["period_id"] == period["id"]
+        assert tx.amount == 5000
+        assert tx.description == "Test expense"
+        assert tx.period_id == period["id"]
 
 
 def test_add_transaction_auto_period():
@@ -184,12 +123,10 @@ def test_add_transaction_auto_period():
     )
     assert tx_id is not None
 
-    with database.get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions WHERE id = ?", (tx_id,))
-        tx = cursor.fetchone()
+    with get_session() as session:
+        tx = session.query(Transaction).filter_by(id=tx_id).first()
         assert tx is not None
-        assert tx["period_id"] == current_period["id"]
+        assert tx.period_id == current_period["id"]
 
 
 def test_get_transactions_by_period():

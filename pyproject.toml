@@ -1,3 +1,21 @@
+[project]
+name = "divvy"
+version = "1.0.0"
+description = "Expense splitting CLI with multi-database support"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+
+[project.optional-dependencies]
+postgresql = ["psycopg2-binary>=2.9.0"]
+mysql = ["pymysql>=1.0.0"]
+mssql = ["pyodbc>=4.0.0"]
+all-databases = [
+    "psycopg2-binary>=2.9.0",
+    "pymysql>=1.0.0",
+    "pyodbc>=4.0.0",
+]
+
 [tool.ruff]
 # Line length matches common Python standards
 line-length = 100
@@ -46,4 +64,3 @@ known-first-party = ["divvy"]
 [tool.ruff.lint.per-file-ignores]
 # Allow longer lines in tests
 "tests/*" = ["E501"]
-
