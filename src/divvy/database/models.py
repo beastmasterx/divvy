@@ -15,7 +15,7 @@ class Member(Base):
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String(255), unique=True, nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     paid_remainder_in_cycle = Column(Boolean, default=False, nullable=False)
 
@@ -46,7 +46,7 @@ class Period(Base):
     __tablename__ = "periods"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
+    name = Column(String(255), nullable=False)
     start_date = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
     end_date = Column(DateTime, nullable=True)
     is_settled = Column(Boolean, default=False, nullable=False)
@@ -75,7 +75,7 @@ class Category(Base):
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String(255), unique=True, nullable=False, index=True)
 
     # Relationships
     transactions = relationship("Transaction", back_populates="category")
@@ -96,8 +96,8 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    transaction_type = Column(String, nullable=False)  # 'expense', 'deposit', 'refund'
-    description = Column(String, nullable=True)
+    transaction_type = Column(String(50), nullable=False)  # 'expense', 'deposit', 'refund'
+    description = Column(String(1000), nullable=True)
     amount = Column(Integer, nullable=False)  # Stored in cents
     payer_id = Column(Integer, ForeignKey("members.id"), nullable=True, index=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)
