@@ -131,6 +131,49 @@ DIVVY_LANG=en_US
 
 **Note:** The `.env` file is automatically loaded when the CLI starts. Values from the `.env` file will be used unless the same environment variables are already set in your shell (shell environment variables take precedence).
 
+#### Environment-Specific Configuration
+
+Divvy supports environment-specific `.env` files for different deployment environments:
+
+```bash
+# Set the environment (optional)
+export DIVVY_ENV=production
+# or
+export ENV=production
+# or
+export ENVIRONMENT=production
+
+# Then run the CLI
+./divvy
+```
+
+**Environment File Priority:**
+1. Base `.env` file (loaded first, lower priority)
+2. Environment-specific `.env.{ENV}` file (loaded second, higher priority)
+   - Example: If `DIVVY_ENV=dev`, loads `.env.dev`
+3. Shell environment variables (always highest priority)
+
+**Example Structure:**
+```
+.env              # Base configuration (shared settings)
+.env.dev          # Development environment overrides
+.env.test         # Test environment overrides
+.env.stage        # Staging environment overrides
+.env.production   # Production environment overrides
+```
+
+**Example `.env.dev` file:**
+```bash
+# Development database
+DIVVY_DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/divvy_dev
+```
+
+**Example `.env.production` file:**
+```bash
+# Production database
+DIVVY_DATABASE_URL=postgresql://user:pass@prod-server:5432/divvy_prod
+```
+
 #### Using Environment Variables Directly
 
 You can also set environment variables directly in your shell:
