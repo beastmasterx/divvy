@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Test environment script
+# Sets DIVVY_ENV=test and runs pytest
+
+# Get the absolute path of the project root (one level up from scripts/)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Determine which Python to use
+PYTHON_CMD="python3"
+ENV_NAME=""
+
+# Try to detect environment name from environment.yml
+ENV_YML="$PROJECT_ROOT/environment.yml"
+if [ -f "$ENV_YML" ]; then
+    # Extract the 'name:' value from environment.yml
+    ENV_NAME=$(grep -E "^name:" "$ENV_YML" 2>/dev/null | sed -E 's/^name:[[:space:]]*([^[:space:]#]+).*/\1/' | head -1)
+fi
+
+# Try to use conda environment if available
+if command -v conda &>/dev/null && [ -n "$ENV_NAME" ]; then
+    # Try to find conda base path
+    CONDA_BASE=$(conda info --base 2>/dev/null)
+    if [ -n "$CONDA_BASE" ] && [ -f "$CONDA_BASE/envs/$ENV_NAME/bin/python" ]; then
+        # Use Python from conda environment directly
+        PYTHON_CMD="$CONDA_BASE/envs/$ENV_NAME/bin/python"
+    fi
+fi
+
+# Set test environment and run pytest
+export DIVVY_ENV=test
+cd "$PROJECT_ROOT"
+PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m pytest "$@"
+

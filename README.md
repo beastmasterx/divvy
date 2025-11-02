@@ -89,10 +89,11 @@ Divvy is a Python-based CLI application that simplifies expense tracking and spl
    python -m src.divvy.cli
    ```
 
-   Or use the convenience script:
-
+   Or use the utility scripts (see [Utility Scripts](#utility-scripts) below):
    ```bash
-   ./divvy
+   ./scripts/run.sh      # Default environment (uses base .env)
+   ./scripts/dev.sh      # Development environment
+   ./scripts/prod.sh     # Production environment
    ```
 
 ## Usage
@@ -100,8 +101,44 @@ Divvy is a Python-based CLI application that simplifies expense tracking and spl
 After activating your environment, start the application:
 
 ```bash
-./divvy
+./scripts/run.sh
 ```
+
+Or run directly with Python:
+
+```bash
+python -m src.divvy.cli
+```
+
+### Utility Scripts
+
+Divvy provides utility shell scripts in the `scripts/` directory to simplify running the application in different environments:
+
+- **`./scripts/dev.sh`**: Runs the CLI with `DIVVY_ENV=dev` (loads `.env.dev` if present)
+- **`./scripts/test.sh`**: Runs pytest with `DIVVY_ENV=test` (loads `.env.test` if present)
+- **`./scripts/prod.sh`**: Runs the CLI with `DIVVY_ENV=production` (loads `.env.production` if present)
+- **`./scripts/run.sh`**: Explicitly unsets `DIVVY_ENV` and runs CLI (ensures only base `.env` is used)
+- **`./scripts/test-all.sh`**: Runs all tests with coverage reporting using test environment
+
+**Example usage:**
+```bash
+# Development
+./scripts/dev.sh
+
+# Testing
+./scripts/test.sh
+./scripts/test-all.sh
+
+# Production
+./scripts/prod.sh
+
+# Default (base .env, explicitly unset DIVVY_ENV)
+./scripts/run.sh
+```
+
+These scripts automatically detect and use the correct Python environment (conda or system), making it easy to switch between environments without manually setting `DIVVY_ENV`.
+
+**Note:** `./scripts/run.sh` explicitly unsets `DIVVY_ENV` to ensure only the base `.env` file is loaded, preventing any `DIVVY_ENV` value from the shell environment from affecting the configuration.
 
 ### Configuration
 
@@ -138,14 +175,12 @@ Divvy supports environment-specific `.env` files for different deployment enviro
 ```bash
 # Set the environment (optional)
 export DIVVY_ENV=production
-# or
-export ENV=production
-# or
-export ENVIRONMENT=production
 
 # Then run the CLI
-./divvy
+./scripts/run.sh
 ```
+
+**Note:** Only `DIVVY_ENV` is supported. Other environment variable names (e.g., `ENV`, `ENVIRONMENT`) are not used to maintain consistency with the `DIVVY_` prefix convention.
 
 **Environment File Priority:**
 1. Base `.env` file (loaded first, lower priority)
@@ -210,7 +245,7 @@ export DIVVY_LANG=en_US
 export LANG=en_US.UTF-8
 
 # Then run the application
-./divvy
+./scripts/run.sh
 ```
 
 **Supported Language Codes:**
@@ -353,9 +388,14 @@ divvy/
 │   ├── test_database.py     # Database tests
 │   └── test_logic.py        # Logic tests
 ├── environment.yml          # Conda environment configuration
+├── scripts/                 # Utility shell scripts
+│   ├── dev.sh              # Development environment script
+│   ├── test.sh              # Test environment script
+│   ├── prod.sh              # Production environment script
+│   ├── run.sh               # Default run script
+│   └── test-all.sh          # Run all tests with coverage
 ├── compile_translations.py  # Script to compile translation files
 ├── LICENSE                  # Apache License 2.0
-├── divvy                    # Convenience launcher script
 └── README.md                # This file
 ```
 
@@ -367,13 +407,25 @@ Run the complete test suite:
 pytest tests/ -v
 ```
 
+Or use the utility script:
+
+```bash
+./scripts/test.sh
+```
+
 Run tests with coverage reporting:
 
 ```bash
 pytest tests/ --cov=src/divvy --cov-report=html
 ```
 
-This will generate an HTML coverage report in `htmlcov/index.html`.
+Or use:
+
+```bash
+./scripts/test-all.sh
+```
+
+This will generate an HTML coverage report in `htmlcov/index.html` when using the coverage flags.
 
 ### Test Coverage
 

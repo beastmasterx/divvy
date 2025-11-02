@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# This script finds the project's root directory and runs the Python application.
+# Production environment script
+# Sets DIVVY_ENV=production and runs the CLI application
 
-# Get the absolute path of the directory where this script is located.
-PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# Get the absolute path of the project root (one level up from scripts/)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Determine which Python to use
 PYTHON_CMD="python3"
@@ -17,7 +18,7 @@ if [ -f "$ENV_YML" ]; then
 fi
 
 # Try to use conda environment if available
-if command -v conda &> /dev/null && [ -n "$ENV_NAME" ]; then
+if command -v conda &>/dev/null && [ -n "$ENV_NAME" ]; then
     # Try to find conda base path
     CONDA_BASE=$(conda info --base 2>/dev/null)
     if [ -n "$CONDA_BASE" ] && [ -f "$CONDA_BASE/envs/$ENV_NAME/bin/python" ]; then
@@ -26,5 +27,8 @@ if command -v conda &> /dev/null && [ -n "$ENV_NAME" ]; then
     fi
 fi
 
-# Add the project root to Python's path and execute the cli module
-PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli
+# Set production environment and run CLI
+export DIVVY_ENV=production
+cd "$PROJECT_ROOT"
+PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli "$@"
+

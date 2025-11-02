@@ -18,7 +18,7 @@ def load_env_files(project_root: Path | None = None, verbose: bool = False) -> N
     Load environment variables from .env files.
     
     Supports environment-specific files like .env.dev, .env.production, etc.
-    Set DIVVY_ENV or ENV environment variable to specify the environment.
+    Set DIVVY_ENV environment variable to specify the environment.
     Example: DIVVY_ENV=dev will load .env.dev
     
     Priority order (later files override earlier ones):
@@ -40,7 +40,7 @@ def load_env_files(project_root: Path | None = None, verbose: bool = False) -> N
     cwd = Path.cwd()
     
     # Determine environment from environment variable
-    env_name = os.getenv("DIVVY_ENV") or os.getenv("ENV") or os.getenv("ENVIRONMENT")
+    env_name = os.getenv("DIVVY_ENV")
     
     # Load base .env file first (lower priority)
     env_files_to_load = []
