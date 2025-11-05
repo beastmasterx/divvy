@@ -3,9 +3,11 @@ from unittest.mock import patch
 
 import pytest
 
-from src.divvy import cli, database
-from src.divvy.database import Transaction
-from src.divvy.database.session import get_session
+from cli.main import show_menu, select_from_list, select_payer, main
+import cli.main as cli_module
+import app.db as database
+from app.db import Transaction
+from app.db.session import get_session
 
 
 @pytest.fixture
@@ -17,7 +19,7 @@ def setup_members():
 
 def test_show_menu(capsys):
     """Test that menu displays correctly."""
-    cli.show_menu()
+    show_menu()
     captured = capsys.readouterr()
     assert "DIVVY" in captured.out
     assert "Add Expense" in captured.out
@@ -31,7 +33,7 @@ def test_menu_choice_add_member(setup_members, capsys):
         patch("builtins.input", side_effect=["6", "Charlie", "8"]),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify member was added
     member = database.get_member_by_name("Charlie")
@@ -56,7 +58,7 @@ def test_menu_choice_record_expense(setup_members, capsys):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify transaction was created
     with get_session() as session:
@@ -79,7 +81,7 @@ def test_menu_choice_record_deposit(setup_members, capsys):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify deposit transaction was created
     with get_session() as session:
@@ -108,7 +110,7 @@ def test_menu_choice_view_period(setup_members, capsys):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     captured = capsys.readouterr()
     # Should show period selection menu and then period details
@@ -137,7 +139,7 @@ def test_menu_choice_settle_period(setup_members, capsys):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify period was settled
     periods = database.get_all_periods()
@@ -151,7 +153,7 @@ def test_menu_choice_exit(capsys):
 
     with patch("builtins.input", side_effect=inputs):
         # Exit uses 'break', not sys.exit(), so function completes normally
-        cli.main()
+        main()
 
     captured = capsys.readouterr()
     assert "Exiting Divvy. Goodbye!" in captured.out
@@ -166,7 +168,7 @@ def test_menu_invalid_choice(capsys):
         patch("sys.exit"),
         contextlib.suppress(SystemExit),
     ):
-        cli.main()
+        main()
 
     captured = capsys.readouterr()
     assert "Invalid choice" in captured.out
@@ -181,7 +183,7 @@ def test_select_from_list(capsys):
     ]
 
     with patch("builtins.input", return_value="2"):
-        result = cli.select_from_list(items, "name", "Test Items")
+        result = select_from_list(items, "name", "Test Items")
         assert result is not None
         assert result["name"] == "Item2"
 
@@ -197,7 +199,7 @@ def test_select_from_list_invalid_then_valid(capsys):
     ]
 
     with patch("builtins.input", side_effect=["99", "1"]):
-        result = cli.select_from_list(items, "name", "Test Items")
+        result = select_from_list(items, "name", "Test Items")
         assert result is not None
         assert result["name"] == "Item1"
 
@@ -205,14 +207,14 @@ def test_select_from_list_invalid_then_valid(capsys):
 def test_select_payer_for_expense(setup_members, capsys):
     """Test select_payer for expense."""
     with patch("builtins.input", return_value="1"):
-        result = cli.select_payer(for_expense=True)
+        result = select_payer(for_expense=True)
         assert result == "Alice"
 
 
 def test_select_payer_for_deposit(setup_members, capsys):
     """Test select_payer for deposit (includes Group/public fund option)."""
     with patch("builtins.input", return_value="1"):
-        result = cli.select_payer(for_expense=False)
+        result = select_payer(for_expense=False)
         assert result == "Alice"
 
 
@@ -233,7 +235,7 @@ def test_record_expense_with_empty_description(setup_members):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify transaction has None description
     with get_session() as session:
@@ -261,7 +263,7 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify transaction was created with virtual member as payer
     with get_session() as session:
@@ -293,7 +295,7 @@ def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
         patch("builtins.input", side_effect=inputs),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
-        cli.main()
+        main()
 
     # Verify transaction was created with virtual member as payer
     with get_session() as session:

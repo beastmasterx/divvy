@@ -31,5 +31,5 @@ fi
 # Logging level can be set in .env file (defaults to WARNING)
 unset DIVVY_ENV
 cd "$PROJECT_ROOT"
-PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli "$@"
+PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m cli.main "$@"
 

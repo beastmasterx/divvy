@@ -9,9 +9,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.divvy.config import load_env_files
-from src.divvy.database import Base, Member, Period, Category, PUBLIC_FUND_MEMBER_INTERNAL_NAME
-from src.divvy.database.connection import reset_engine
+from app.core.config import load_env_files
+from app.db import Base, Member, Period, Category, PUBLIC_FUND_MEMBER_INTERNAL_NAME
+from app.db.connection import reset_engine
 
 # Load .env files before tests run
 # This ensures DIVVY_LANG and other config from .env files are available during tests
@@ -88,13 +88,13 @@ def mock_database_engine(test_db_engine):
     TestSessionLocal = sessionmaker(bind=test_db_engine, autocommit=False, autoflush=False)
     
     # Patch get_engine to return our test engine
-    with patch("src.divvy.database.connection.get_engine", return_value=test_db_engine):
-        with patch("src.divvy.database.session.get_engine", return_value=test_db_engine):
-            with patch("src.divvy.database.get_engine", return_value=test_db_engine):
+    with patch("app.db.connection.get_engine", return_value=test_db_engine):
+        with patch("app.db.session.get_engine", return_value=test_db_engine):
+            with patch("app.db.get_engine", return_value=test_db_engine):
                 # Patch _get_session_factory to return our test session factory
-                with patch("src.divvy.database.session._get_session_factory", return_value=TestSessionLocal):
+                with patch("app.db.session._get_session_factory", return_value=TestSessionLocal):
                     # Reset the module-level _SessionLocal to force reinitialization
-                    import src.divvy.database.session as session_module
+                    import app.db.session as session_module
                     session_module._SessionLocal = None
                     yield
     

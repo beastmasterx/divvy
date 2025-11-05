@@ -9,7 +9,8 @@ from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.exc import OperationalError
 
 # Determine the absolute path to the project root and the database file
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# From app/db/connection.py: go up 2 levels to reach project root
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DB_FILE = os.path.join(PROJECT_ROOT, "data", "expenses.db")
 
 
@@ -131,6 +132,8 @@ def create_engine_from_url(url: str | None = None) -> Engine:
     if url is None:
         url = get_database_url()
     
+    print(url)
+
     # Create engine with appropriate settings
     # For SQLite, use check_same_thread=False to allow connection sharing
     # For other databases, connection pooling is handled automatically

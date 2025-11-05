@@ -5,9 +5,15 @@ Supports SQLite, PostgreSQL, MySQL, and MSSQL via environment variable DIVVY_DAT
 """
 import logging
 import os
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+
+# UTC timezone - Python 3.11+ has datetime.UTC, older versions use timezone.utc
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 
 # Module-level logger
 logger = logging.getLogger(__name__)
@@ -25,9 +31,6 @@ from .session import create_session, get_session
 # Virtual member constants
 PUBLIC_FUND_MEMBER_INTERNAL_NAME = "_system_group_"
 SYSTEM_MEMBER_PREFIX = "_system_"
-
-# Backwards compatibility
-SCHEMA_FILE = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
 
 
 def initialize_database():
@@ -61,7 +64,7 @@ def initialize_database():
         ]
         
         for cat_name in default_categories:
-            # Check if category already exists (might have been created by schema.sql)
+            # Check if category already exists
             existing = session.query(Category).filter_by(name=cat_name).first()
             if not existing:
                 session.add(Category(name=cat_name))
@@ -270,7 +273,7 @@ def is_virtual_member(member: dict | None) -> bool:
 def get_member_display_name(member: dict) -> str:
     """Get display name for member (translates virtual member to user-friendly name)."""
     if is_virtual_member(member):
-        from ..i18n import _
+        from app.core.i18n import _
         return _("Group")  # Translatable display name
     return member["name"]
 
@@ -350,7 +353,6 @@ __all__ = [
     # Constants
     "PUBLIC_FUND_MEMBER_INTERNAL_NAME",
     "SYSTEM_MEMBER_PREFIX",
-    "SCHEMA_FILE",
     # Models
     "Base",
     "Member",

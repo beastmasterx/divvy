@@ -1,6 +1,7 @@
-from . import database, logic
-from .config import load_env_files
-from .i18n import _, set_language, translate_category, translate_transaction_type
+import app.db as database
+from app.core.config import load_env_files
+from app.core.i18n import _, set_language, translate_category, translate_transaction_type
+from app.services import member, transaction, period, settlement, utils
 
 
 def _get_display_width(text: str) -> int:
@@ -82,7 +83,6 @@ def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | No
 
 def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
     """Displays settlement plan transactions in table format."""
-    from .i18n import translate_transaction_type
     
     if not settlement_transactions:
         print(_("No settlement transactions needed (all balances already zero)."))
@@ -103,12 +103,12 @@ def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
         if amount_cents < 0:
             # Negative deposit = Refund
             tx_type = translate_transaction_type("refund")
-            amount_formatted = logic._cents_to_dollars(abs(amount_cents))
+            amount_formatted = utils.cents_to_dollars(abs(amount_cents))
             amount_sign = "-"
         else:
             # Positive deposit = Deposit
             tx_type = translate_transaction_type("deposit")
-            amount_formatted = logic._cents_to_dollars(amount_cents)
+            amount_formatted = utils.cents_to_dollars(amount_cents)
             amount_sign = "+"
         
         desc = tx["description"] if tx["description"] else ""
@@ -203,7 +203,7 @@ def _display_view_period(period_id: int | None = None) -> None:
     Args:
         period_id: Optional period ID to display. If None, displays the current active period.
     """
-    summary = logic.get_period_summary(period_id)
+    summary = period.get_period_summary(period_id)
 
     if not summary or not summary.get("period"):
         if period_id is None:
@@ -212,13 +212,13 @@ def _display_view_period(period_id: int | None = None) -> None:
             print(_("Period not found."))
         return
 
-    period = summary["period"]
+    period_data = summary["period"]
     transactions = summary["transactions"]
     totals = summary["totals"]
 
     # Get active members with balances
     active_members = database.get_active_members()
-    active_balances = logic.get_active_member_balances(period["id"])
+    active_balances = period.get_active_member_balances(period_data["id"])
 
     # Calculate public fund balance for the period
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
@@ -237,14 +237,14 @@ def _display_view_period(period_id: int | None = None) -> None:
     # Format deposits and expenses with signs
     deposits_formatted = f"+{totals['deposits_formatted']}"
     expenses_formatted = f"-{totals['expenses_formatted']}"
-    fund_formatted = logic._cents_to_dollars(public_fund_balance)
+    fund_formatted = utils.cents_to_dollars(public_fund_balance)
     fund_sign = "+" if public_fund_balance >= 0 else "-"
 
     print("\n" + "=" * 60)
-    print(_("                 {}").format(period["name"]))
+    print(_("                 {}").format(period_data["name"]))
     print("=" * 60)
     # Extract date only from start_date (handle both datetime objects and strings)
-    start_date = period["start_date"]
+    start_date = period_data["start_date"]
     if hasattr(start_date, "strftime"):
         # datetime object
         start_date_only = start_date.strftime("%Y-%m-%d")
@@ -252,9 +252,9 @@ def _display_view_period(period_id: int | None = None) -> None:
         # string (backwards compatibility)
         start_date_only = start_date.split()[0] if " " in str(start_date) else str(start_date)
     
-    if period["is_settled"] and period.get("settled_date"):
+    if period_data["is_settled"] and period_data.get("settled_date"):
         # Settled period: show settlement date
-        settled_date = period["settled_date"]
+        settled_date = period_data["settled_date"]
         if hasattr(settled_date, "strftime"):
             settled_date_only = settled_date.strftime("%Y-%m-%d")
         else:
@@ -264,9 +264,9 @@ def _display_view_period(period_id: int | None = None) -> None:
                 start_date_only, settled_date_only
             )
         )
-    elif period["is_settled"] and period.get("end_date"):
+    elif period_data["is_settled"] and period_data.get("end_date"):
         # Fallback to end_date if settled_date is not available
-        end_date = period["end_date"]
+        end_date = period_data["end_date"]
         if hasattr(end_date, "strftime"):
             end_date_only = end_date.strftime("%Y-%m-%d")
         else:
@@ -320,14 +320,14 @@ def _display_view_period(period_id: int | None = None) -> None:
             # Positive deposits show as positive, expenses show as negative
             if amount_cents < 0:
                 # Refund (negative deposit)
-                amount_formatted = logic._cents_to_dollars(abs(amount_cents))
+                amount_formatted = utils.cents_to_dollars(abs(amount_cents))
                 amount_sign = "-"
                 tx_type = translate_transaction_type("refund")  # Show as Refund type for clarity
             elif tx["transaction_type"] == "deposit":
-                amount_formatted = logic._cents_to_dollars(amount_cents)
+                amount_formatted = utils.cents_to_dollars(amount_cents)
                 amount_sign = "+"
             else:  # expense
-                amount_formatted = logic._cents_to_dollars(amount_cents)
+                amount_formatted = utils.cents_to_dollars(amount_cents)
                 amount_sign = "-"
 
             desc = tx["description"] if tx["description"] else ""
@@ -453,7 +453,7 @@ def _display_view_period(period_id: int | None = None) -> None:
         member_strings = []
         for member in active_members:
             balance_cents = active_balances.get(member["name"], 0)
-            balance_formatted = logic._cents_to_dollars(abs(balance_cents))
+            balance_formatted = utils.cents_to_dollars(abs(balance_cents))
             balance_sign = "+" if balance_cents >= 0 else "-"
             remainder_str = "✓" if member["paid_remainder_in_cycle"] else "✗"
             member_strings.append(
@@ -648,7 +648,7 @@ def main():
             category_name = category["name"]  # Use original name for database lookup
 
             desc = description if description else None
-            result = logic.record_expense(desc, amount_str, payer_name, category_name, is_personal=is_personal)
+            result = transaction.record_expense(desc, amount_str, payer_name, category_name, is_personal=is_personal)
             print(result)
 
         elif choice == "2":
@@ -665,7 +665,7 @@ def main():
                 continue
 
             desc = description if description else None
-            result = logic.record_deposit(desc, amount_str, payer_name)
+            result = transaction.record_deposit(desc, amount_str, payer_name)
             print(result)
 
         elif choice == "3":
@@ -675,8 +675,8 @@ def main():
                 print(_("No members available."))
                 continue
 
-            member = select_from_list(all_members_list, "name", _("Member to refund"))
-            if member is None:
+            selected_member = select_from_list(all_members_list, "name", _("Member to refund"))
+            if selected_member is None:
                 print(_("Refund cancelled."))
                 continue
 
@@ -688,7 +688,7 @@ def main():
                 continue
 
             desc = description if description else None
-            result = logic.record_refund(desc, amount_str, member["name"])
+            result = transaction.record_refund(desc, amount_str, selected_member["name"])
             print(result)
 
         elif choice == "4":
@@ -706,7 +706,7 @@ def main():
             # Show settlement plan before asking for confirmation
             current_period = database.get_current_period()
             if current_period:
-                settlement_plan = logic.get_settlement_plan(current_period["id"])
+                settlement_plan = settlement.get_settlement_plan(current_period["id"])
                 if settlement_plan:
                     _display_settlement_plan(settlement_plan)
                 else:
@@ -725,7 +725,7 @@ def main():
             if not period_name:
                 period_name = None
 
-            result = logic.settle_current_period(period_name)
+            result = period.settle_current_period(period_name)
             print(result)
 
         elif choice == "6":
@@ -746,13 +746,13 @@ def main():
                     # Member is inactive - ask to rejoin
                     response = input(_("Member '{}' is inactive. Rejoin? (y/n): ").format(name))
                     if response.lower() in ("y", "yes"):
-                        result = logic.rejoin_member(name)
+                        result = member.rejoin_member(name)
                         print(result)
                     else:
                         print(_("Rejoin cancelled."))
             else:
                 # New member - add normally
-                result = logic.add_new_member(name)
+                result = member.add_new_member(name)
                 print(result)
 
         elif choice == "7":
@@ -764,38 +764,38 @@ def main():
             # Show current period status first
             _display_view_period()
 
-            member = select_from_list(members, "name", _("Member to remove"))
-            if member is None:
+            selected_member = select_from_list(members, "name", _("Member to remove"))
+            if selected_member is None:
                 print(_("Member removal cancelled."))
                 continue
 
             # Get member's current balance
-            active_balances = logic.get_active_member_balances()
-            member_balance_cents = active_balances.get(member["name"], 0)
-            member_balance_formatted = logic._cents_to_dollars(abs(member_balance_cents))
+            active_balances = period.get_active_member_balances()
+            member_balance_cents = active_balances.get(selected_member["name"], 0)
+            member_balance_formatted = utils.cents_to_dollars(abs(member_balance_cents))
             balance_sign = "+" if member_balance_cents >= 0 else "-"
             balance_display = f"{balance_sign}${member_balance_formatted}"
 
             # Check if balance needs to be settled
             if member_balance_cents > 0:
                 # Member is owed money (positive balance)
-                print(_("\n⚠️  Warning: '{}' is owed {}.").format(member["name"], balance_display))
+                print(_("\n⚠️  Warning: '{}' is owed {}.").format(selected_member["name"], balance_display))
                 print(_("   Other members should settle this balance before removal."))
-                response = input(_("Remove member '{}' anyway? (y/n): ").format(member["name"]))
+                response = input(_("Remove member '{}' anyway? (y/n): ").format(selected_member["name"]))
             elif member_balance_cents < 0:
                 # Member owes money (negative balance)
-                print(_("\n⚠️  Warning: '{}' owes {}.").format(member["name"], balance_display))
+                print(_("\n⚠️  Warning: '{}' owes {}.").format(selected_member["name"], balance_display))
                 print(_("   This balance should be settled before removal."))
-                response = input(_("Remove member '{}' anyway? (y/n): ").format(member["name"]))
+                response = input(_("Remove member '{}' anyway? (y/n): ").format(selected_member["name"]))
             else:
                 # Zero balance - safe to remove
-                response = input(_("Remove member '{}' (Balance: $0.00)? (y/n): ").format(member["name"]))
+                response = input(_("Remove member '{}' (Balance: $0.00)? (y/n): ").format(selected_member["name"]))
 
             if response.lower() not in ("y", "yes"):
                 print(_("Member removal cancelled."))
                 continue
 
-            result = logic.remove_member(member["name"])
+            result = member.remove_member(selected_member["name"])
             print(result)
 
         elif choice == "8":

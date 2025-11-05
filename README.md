@@ -410,7 +410,6 @@ divvy/
 │       ├── database.py       # Database operations
 │       ├── logic.py          # Business logic
 │       ├── i18n.py          # Internationalization support
-│       ├── schema.sql        # Database schema
 │       └── locale/          # Translation files
 │           ├── en_US/
 │           │   └── LC_MESSAGES/

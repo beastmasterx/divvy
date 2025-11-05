@@ -31,5 +31,5 @@ fi
 export DIVVY_ENV=test
 export DIVVY_LOG_LEVEL=INFO
 cd "$PROJECT_ROOT"
-PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m pytest "$@" --cov=src.divvy --cov-report=term-missing
+PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m pytest "$@" --cov=app --cov-report=term-missing
 

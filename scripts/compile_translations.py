@@ -10,7 +10,7 @@ Usage:
     python -m scripts.compile_translations
 
 The script will:
-    1. Look for .po files in src/divvy/locale/*/LC_MESSAGES/
+    1. Look for .po files in app/locale/*/LC_MESSAGES/
     2. Compile them to .mo files using msgfmt (if available)
     3. Fall back to Python's gettext module if msgfmt is not installed
 """
@@ -21,7 +21,7 @@ from pathlib import Path
 
 # Get the project root directory (go up one level from scripts/)
 PROJECT_ROOT = Path(__file__).parent.parent
-LOCALE_DIR = PROJECT_ROOT / "src" / "divvy" / "locale"
+LOCALE_DIR = PROJECT_ROOT / "app" / "locale"
 
 def compile_translations():
     """Compile all .po files to .mo files."""
@@ -111,10 +111,10 @@ def compile_with_python():
     
     if success:
         print("\n⚠ Note: For production use, compile .po files to .mo using:")
-        print("   msgfmt -o src/divvy/locale/en_US/LC_MESSAGES/divvy.mo \\")
-        print("          src/divvy/locale/en_US/LC_MESSAGES/divvy.po")
-        print("   msgfmt -o src/divvy/locale/zh_CN/LC_MESSAGES/divvy.mo \\")
-        print("          src/divvy/locale/zh_CN/LC_MESSAGES/divvy.po")
+        print("   msgfmt -o app/locale/en_US/LC_MESSAGES/divvy.mo \\")
+        print("          app/locale/en_US/LC_MESSAGES/divvy.po")
+        print("   msgfmt -o app/locale/zh_CN/LC_MESSAGES/divvy.mo \\")
+        print("          app/locale/zh_CN/LC_MESSAGES/divvy.po")
     
     return success
 

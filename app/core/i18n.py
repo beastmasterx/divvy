@@ -9,7 +9,8 @@ from pathlib import Path
 
 # Get the directory where this module is located
 _MODULE_DIR = Path(__file__).parent
-_LOCALE_DIR = _MODULE_DIR / "locale"
+# Locale directory is now in app/locale (one level up from core)
+_LOCALE_DIR = _MODULE_DIR.parent / "locale"
 
 # Supported languages
 SUPPORTED_LANGUAGES = {

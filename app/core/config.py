@@ -53,9 +53,9 @@ def setup_logging() -> None:
         format="%(message)s",
     )
     
-    # Configure Divvy loggers (support both 'divvy' and 'src.divvy' import styles)
+    # Configure Divvy loggers
     # This allows modules to use __name__ directly without normalization
-    for logger_name in ["divvy", "src.divvy"]:
+    for logger_name in ["divvy", "app"]:
         divvy_logger = logging.getLogger(logger_name)
         divvy_logger.setLevel(divvy_log_level)
         divvy_logger.propagate = False  # Don't propagate to root logger to avoid duplicates
@@ -95,10 +95,10 @@ def load_env_files(project_root: Path | None = None) -> None:
     
     Args:
         project_root: Path to project root directory. If None, auto-detects from
-                     the location of this file (3 levels up from src/divvy/config.py).
+                     the location of this file (2 levels up from app/core/config.py).
     """
     if project_root is None:
-        # Auto-detect project root (3 levels up from src/divvy/config.py)
+        # Auto-detect project root (2 levels up from app/core/config.py)
         project_root = Path(__file__).parent.parent.parent
     
     cwd = Path.cwd()

@@ -27,7 +27,7 @@ sys.path.insert(0, str(project_root / "src"))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from divvy.config import load_env_files
+from app.core.config import load_env_files
 from divvy.database.models import Base, Member, Period, Category, Transaction
 from divvy.database.connection import get_database_url, ensure_database_exists
 

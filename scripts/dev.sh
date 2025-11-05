@@ -31,5 +31,5 @@ fi
 export DIVVY_ENV=dev
 export DIVVY_LOG_LEVEL=INFO
 cd "$PROJECT_ROOT"
-PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m src.divvy.cli "$@"
+PYTHONPATH="$PROJECT_ROOT" "$PYTHON_CMD" -m cli.main "$@"
 

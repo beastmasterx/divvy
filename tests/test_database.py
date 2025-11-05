@@ -1,8 +1,8 @@
 import pytest
 
-from src.divvy import database
-from src.divvy.database import Transaction
-from src.divvy.database.session import get_session
+import app.db as database
+from app.db import Transaction
+from app.db.session import get_session
 
 
 def test_add_member():
