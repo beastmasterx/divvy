@@ -13,8 +13,8 @@ load_env_files()
 # Create FastAPI app
 app = FastAPI(
     title="Divvy API",
-    description="Expense splitting API with multi-database support",
-    version="2.0.0",
+    description="Group expense splitting and settlement API",
+    version="3.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -38,7 +38,7 @@ async def root():
     """Root endpoint."""
     return {
         "message": "Divvy API",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "docs": "/docs",
         "redoc": "/redoc",
     }
