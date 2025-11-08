@@ -61,7 +61,11 @@ def test_db_engine():
     
     # Ensure public fund member exists
     if not session.query(Member).filter_by(name=PUBLIC_FUND_MEMBER_INTERNAL_NAME).first():
-        session.add(Member(name=PUBLIC_FUND_MEMBER_INTERNAL_NAME, is_active=False))
+        session.add(Member(
+            email=f"{PUBLIC_FUND_MEMBER_INTERNAL_NAME}@system.local",
+            name=PUBLIC_FUND_MEMBER_INTERNAL_NAME,
+            is_active=False
+        ))
     
     session.commit()
     session.close()

@@ -8,7 +8,7 @@ from app.db.session import get_session
 
 def test_add_new_member():
     """Test adding a new member."""
-    result = member.add_new_member("Alice")
+    result = member.add_new_member("alice@example.com", "Alice")
     assert result == "Member 'Alice' added successfully."
 
     member_data = database.get_member_by_name("Alice")
@@ -29,9 +29,9 @@ def test_add_new_member():
 
 def test_record_expense_no_remainder():
     """Test recording an expense that splits evenly."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
-    member.add_new_member("Charlie")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
+    member.add_new_member("charlie@example.com", "Charlie")
 
     result = transaction.record_expense("Dinner", "30.00", "Alice", "Other")
     assert (
@@ -56,9 +56,9 @@ def test_record_expense_no_remainder():
 
 def test_record_expense_with_remainder_round_robin():
     """Test recording expenses with remainder, verifying round-robin logic."""
-    member.add_new_member("Alice")  # id 1
-    member.add_new_member("Bob")  # id 2
-    member.add_new_member("Charlie")  # id 3
+    member.add_new_member("alice@example.com", "Alice")  # id 1
+    member.add_new_member("bob@example.com", "Bob")  # id 2
+    member.add_new_member("charlie@example.com", "Charlie")  # id 3
 
     # Expense 1: 10.00 / 3 = 3.33 with 1 cent remainder
     # Alice should get the remainder (first in order)
@@ -113,8 +113,8 @@ def test_get_settlement_balances_empty():
 
 def test_get_settlement_balances_deposits_only():
     """Test settlement balances with only deposits."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
 
@@ -128,9 +128,9 @@ def test_get_settlement_balances_deposits_only():
 
 def test_get_settlement_balances_mixed_transactions():
     """Test settlement balances with a mix of deposits and expenses."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
-    member.add_new_member("Charlie")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
+    member.add_new_member("charlie@example.com", "Charlie")
 
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
@@ -162,8 +162,8 @@ def test_get_settlement_balances_mixed_transactions():
 
 def test_record_expense_with_null_description():
     """Test recording an expense with None description."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
 
     result = transaction.record_expense(None, "10.00", "Alice", "Groceries")
     assert "Expense of 10.00 recorded successfully" in result
@@ -183,7 +183,7 @@ def test_record_expense_with_null_description():
 
 def test_record_deposit():
     """Test recording a deposit."""
-    member.add_new_member("Alice")
+    member.add_new_member("alice@example.com", "Alice")
 
     result = transaction.record_deposit("Monthly contribution", "50.00", "Alice")
     assert "Deposit 'Monthly contribution'" in result
@@ -206,7 +206,7 @@ def test_record_deposit():
 
 def test_record_deposit_with_null_description():
     """Test recording a deposit with None description."""
-    member.add_new_member("Alice")
+    member.add_new_member("alice@example.com", "Alice")
 
     result = transaction.record_deposit(None, "25.00", "Alice")
     assert "Deposit of 25.00 from Alice recorded successfully" in result
@@ -226,8 +226,8 @@ def test_record_deposit_with_null_description():
 
 def test_get_period_balances():
     """Test getting balances for current period."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
 
     # Add deposit and expense in current period
@@ -241,9 +241,9 @@ def test_get_period_balances():
 
 def test_record_shared_expense():
     """Test recording a shared expense (using virtual member)."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
-    member.add_new_member("Charlie")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
+    member.add_new_member("charlie@example.com", "Charlie")
 
     # Record shared expense (rent) - no individual payer
     result = transaction.record_expense(
@@ -263,8 +263,8 @@ def test_record_shared_expense():
 
 def test_shared_expense_balance_calculation():
     """Test that shared expenses don't credit any member."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
 
@@ -288,8 +288,8 @@ def test_shared_expense_balance_calculation():
 
 def test_mixed_shared_and_individual_expenses():
     """Test balance calculation with both shared and individual expenses."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
 
@@ -315,8 +315,8 @@ def test_mixed_shared_and_individual_expenses():
 
 def test_get_period_summary():
     """Test getting period summary."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
 
     # Add transactions
@@ -336,8 +336,8 @@ def test_get_period_summary():
 
 def test_settle_current_period():
     """Test settling current period."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
 
     # Add some transactions
@@ -378,8 +378,8 @@ def test_settle_current_period():
 
 def test_public_fund_deposit():
     """Test depositing to public fund (virtual member)."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     
     # Deposit to public fund
     result = transaction.record_deposit(
@@ -398,8 +398,8 @@ def test_public_fund_deposit():
 
 def test_shared_expense_with_sufficient_public_fund():
     """Test shared expense when public fund has sufficient balance."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Deposit 100 to public fund
@@ -418,8 +418,8 @@ def test_shared_expense_with_sufficient_public_fund():
 
 def test_shared_expense_with_insufficient_public_fund():
     """Test shared expense when public fund is insufficient."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Deposit 30 to public fund
@@ -441,8 +441,8 @@ def test_shared_expense_with_insufficient_public_fund():
 
 def test_public_fund_cannot_go_negative():
     """Test that public fund balance never goes negative."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     
     # No deposit to public fund (fund = 0)
     
@@ -459,8 +459,8 @@ def test_public_fund_cannot_go_negative():
 
 def test_public_fund_accumulation():
     """Test that public fund accumulates over multiple deposits."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     # Multiple deposits to public fund: 10 + 20 + 5 = 35.00
@@ -491,8 +491,8 @@ def test_public_fund_accumulation():
 
 def test_public_fund_mixed_scenario():
     """Test public fund with deposits, expenses, and individual transactions."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     alice = database.get_member_by_name("Alice")
     
@@ -520,8 +520,8 @@ def test_public_fund_mixed_scenario():
 
 def test_get_settlement_plan():
     """Test getting settlement plan without executing it."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
 
@@ -559,8 +559,8 @@ def test_get_settlement_plan():
 
 def test_settlement_no_duplicate_public_fund():
     """Test that settlement doesn't create duplicate public fund transactions."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     
     current_period = database.get_current_period()
@@ -590,8 +590,8 @@ def test_settlement_no_duplicate_public_fund():
 
 def test_settlement_zeroes_balances():
     """Test that settlement correctly zeroes all member balances."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
     
@@ -624,8 +624,8 @@ def test_settlement_zeroes_balances():
 
 def test_settlement_creditor_negative_deposit():
     """Test that settlement creates negative deposits for creditors."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     
     current_period = database.get_current_period()
@@ -655,8 +655,8 @@ def test_settlement_creditor_negative_deposit():
 
 def test_settlement_debtor_positive_deposit():
     """Test that settlement creates positive deposits for debtors."""
-    member.add_new_member("Alice")
-    member.add_new_member("Bob")
+    member.add_new_member("alice@example.com", "Alice")
+    member.add_new_member("bob@example.com", "Bob")
     bob = database.get_member_by_name("Bob")
     alice = database.get_member_by_name("Alice")
     

@@ -27,7 +27,7 @@ def create_member(
     Returns:
         Success or error message
     """
-    result = member_service.add_new_member(member_data.name)
+    result = member_service.add_new_member(member_data.email, member_data.name)
     
     # Check if it's an error message
     if result.startswith("Error:"):
@@ -58,42 +58,42 @@ def list_members(
     return [MemberResponse(**member) for member in members]
 
 
-@router.get("/{member_name}", response_model=MemberResponse)
+@router.get("/{member_id}", response_model=MemberResponse)
 def get_member(
-    member_name: str,
+    member_id: int,
     db: Session = Depends(get_db),
 ):
     """
-    Get a member by name.
+    Get a member by ID.
     
     Args:
-        member_name: Name of the member
+        member_id: ID of the member
     
     Returns:
         Member details
     """
-    member = database.get_member_by_name(member_name)
+    member = database.get_member_by_id(member_id)
     if not member:
-        raise HTTPException(status_code=404, detail=f"Member '{member_name}' not found")
+        raise HTTPException(status_code=404, detail=f"Member {member_id} not found")
     
     return MemberResponse(**member)
 
 
-@router.delete("/{member_name}", response_model=MemberMessageResponse)
+@router.delete("/{member_id}", response_model=MemberMessageResponse)
 def remove_member(
-    member_name: str,
+    member_id: int,
     db: Session = Depends(get_db),
 ):
     """
     Remove (deactivate) a member.
     
     Args:
-        member_name: Name of the member to remove
+        member_id: ID of the member to remove
     
     Returns:
         Success or error message
     """
-    result = member_service.remove_member(member_name)
+    result = member_service.remove_member_by_id(member_id)
     
     if result.startswith("Error:"):
         raise HTTPException(status_code=400, detail=result)
@@ -101,21 +101,21 @@ def remove_member(
     return MemberMessageResponse(message=result)
 
 
-@router.post("/{member_name}/rejoin", response_model=MemberMessageResponse)
+@router.post("/{member_id}/rejoin", response_model=MemberMessageResponse)
 def rejoin_member(
-    member_name: str,
+    member_id: int,
     db: Session = Depends(get_db),
 ):
     """
     Rejoin (reactivate) an inactive member.
     
     Args:
-        member_name: Name of the member to rejoin
+        member_id: ID of the member to rejoin
     
     Returns:
         Success or error message
     """
-    result = member_service.rejoin_member(member_name)
+    result = member_service.rejoin_member_by_id(member_id)
     
     if result.startswith("Error:"):
         raise HTTPException(status_code=400, detail=result)

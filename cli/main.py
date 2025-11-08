@@ -729,31 +729,38 @@ def main():
             print(result)
 
         elif choice == "6":
-            name = input(_("Enter the member's name: "))
-            name = name.strip()
+                email = input(_("Enter the member's email: "))
+                email = email.strip()
 
-            if not name:
-                print(_("Member name cannot be empty."))
-                continue
+                if not email:
+                    print(_("Member email cannot be empty."))
+                    continue
 
-            # Check if member exists
-            existing_member = database.get_member_by_name(name)
+                name = input(_("Enter the member's name: "))
+                name = name.strip()
 
-            if existing_member:
-                if existing_member["is_active"]:
-                    print(_("Error: Member '{}' already exists and is active.").format(name))
-                else:
-                    # Member is inactive - ask to rejoin
-                    response = input(_("Member '{}' is inactive. Rejoin? (y/n): ").format(name))
-                    if response.lower() in ("y", "yes"):
-                        result = member.rejoin_member(name)
-                        print(result)
+                if not name:
+                    print(_("Member name cannot be empty."))
+                    continue
+
+                # Check if member exists (by email)
+                existing_member = database.get_member_by_email(email)
+
+                if existing_member:
+                    if existing_member["is_active"]:
+                        print(_("Error: Member with email '{}' already exists and is active.").format(email))
                     else:
-                        print(_("Rejoin cancelled."))
-            else:
-                # New member - add normally
-                result = member.add_new_member(name)
-                print(result)
+                        # Member is inactive - ask to rejoin
+                        response = input(_("Member '{}' is inactive. Rejoin? (y/n): ").format(existing_member["name"]))
+                        if response.lower() in ("y", "yes"):
+                            result = member.rejoin_member_by_id(existing_member["id"])
+                            print(result)
+                        else:
+                            print(_("Rejoin cancelled."))
+                else:
+                    # New member - add normally
+                    result = member.add_new_member(email, name)
+                    print(result)
 
         elif choice == "7":
             members = database.get_active_members()

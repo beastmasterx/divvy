@@ -13,8 +13,8 @@ from app.db.session import get_session
 @pytest.fixture
 def setup_members():
     """Fixture to set up test members."""
-    database.add_member("Alice")
-    database.add_member("Bob")
+    database.add_member("alice@example.com", "Alice")
+    database.add_member("bob@example.com", "Bob")
 
 
 def test_show_menu(capsys):
@@ -30,15 +30,16 @@ def test_show_menu(capsys):
 def test_menu_choice_add_member(setup_members, capsys):
     """Test menu option 6: Add a new member."""
     with (
-        patch("builtins.input", side_effect=["6", "Charlie", "8"]),
+        patch("builtins.input", side_effect=["6", "charlie@example.com", "Charlie", "8"]),
         contextlib.suppress(SystemExit, KeyboardInterrupt),
     ):
         main()
 
     # Verify member was added
-    member = database.get_member_by_name("Charlie")
+    member = database.get_member_by_email("charlie@example.com")
     assert member is not None
     assert member["name"] == "Charlie"
+    assert member["email"] == "charlie@example.com"
 
 
 def test_menu_choice_record_expense(setup_members, capsys):

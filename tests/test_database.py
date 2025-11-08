@@ -7,34 +7,36 @@ from app.db.session import get_session
 
 def test_add_member():
     """Test adding a member."""
-    member_id = database.add_member("TestMember")
+    member_id = database.add_member("testmember@example.com", "TestMember")
     assert member_id is not None
 
     member = database.get_member_by_name("TestMember")
     assert member is not None
     assert member["name"] == "TestMember"
+    assert member["email"] == "testmember@example.com"
     assert member["is_active"] == 1
 
 
 def test_add_duplicate_member():
-    """Test that adding duplicate member returns None."""
-    database.add_member("Duplicate")
-    member_id = database.add_member("Duplicate")
+    """Test that adding duplicate member (by email) returns None."""
+    database.add_member("duplicate@example.com", "Duplicate")
+    member_id = database.add_member("duplicate@example.com", "Duplicate2")
     assert member_id is None
 
 
 def test_get_member_by_id():
     """Test getting member by ID."""
-    member_id = database.add_member("TestMember")
+    member_id = database.add_member("testmember@example.com", "TestMember")
     member = database.get_member_by_id(member_id)
     assert member is not None
     assert member["name"] == "TestMember"
+    assert member["email"] == "testmember@example.com"
 
 
 def test_get_all_members():
     """Test getting all members."""
-    database.add_member("Member1")
-    database.add_member("Member2")
+    database.add_member("member1@example.com", "Member1")
+    database.add_member("member2@example.com", "Member2")
 
     members = database.get_all_members()
     assert len(members) >= 2
@@ -45,8 +47,8 @@ def test_get_all_members():
 
 def test_get_active_members():
     """Test getting active members only."""
-    database.add_member("Active1")
-    database.add_member("Active2")
+    database.add_member("active1@example.com", "Active1")
+    database.add_member("active2@example.com", "Active2")
 
     active = database.get_active_members()
     names = [m["name"] for m in active]
@@ -85,7 +87,7 @@ def test_settle_period():
 
 def test_add_transaction():
     """Test adding a transaction."""
-    member_id = database.add_member("Payer")
+    member_id = database.add_member("payer@example.com", "Payer")
     category = database.get_category_by_name("Groceries")
 
     period = database.get_current_period()
@@ -109,7 +111,7 @@ def test_add_transaction():
 
 def test_add_transaction_auto_period():
     """Test adding transaction without period_id (auto-assigns to current)."""
-    member_id = database.add_member("Payer")
+    member_id = database.add_member("payer@example.com", "Payer")
     category = database.get_category_by_name("Groceries")
 
     current_period = database.get_current_period()
@@ -132,7 +134,7 @@ def test_add_transaction_auto_period():
 def test_get_transactions_by_period():
     """Test getting transactions for a period."""
     period = database.get_current_period()
-    member_id = database.add_member("Payer")
+    member_id = database.add_member("payer@example.com", "Payer")
     category = database.get_category_by_name("Groceries")
 
     tx1_id = database.add_transaction(
@@ -175,7 +177,7 @@ def test_get_all_categories():
 
 def test_update_member_remainder_status():
     """Test updating member remainder status."""
-    member_id = database.add_member("TestMember")
+    member_id = database.add_member("testmember@example.com", "TestMember")
 
     database.update_member_remainder_status(member_id, True)
     member = database.get_member_by_id(member_id)
@@ -188,8 +190,8 @@ def test_update_member_remainder_status():
 
 def test_reset_all_member_remainder_status():
     """Test resetting all member remainder status."""
-    member1_id = database.add_member("Member1")
-    member2_id = database.add_member("Member2")
+    member1_id = database.add_member("member1@example.com", "Member1")
+    member2_id = database.add_member("member2@example.com", "Member2")
 
     database.update_member_remainder_status(member1_id, True)
     database.update_member_remainder_status(member2_id, True)
@@ -205,7 +207,7 @@ def test_reset_all_member_remainder_status():
 def test_virtual_member_not_in_active_members():
     """Test that virtual member doesn't appear in get_active_members()."""
     # Add a regular member
-    database.add_member("Alice")
+    database.add_member("alice@example.com", "Alice")
     
     # Get active members
     active_members = database.get_active_members()
@@ -219,7 +221,7 @@ def test_virtual_member_not_in_active_members():
 def test_virtual_member_not_in_all_members():
     """Test that virtual member doesn't appear in get_all_members()."""
     # Add a regular member
-    database.add_member("Alice")
+    database.add_member("alice@example.com", "Alice")
     
     # Get all members
     all_members = database.get_all_members()
@@ -233,7 +235,7 @@ def test_virtual_member_not_in_all_members():
 def test_is_virtual_member():
     """Test is_virtual_member function."""
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
-    regular_member_id = database.add_member("Alice")
+    regular_member_id = database.add_member("alice@example.com", "Alice")
     regular_member_dict = database.get_member_by_id(regular_member_id)
     
     assert database.is_virtual_member(virtual_member) is True
@@ -244,7 +246,7 @@ def test_is_virtual_member():
 def test_get_member_display_name():
     """Test get_member_display_name function."""
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
-    regular_member_id = database.add_member("Alice")
+    regular_member_id = database.add_member("alice@example.com", "Alice")
     regular_member_dict = database.get_member_by_id(regular_member_id)
     
     # Virtual member should display as "Group"

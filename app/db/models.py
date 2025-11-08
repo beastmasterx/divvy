@@ -21,7 +21,8 @@ class Member(Base):
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     paid_remainder_in_cycle = Column(Boolean, default=False, nullable=False)
 
@@ -34,6 +35,7 @@ class Member(Base):
         """Convert model instance to dictionary (for backwards compatibility)."""
         return {
             "id": self.id,
+            "email": self.email,
             "name": self.name,
             "is_active": int(self.is_active) if isinstance(self.is_active, bool) else self.is_active,
             "paid_remainder_in_cycle": (
@@ -44,7 +46,7 @@ class Member(Base):
         }
 
     def __repr__(self) -> str:
-        return f"<Member(id={self.id}, name='{self.name}', is_active={self.is_active})>"
+        return f"<Member(id={self.id}, email='{self.email}', name='{self.name}', is_active={self.is_active})>"
 
 
 class Period(Base):

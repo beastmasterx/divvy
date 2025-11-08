@@ -80,11 +80,11 @@ def initialize_database():
 # --- Database operations for Members ---
 
 
-def add_member(name: str) -> int | None:
+def add_member(email: str, name: str) -> int | None:
     """Adds a new member to the database and returns their ID, or None if already exists."""
     with get_session() as session:
         try:
-            member = Member(name=name)
+            member = Member(email=email, name=name)
             session.add(member)
             session.flush()  # Get the ID without committing yet
             member_id = member.id
@@ -95,8 +95,15 @@ def add_member(name: str) -> int | None:
             return None
 
 
+def get_member_by_email(email: str) -> dict | None:
+    """Retrieves a member by their email."""
+    with get_session() as session:
+        member = session.query(Member).filter_by(email=email).first()
+        return member.to_dict() if member else None
+
+
 def get_member_by_name(name: str) -> dict | None:
-    """Retrieves a member by their name."""
+    """Retrieves a member by their name. Note: names are not unique, returns first match."""
     with get_session() as session:
         member = session.query(Member).filter_by(name=name).first()
         return member.to_dict() if member else None
@@ -258,7 +265,11 @@ def ensure_virtual_member_exists():
     virtual_member = get_member_by_name(PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     if not virtual_member:
         with get_session() as session:
-            virtual_member_obj = Member(name=PUBLIC_FUND_MEMBER_INTERNAL_NAME, is_active=False)
+            virtual_member_obj = Member(
+                email=f"{PUBLIC_FUND_MEMBER_INTERNAL_NAME}@system.local",
+                name=PUBLIC_FUND_MEMBER_INTERNAL_NAME,
+                is_active=False
+            )
             session.add(virtual_member_obj)
             session.commit()
 
@@ -371,6 +382,7 @@ __all__ = [
     "initialize_database",
     # Member operations
     "add_member",
+    "get_member_by_email",
     "get_member_by_name",
     "get_member_by_id",
     "get_all_members",
