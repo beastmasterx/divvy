@@ -3,10 +3,12 @@ Pydantic schemas for Settlement API endpoints.
 """
 from pydantic import BaseModel
 
+from app.api.schemas.period import MemberBalance
+
 
 class SettlementBalanceResponse(BaseModel):
     """Schema for settlement balance response."""
-    balances: dict[str, str]  # Member name -> balance description
+    balances: list[MemberBalance]
 
 
 class SettlementTransaction(BaseModel):

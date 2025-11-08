@@ -10,6 +10,7 @@ from app.api.schemas.settlement import (
     SettlementPlanResponse,
     SettlementTransaction,
 )
+from app.api.schemas.period import MemberBalance
 from app.services import settlement as settlement_service
 import app.db as database
 
@@ -27,9 +28,14 @@ def get_settlement_balances(
     and who is owed money.
     
     Returns:
-        Dictionary of member names to balance descriptions
+        List of member balances with descriptions
     """
-    balances = settlement_service.get_settlement_balances()
+    balances_dict = settlement_service.get_settlement_balances()
+    # Convert balances from dict[str, str] to list[MemberBalance]
+    balances = [
+        MemberBalance(member_name=name, balance_description=desc)
+        for name, desc in balances_dict.items()
+    ]
     return SettlementBalanceResponse(balances=balances)
 
 

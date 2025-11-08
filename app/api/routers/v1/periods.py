@@ -10,7 +10,10 @@ from app.api.schemas.period import (
     PeriodSummaryResponse,
     PeriodSettleRequest,
     PeriodSettleResponse,
+    MemberBalance,
+    PeriodTotalsResponse,
 )
+from app.api.schemas.transaction import TransactionResponse
 from app.services import period as period_service
 import app.db as database
 
@@ -48,7 +51,19 @@ def get_current_period_summary(
     if not summary:
         raise HTTPException(status_code=404, detail="No active period found")
     
-    return PeriodSummaryResponse(**summary)
+    # Convert balances from dict[str, str] to list[MemberBalance]
+    balances = [
+        MemberBalance(member_name=name, balance_description=desc)
+        for name, desc in summary["balances"].items()
+    ]
+    
+    return PeriodSummaryResponse(
+        period=PeriodResponse(**summary["period"]),
+        transactions=[TransactionResponse(**tx) for tx in summary["transactions"]],
+        balances=balances,
+        totals=PeriodTotalsResponse(**summary["totals"]),
+        transaction_count=summary["transaction_count"],
+    )
 
 
 @router.get("/{period_id}", response_model=PeriodResponse)
@@ -90,7 +105,19 @@ def get_period_summary(
     if not summary:
         raise HTTPException(status_code=404, detail=f"Period {period_id} not found")
     
-    return PeriodSummaryResponse(**summary)
+    # Convert balances from dict[str, str] to list[MemberBalance]
+    balances = [
+        MemberBalance(member_name=name, balance_description=desc)
+        for name, desc in summary["balances"].items()
+    ]
+    
+    return PeriodSummaryResponse(
+        period=PeriodResponse(**summary["period"]),
+        transactions=[TransactionResponse(**tx) for tx in summary["transactions"]],
+        balances=balances,
+        totals=PeriodTotalsResponse(**summary["totals"]),
+        transaction_count=summary["transaction_count"],
+    )
 
 
 @router.get("/{period_id}/balances", response_model=dict)
