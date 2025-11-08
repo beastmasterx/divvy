@@ -40,7 +40,9 @@ class TransactionResponse(BaseModel):
     description: str | None
     amount: int  # Amount in cents
     payer_id: int | None
+    payer_name: str | None
     category_id: int | None
+    category_name: str | None
     period_id: int
     is_personal: bool
     timestamp: str

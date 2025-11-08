@@ -242,7 +242,29 @@ def get_transactions_by_period(period_id: int) -> list[dict]:
             .order_by(Transaction.timestamp)
             .all()
         )
-        return [t.to_dict() for t in transactions]
+        result = []
+        for t in transactions:
+            tx_dict = t.to_dict()
+            # Add payer_name if payer_id exists
+            if tx_dict.get("payer_id"):
+                payer = get_member_by_id(tx_dict["payer_id"])
+                tx_dict["payer_name"] = payer["name"] if payer else None
+            else:
+                tx_dict["payer_name"] = None
+            # Add category_name if category_id exists
+            if tx_dict.get("category_id"):
+                category = get_category_by_id(tx_dict["category_id"])
+                tx_dict["category_name"] = category["name"] if category else None
+            else:
+                tx_dict["category_name"] = None
+            # Convert timestamp to ISO format string
+            timestamp = tx_dict.get("timestamp") or tx_dict.get("TIMESTAMP")
+            if timestamp and hasattr(timestamp, "isoformat"):
+                tx_dict["timestamp"] = timestamp.isoformat()
+            elif timestamp:
+                tx_dict["timestamp"] = str(timestamp)
+            result.append(tx_dict)
+        return result
 
 
 def initialize_first_period_if_needed():
@@ -335,7 +357,29 @@ def get_all_transactions() -> list[dict]:
     """Retrieves all transactions."""
     with get_session() as session:
         transactions = session.query(Transaction).order_by(Transaction.timestamp).all()
-        return [t.to_dict() for t in transactions]
+        result = []
+        for t in transactions:
+            tx_dict = t.to_dict()
+            # Add payer_name if payer_id exists
+            if tx_dict.get("payer_id"):
+                payer = get_member_by_id(tx_dict["payer_id"])
+                tx_dict["payer_name"] = payer["name"] if payer else None
+            else:
+                tx_dict["payer_name"] = None
+            # Add category_name if category_id exists
+            if tx_dict.get("category_id"):
+                category = get_category_by_id(tx_dict["category_id"])
+                tx_dict["category_name"] = category["name"] if category else None
+            else:
+                tx_dict["category_name"] = None
+            # Convert timestamp to ISO format string
+            timestamp = tx_dict.get("timestamp") or tx_dict.get("TIMESTAMP")
+            if timestamp and hasattr(timestamp, "isoformat"):
+                tx_dict["timestamp"] = timestamp.isoformat()
+            elif timestamp:
+                tx_dict["timestamp"] = str(timestamp)
+            result.append(tx_dict)
+        return result
 
 
 def get_category_by_name(name: str) -> dict | None:
