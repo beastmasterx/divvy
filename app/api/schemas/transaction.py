@@ -1,6 +1,8 @@
 """
 Pydantic schemas for Transaction API endpoints.
 """
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -45,7 +47,7 @@ class TransactionResponse(BaseModel):
     category_name: str | None
     period_id: int
     is_personal: bool
-    timestamp: str
+    timestamp: datetime
 
 
 class TransactionMessageResponse(BaseModel):

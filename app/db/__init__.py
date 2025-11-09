@@ -257,12 +257,9 @@ def get_transactions_by_period(period_id: int) -> list[dict]:
                 tx_dict["category_name"] = category["name"] if category else None
             else:
                 tx_dict["category_name"] = None
-            # Convert timestamp to ISO format string
-            timestamp = tx_dict.get("timestamp") or tx_dict.get("TIMESTAMP")
-            if timestamp and hasattr(timestamp, "isoformat"):
-                tx_dict["timestamp"] = timestamp.isoformat()
-            elif timestamp:
-                tx_dict["timestamp"] = str(timestamp)
+            # Ensure timestamp is available (handle both TIMESTAMP and timestamp keys)
+            if "timestamp" not in tx_dict and "TIMESTAMP" in tx_dict:
+                tx_dict["timestamp"] = tx_dict["TIMESTAMP"]
             result.append(tx_dict)
         return result
 
@@ -372,12 +369,9 @@ def get_all_transactions() -> list[dict]:
                 tx_dict["category_name"] = category["name"] if category else None
             else:
                 tx_dict["category_name"] = None
-            # Convert timestamp to ISO format string
-            timestamp = tx_dict.get("timestamp") or tx_dict.get("TIMESTAMP")
-            if timestamp and hasattr(timestamp, "isoformat"):
-                tx_dict["timestamp"] = timestamp.isoformat()
-            elif timestamp:
-                tx_dict["timestamp"] = str(timestamp)
+            # Ensure timestamp is available (handle both TIMESTAMP and timestamp keys)
+            if "timestamp" not in tx_dict and "TIMESTAMP" in tx_dict:
+                tx_dict["timestamp"] = tx_dict["TIMESTAMP"]
             result.append(tx_dict)
         return result
 
