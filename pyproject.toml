@@ -63,3 +63,11 @@ known-first-party = ["divvy"]
 
 [tool.black]
 line-length = 100
+
+[tool.pyright]
+# Enable strict type checking mode
+typeCheckingMode = "strict"
+# Report missing imports as errors
+reportMissingImports = "error"
+# Report missing type stubs as errors
+reportMissingTypeStubs = "error"
