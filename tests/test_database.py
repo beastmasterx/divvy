@@ -1,5 +1,3 @@
-import pytest
-
 import app.db as database
 from app.db import Transaction
 from app.db.session import get_session
@@ -208,10 +206,10 @@ def test_virtual_member_not_in_active_members():
     """Test that virtual member doesn't appear in get_active_members()."""
     # Add a regular member
     database.add_member("alice@example.com", "Alice")
-    
+
     # Get active members
     active_members = database.get_active_members()
-    
+
     # Virtual member should not appear
     member_names = [m["name"] for m in active_members]
     assert database.PUBLIC_FUND_MEMBER_INTERNAL_NAME not in member_names
@@ -222,10 +220,10 @@ def test_virtual_member_not_in_all_members():
     """Test that virtual member doesn't appear in get_all_members()."""
     # Add a regular member
     database.add_member("alice@example.com", "Alice")
-    
+
     # Get all members
     all_members = database.get_all_members()
-    
+
     # Virtual member should not appear
     member_names = [m["name"] for m in all_members]
     assert database.PUBLIC_FUND_MEMBER_INTERNAL_NAME not in member_names
@@ -237,7 +235,7 @@ def test_is_virtual_member():
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     regular_member_id = database.add_member("alice@example.com", "Alice")
     regular_member_dict = database.get_member_by_id(regular_member_id)
-    
+
     assert database.is_virtual_member(virtual_member) is True
     assert database.is_virtual_member(regular_member_dict) is False
     assert database.is_virtual_member(None) is False
@@ -248,9 +246,9 @@ def test_get_member_display_name():
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     regular_member_id = database.add_member("alice@example.com", "Alice")
     regular_member_dict = database.get_member_by_id(regular_member_id)
-    
+
     # Virtual member should display as "Group"
     assert database.get_member_display_name(virtual_member) == "Group"
-    
+
     # Regular member should display as their name
     assert database.get_member_display_name(regular_member_dict) == "Alice"

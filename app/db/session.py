@@ -2,6 +2,7 @@
 Session management for SQLAlchemy.
 Provides session context managers and session factory.
 """
+
 from contextlib import contextmanager
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -31,7 +32,7 @@ def SessionLocal():
 def get_session():
     """
     Context manager for database sessions.
-    
+
     Usage:
         with get_session() as session:
             member = session.query(Member).first()
@@ -52,12 +53,11 @@ def get_session():
 def create_session() -> Session:
     """
     Create a new database session (manual management).
-    
+
     Note: You must call session.commit() and session.close() manually.
     Prefer using get_session() context manager for automatic management.
-    
+
     Returns:
         SQLAlchemy Session instance
     """
     return _get_session_factory()()
-

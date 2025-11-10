@@ -1,6 +1,7 @@
 """
 Member management service.
 """
+
 import app.db as database
 from app.core.i18n import _
 
@@ -16,7 +17,9 @@ def add_new_member(email: str, name: str) -> str:
         if existing_member["is_active"]:
             return _("Error: Member with email '{}' already exists and is active.").format(email)
         else:
-            return _("Error: Member with email '{}' exists but is inactive. Please use rejoin option.").format(email)
+            return _(
+                "Error: Member with email '{}' exists but is inactive. Please use rejoin option."
+            ).format(email)
 
     # Add the new member
     new_member_id = database.add_member(email, name)
@@ -91,4 +94,3 @@ def rejoin_member(name: str) -> str:
 
     database.reactivate_member(member["id"])
     return _("Member '{}' has been reactivated (rejoined).").format(name)
-

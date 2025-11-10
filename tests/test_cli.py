@@ -3,11 +3,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cli.main import show_menu, select_from_list, select_payer, main
-import cli.main as cli_module
 import app.db as database
 from app.db import Transaction
 from app.db.session import get_session
+from cli.main import main, select_from_list, select_payer, show_menu
 
 
 @pytest.fixture
@@ -115,12 +114,15 @@ def test_menu_choice_view_period(setup_members, capsys):
 
     captured = capsys.readouterr()
     # Should show period selection menu and then period details
-    assert ("Select Period" in captured.out or "选择" in captured.out or 
-            "Initial Period" in captured.out or 
-            "Started:" in captured.out or
-            "开始日期：" in captured.out or
-            "No active period found" in captured.out or
-            "No periods available" in captured.out)
+    assert (
+        "Select Period" in captured.out
+        or "选择" in captured.out
+        or "Initial Period" in captured.out
+        or "Started:" in captured.out
+        or "开始日期：" in captured.out
+        or "No active period found" in captured.out
+        or "No periods available" in captured.out
+    )
 
 
 def test_menu_choice_settle_period(setup_members, capsys):
@@ -240,11 +242,7 @@ def test_record_expense_with_empty_description(setup_members):
 
     # Verify transaction has None description
     with get_session() as session:
-        tx = (
-            session.query(Transaction)
-            .order_by(Transaction.id.desc())
-            .first()
-        )
+        tx = session.query(Transaction).order_by(Transaction.id.desc()).first()
         assert tx is not None
         assert tx.description is None or tx.description == ""
 
@@ -271,7 +269,7 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         tx = session.query(Transaction).filter_by(description="Rent payment").first()
         assert tx is not None
         assert tx.amount == 300000  # 3000.00 in cents
-        
+
         # Verify payer is virtual member
         payer = database.get_member_by_id(tx.payer_id)
         assert payer is not None
@@ -283,7 +281,7 @@ def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
     # setup_members creates 2 members (Alice, Bob), Group is 3rd option
     active_members = database.get_active_members()
     group_option = str(len(active_members) + 1)  # Group is after all active members
-    
+
     inputs = [
         "2",  # Menu choice
         "Public fund",  # Description
@@ -304,7 +302,7 @@ def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
         assert tx is not None
         assert tx.amount == 10000  # 100.00 in cents
         assert tx.transaction_type == "deposit"
-        
+
         # Verify payer is virtual member
         payer = database.get_member_by_id(tx.payer_id)
         assert payer is not None

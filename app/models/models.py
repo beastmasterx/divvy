@@ -2,7 +2,8 @@
 SQLAlchemy ORM models for the Divvy application.
 Supports SQLite, PostgreSQL, MySQL, and MSSQL.
 """
-from datetime import datetime, UTC
+
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import declarative_base, relationship
@@ -12,6 +13,7 @@ Base = declarative_base()
 
 class Member(Base):
     """Member model representing users in the expense splitting system."""
+
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -29,7 +31,9 @@ class Member(Base):
         return {
             "id": self.id,
             "name": self.name,
-            "is_active": int(self.is_active) if isinstance(self.is_active, bool) else self.is_active,
+            "is_active": (
+                int(self.is_active) if isinstance(self.is_active, bool) else self.is_active
+            ),
             "paid_remainder_in_cycle": (
                 int(self.paid_remainder_in_cycle)
                 if isinstance(self.paid_remainder_in_cycle, bool)
@@ -43,6 +47,7 @@ class Member(Base):
 
 class Period(Base):
     """Period model representing settlement periods."""
+
     __tablename__ = "periods"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -62,7 +67,9 @@ class Period(Base):
             "name": self.name,
             "start_date": self.start_date,
             "end_date": self.end_date,
-            "is_settled": int(self.is_settled) if isinstance(self.is_settled, bool) else self.is_settled,
+            "is_settled": (
+                int(self.is_settled) if isinstance(self.is_settled, bool) else self.is_settled
+            ),
             "settled_date": self.settled_date,
         }
 
@@ -72,6 +79,7 @@ class Period(Base):
 
 class Category(Base):
     """Category model for transaction categorization."""
+
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -93,6 +101,7 @@ class Category(Base):
 
 class Transaction(Base):
     """Transaction model for expenses, deposits, and refunds."""
+
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -135,4 +144,3 @@ class Transaction(Base):
             f"<Transaction(id={self.id}, type='{self.transaction_type}', "
             f"amount={self.amount}, payer_id={self.payer_id})>"
         )
-

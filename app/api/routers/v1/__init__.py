@@ -1,13 +1,14 @@
 """
 API v1 routers.
 """
+
 from fastapi import APIRouter
 
 from .members import router as members_router
-from .transactions import router as transactions_router
 from .periods import router as periods_router
 from .settlement import router as settlement_router
 from .system import router as system_router
+from .transactions import router as transactions_router
 
 # Create API v1 router
 api_router = APIRouter(prefix="/v1")

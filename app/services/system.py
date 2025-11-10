@@ -1,6 +1,7 @@
 """
 System status service.
 """
+
 import app.db as database
 from app.services.period import get_period_summary
 
@@ -49,4 +50,3 @@ def get_system_status() -> dict:
             "expenses": len(expenses),
         },
     }
-

@@ -14,7 +14,6 @@ The script will:
     2. Compile them to .mo files using msgfmt (if available)
     3. Fall back to Python's gettext module if msgfmt is not installed
 """
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -23,33 +22,34 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 LOCALE_DIR = PROJECT_ROOT / "app" / "locale"
 
+
 def compile_translations():
     """Compile all .po files to .mo files."""
     if not LOCALE_DIR.exists():
         print(f"Error: Locale directory not found: {LOCALE_DIR}")
         return False
-    
+
     # Try using msgfmt (GNU gettext tools)
     try:
         subprocess.run(["msgfmt", "--version"], capture_output=True, check=True)
         has_msgfmt = True
     except (subprocess.CalledProcessError, FileNotFoundError):
         has_msgfmt = False
-    
+
     if not has_msgfmt:
         # Fallback: use Python's gettext to compile
         print("msgfmt not found. Using Python's gettext to compile translations...")
         return compile_with_python()
-    
+
     # Use msgfmt for compilation
     success = True
     for lang_dir in LOCALE_DIR.iterdir():
         if not lang_dir.is_dir():
             continue
-        
+
         po_file = lang_dir / "LC_MESSAGES" / "divvy.po"
         mo_file = lang_dir / "LC_MESSAGES" / "divvy.mo"
-        
+
         if po_file.exists():
             try:
                 subprocess.run(
@@ -63,7 +63,7 @@ def compile_translations():
                 success = False
         else:
             print(f"⚠ Warning: {po_file} not found")
-    
+
     return success
 
 
@@ -71,23 +71,23 @@ def compile_with_python():
     """Compile translations using Python's gettext module."""
     try:
         from babel.messages import frontend as babel
+
         # If babel is available, we could use it
         print("Note: Consider installing babel for better translation tools")
     except ImportError:
         pass
-    
+
     # Manual compilation using gettext
     import gettext
-    from io import StringIO
-    
+
     success = True
     for lang_dir in LOCALE_DIR.iterdir():
         if not lang_dir.is_dir():
             continue
-        
+
         po_file = lang_dir / "LC_MESSAGES" / "divvy.po"
         mo_file = lang_dir / "LC_MESSAGES" / "divvy.mo"
-        
+
         if po_file.exists():
             try:
                 # Parse and compile .po file
@@ -108,14 +108,14 @@ def compile_with_python():
                 success = False
         else:
             print(f"⚠ Warning: {po_file} not found")
-    
+
     if success:
         print("\n⚠ Note: For production use, compile .po files to .mo using:")
         print("   msgfmt -o app/locale/en_US/LC_MESSAGES/divvy.mo \\")
         print("          app/locale/en_US/LC_MESSAGES/divvy.po")
         print("   msgfmt -o app/locale/zh_CN/LC_MESSAGES/divvy.mo \\")
         print("          app/locale/zh_CN/LC_MESSAGES/divvy.po")
-    
+
     return success
 
 
@@ -128,4 +128,3 @@ if __name__ == "__main__":
     else:
         print("\n✗ Translation compilation had errors.")
         sys.exit(1)
-

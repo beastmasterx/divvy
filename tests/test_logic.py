@@ -1,9 +1,7 @@
-import pytest
-
 import app.db as database
-from app.services import member, transaction, period, settlement, system
 from app.db import Transaction
 from app.db.session import get_session
+from app.services import member, period, settlement, transaction
 
 
 def test_add_new_member():
@@ -256,7 +254,7 @@ def test_record_shared_expense():
         tx = session.query(Transaction).filter_by(description="Rent").first()
         assert tx is not None
         assert tx.amount == 300000  # 3000.00 in cents
-        
+
         payer = database.get_member_by_id(tx.payer_id)
         assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
 
@@ -272,9 +270,7 @@ def test_shared_expense_balance_calculation():
     database.add_transaction("deposit", 10000, "Alice's deposit", alice["id"])
 
     # Shared expense: Rent 3000.00 (no one pays, everyone owes their share)
-    transaction.record_expense(
-        "Rent", "3000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
-    )
+    transaction.record_expense("Rent", "3000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent")
 
     # Expected balances:
     # Alice: +100 (deposit) -1500 (share of rent) = -1400 (owes 1400)
@@ -297,9 +293,7 @@ def test_mixed_shared_and_individual_expenses():
     database.add_transaction("deposit", 20000, "Alice's deposit", alice["id"])
 
     # Shared expense: Rent 1000.00 (split equally, no credit)
-    transaction.record_expense(
-        "Rent", "1000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
-    )
+    transaction.record_expense("Rent", "1000.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent")
 
     # Individual expense: Groceries 60.00, Alice pays
     transaction.record_expense("Groceries", "60.00", "Alice", "Groceries")
@@ -368,11 +362,13 @@ def test_settle_current_period():
     assert new_period["id"] != current_period["id"]
     assert new_period["name"] == "Settled Period"
     assert new_period["is_settled"] == 0
-    
+
     # Verify settlement transactions were created with correct amounts
     # Check that settlement transactions exist in the settled period
     settlement_transactions = database.get_transactions_by_period(current_period["id"])
-    settlement_txs = [tx for tx in settlement_transactions if "Settlement" in (tx.get("description") or "")]
+    settlement_txs = [
+        tx for tx in settlement_transactions if "Settlement" in (tx.get("description") or "")
+    ]
     assert len(settlement_txs) > 0, "Settlement transactions should be created"
 
 
@@ -380,13 +376,13 @@ def test_public_fund_deposit():
     """Test depositing to public fund (virtual member)."""
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
-    
+
     # Deposit to public fund
     result = transaction.record_deposit(
         "Public fund contribution", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
     )
     assert "100.00" in result
-    
+
     # Verify transaction recorded
     with get_session() as session:
         tx = session.query(Transaction).filter_by(description="Public fund contribution").first()
@@ -401,15 +397,18 @@ def test_shared_expense_with_sufficient_public_fund():
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
-    
+
     # Deposit 100 to public fund
     database.add_transaction("deposit", 10000, "Public fund", virtual_member["id"])
-    
+
     # Shared expense: 50 (fully covered by public fund)
     transaction.record_expense(
-        "Utilities", "50.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
+        "Utilities",
+        "50.00",
+        database.PUBLIC_FUND_MEMBER_INTERNAL_NAME,
+        "Utilities (Water & Electricity & Gas)",
     )
-    
+
     # Expected: Fund covers all, members owe nothing
     balances = period.get_active_member_balances()
     assert balances["Alice"] == 0
@@ -421,15 +420,13 @@ def test_shared_expense_with_insufficient_public_fund():
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
-    
+
     # Deposit 30 to public fund
     database.add_transaction("deposit", 3000, "Public fund", virtual_member["id"])
-    
+
     # Shared expense: 100 (fund has 30, remainder 70 split between 2 members)
-    transaction.record_expense(
-        "Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
-    )
-    
+    transaction.record_expense("Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent")
+
     # Expected balances:
     # Fund covers 30, remainder 70 split: 35 each
     # Alice: -35 (owes 35)
@@ -443,14 +440,12 @@ def test_public_fund_cannot_go_negative():
     """Test that public fund balance never goes negative."""
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
-    
+
     # No deposit to public fund (fund = 0)
-    
+
     # Shared expense: 100 (fund is 0, all split between members)
-    transaction.record_expense(
-        "Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
-    )
-    
+    transaction.record_expense("Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent")
+
     # Expected: Fund stays at 0 (not -100), all 100 split between members
     balances = period.get_active_member_balances()
     assert balances["Alice"] == -5000  # -50.00 in cents (100/2)
@@ -462,27 +457,30 @@ def test_public_fund_accumulation():
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
-    
+
     # Multiple deposits to public fund: 10 + 20 + 5 = 35.00
     database.add_transaction("deposit", 1000, "Fund deposit 1", virtual_member["id"])
     database.add_transaction("deposit", 2000, "Fund deposit 2", virtual_member["id"])
     database.add_transaction("deposit", 500, "Fund deposit 3", virtual_member["id"])
-    
+
     # Shared expense: 20.00 (fund has 35.00, covers fully)
     transaction.record_expense(
-        "Utilities", "20.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Utilities (Water & Electricity & Gas)"
+        "Utilities",
+        "20.00",
+        database.PUBLIC_FUND_MEMBER_INTERNAL_NAME,
+        "Utilities (Water & Electricity & Gas)",
     )
-    
+
     # Fund should have 15.00 remaining (35.00 - 20.00), members owe nothing
     balances = period.get_active_member_balances()
     assert balances["Alice"] == 0
     assert balances["Bob"] == 0
-    
+
     # Another shared expense: 10.00 (fund has 15.00, covers fully)
     transaction.record_expense(
         "Maintenance", "10.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Other"
     )
-    
+
     # Fund should have 5.00 remaining (15.00 - 10.00), members still owe nothing
     balances = period.get_active_member_balances()
     assert balances["Alice"] == 0
@@ -495,21 +493,19 @@ def test_public_fund_mixed_scenario():
     member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
     alice = database.get_member_by_name("Alice")
-    
+
     # Alice deposits 200
     database.add_transaction("deposit", 20000, "Alice's deposit", alice["id"])
-    
+
     # Public fund deposit: 50
     database.add_transaction("deposit", 5000, "Public fund", virtual_member["id"])
-    
+
     # Shared expense: 100 (fund has 50, covers 50, remainder 50 split)
-    transaction.record_expense(
-        "Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent"
-    )
-    
+    transaction.record_expense("Rent", "100.00", database.PUBLIC_FUND_MEMBER_INTERNAL_NAME, "Rent")
+
     # Individual expense: 60, Alice pays
     transaction.record_expense("Groceries", "60.00", "Alice", "Groceries")
-    
+
     # Expected balances:
     # Alice: +200 (deposit) +60 (paid) -25 (share rent) -30 (share groceries) = +205
     # Bob: 0 (deposit) -25 (share rent) -30 (share groceries) = -55
@@ -536,10 +532,10 @@ def test_get_settlement_plan():
 
     # Get settlement plan
     plan = settlement.get_settlement_plan(period_id)
-    
+
     assert isinstance(plan, list)
     assert len(plan) > 0, "Should have settlement transactions"
-    
+
     # Verify plan structure
     for tx in plan:
         assert "date" in tx
@@ -549,7 +545,7 @@ def test_get_settlement_plan():
         assert "payer_id" in tx
         assert "payer_name" in tx
         assert "from_to" in tx
-        
+
         # Verify from_to labels
         if tx["amount"] < 0:
             assert tx["from_to"] == "To", "Negative amounts should be 'To'"
@@ -562,30 +558,33 @@ def test_settlement_no_duplicate_public_fund():
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
     virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
-    
+
     current_period = database.get_current_period()
     period_id = current_period["id"]
-    
+
     # Add public fund deposit
     database.add_transaction("deposit", 5000, "Public fund", virtual_member["id"])
-    
+
     # Create scenario where Alice is owed money (creditor)
     alice = database.get_member_by_name("Alice")
     database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])
     transaction.record_expense("Expense", "20.00", "Alice", "Other")
-    
+
     # Settle the period
     period.settle_current_period("Test Period")
-    
+
     # Check settlement transactions in the settled period
     settlement_transactions = database.get_transactions_by_period(period_id)
     public_fund_settlements = [
-        tx for tx in settlement_transactions 
+        tx
+        for tx in settlement_transactions
         if "Public fund distribution" in (tx.get("description") or "")
     ]
-    
+
     # Should only have ONE public fund distribution transaction
-    assert len(public_fund_settlements) == 1, f"Expected 1 public fund transaction, got {len(public_fund_settlements)}"
+    assert (
+        len(public_fund_settlements) == 1
+    ), f"Expected 1 public fund transaction, got {len(public_fund_settlements)}"
 
 
 def test_settlement_zeroes_balances():
@@ -594,31 +593,33 @@ def test_settlement_zeroes_balances():
     member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
     bob = database.get_member_by_name("Bob")
-    
+
     current_period = database.get_current_period()
     period_id = current_period["id"]
-    
+
     # Create unbalanced scenario
     database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])  # +100
-    database.add_transaction("deposit", 5000, "Bob deposit", bob["id"])       # +50
+    database.add_transaction("deposit", 5000, "Bob deposit", bob["id"])  # +50
     transaction.record_expense("Dinner", "90.00", "Alice", "Other")  # Split 45 each
-    
+
     # Expected balances before settlement:
     # Alice: +100 (deposit) +90 (paid) -45 (share) = +145
     # Bob: +50 (deposit) -45 (share) = +5
-    
+
     balances_before = period.get_active_member_balances(period_id)
     assert balances_before["Alice"] > 0
     assert balances_before["Bob"] > 0
-    
+
     # Settle the period
     period.settle_current_period("Settled")
-    
+
     # Check balances in the settled period (after settlement transactions)
     balances_after = period.get_active_member_balances(period_id)
-    
+
     # All balances should be zero (within rounding)
-    assert abs(balances_after["Alice"]) < 2, f"Alice balance should be ~0, got {balances_after['Alice']}"
+    assert (
+        abs(balances_after["Alice"]) < 2
+    ), f"Alice balance should be ~0, got {balances_after['Alice']}"
     assert abs(balances_after["Bob"]) < 2, f"Bob balance should be ~0, got {balances_after['Bob']}"
 
 
@@ -627,27 +628,28 @@ def test_settlement_creditor_negative_deposit():
     member.add_new_member("alice@example.com", "Alice")
     member.add_new_member("bob@example.com", "Bob")
     alice = database.get_member_by_name("Alice")
-    
+
     current_period = database.get_current_period()
     period_id = current_period["id"]
-    
+
     # Create scenario where both are creditors (Alice larger, Bob smaller)
     # Expected balances: Alice: +100 -25 = +75, Bob: +50 -25 = +25
     # They pair together: Bob pays Alice 25, so Alice receives "Settlement payment from Bob"
     database.add_transaction("deposit", 10000, "Alice deposit", alice["id"])
     transaction.record_expense("Expense", "50.00", "Bob", "Other")
-    
+
     # Settle the period
     period.settle_current_period("Test")
-    
+
     # Check settlement transactions - creditor should receive negative deposit
     settlement_transactions = database.get_transactions_by_period(period_id)
     alice_settlement_refunds = [
-        tx for tx in settlement_transactions
-        if tx.get("payer_id") == alice["id"] 
+        tx
+        for tx in settlement_transactions
+        if tx.get("payer_id") == alice["id"]
         and "Settlement payment from" in (tx.get("description") or "")
     ]
-    
+
     assert len(alice_settlement_refunds) > 0, "Alice should receive settlement refunds"
     for tx in alice_settlement_refunds:
         assert tx["amount"] < 0, "Creditor settlement should be negative deposit (refund)"
@@ -659,29 +661,30 @@ def test_settlement_debtor_positive_deposit():
     member.add_new_member("bob@example.com", "Bob")
     bob = database.get_member_by_name("Bob")
     alice = database.get_member_by_name("Alice")
-    
+
     current_period = database.get_current_period()
     period_id = current_period["id"]
-    
+
     # Create scenario where Bob is debtor (owes money) and Alice is creditor (owed money)
     # Alice pays expense, so she gets credit and Bob owes his share
     transaction.record_expense("Expense", "50.00", "Alice", "Other")
-    
+
     # Expected balances:
     # Alice: +50 (paid) -25 (share) = +25 (creditor)
     # Bob: -25 (share) = -25 (debtor)
-    
+
     # Settle the period
     period.settle_current_period("Test")
-    
+
     # Check settlement transactions - debtor (Bob) should make positive deposit
     settlement_transactions = database.get_transactions_by_period(period_id)
     bob_settlement_deposits = [
-        tx for tx in settlement_transactions
+        tx
+        for tx in settlement_transactions
         if tx.get("payer_id") == bob["id"]
         and "Settlement payment to" in (tx.get("description") or "")
     ]
-    
+
     assert len(bob_settlement_deposits) > 0, "Bob should make settlement deposits"
     for tx in bob_settlement_deposits:
         assert tx["amount"] > 0, "Debtor settlement should be positive deposit"

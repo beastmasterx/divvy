@@ -1,6 +1,7 @@
 """
 Utility functions for services.
 """
+
 from app.core.i18n import _
 
 
@@ -15,4 +16,3 @@ def dollars_to_cents(dollars_str: str) -> int:
         return int(float(dollars_str) * 100)
     except ValueError as err:
         raise ValueError(_("Invalid amount format. Please enter a number.")) from err
-

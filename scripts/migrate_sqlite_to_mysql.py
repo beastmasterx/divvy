@@ -28,8 +28,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import load_env_files
-from divvy.database.models import Base, Member, Period, Category, Transaction
-from divvy.database.connection import get_database_url, ensure_database_exists
+from divvy.database.connection import ensure_database_exists, get_database_url
+from divvy.database.models import Base, Category, Member, Period, Transaction
 
 # Set default log level to INFO for migration script (unless already set)
 if "LOG_LEVEL" not in os.environ:
@@ -121,7 +121,7 @@ try:
             new_member = Member(
                 name=member.name,
                 is_active=bool(member.is_active),
-                paid_remainder_in_cycle=bool(member.paid_remainder_in_cycle)
+                paid_remainder_in_cycle=bool(member.paid_remainder_in_cycle),
             )
             mysql_session.add(new_member)
             mysql_session.flush()  # Get the new ID
@@ -135,10 +135,11 @@ try:
     period_id_map = {}  # Map old ID to new ID
     for period in sqlite_periods:
         # Check if period already exists (by name and start_date)
-        existing = mysql_session.query(Period).filter_by(
-            name=period.name,
-            start_date=period.start_date
-        ).first()
+        existing = (
+            mysql_session.query(Period)
+            .filter_by(name=period.name, start_date=period.start_date)
+            .first()
+        )
         if existing:
             period_id_map[period.id] = existing.id
             logger.info(f"  Period '{period.name}' already exists (ID: {existing.id})")
@@ -148,7 +149,7 @@ try:
                 start_date=period.start_date,
                 end_date=period.end_date,
                 is_settled=bool(period.is_settled),
-                settled_date=period.settled_date
+                settled_date=period.settled_date,
             )
             mysql_session.add(new_period)
             mysql_session.flush()  # Get the new ID
@@ -169,19 +170,25 @@ try:
 
         # Check if all foreign keys are valid
         if tx.period_id and new_period_id is None:
-            logger.warning(f"  Warning: Transaction {tx.id} has invalid period_id {tx.period_id}, skipping")
+            logger.warning(
+                f"  Warning: Transaction {tx.id} has invalid period_id {tx.period_id}, skipping"
+            )
             skipped_count += 1
             continue
 
         # Check if transaction already exists (by key attributes)
-        existing = mysql_session.query(Transaction).filter_by(
-            transaction_type=tx.transaction_type,
-            amount=tx.amount,
-            payer_id=new_payer_id,
-            period_id=new_period_id,
-            timestamp=tx.timestamp
-        ).first()
-        
+        existing = (
+            mysql_session.query(Transaction)
+            .filter_by(
+                transaction_type=tx.transaction_type,
+                amount=tx.amount,
+                payer_id=new_payer_id,
+                period_id=new_period_id,
+                timestamp=tx.timestamp,
+            )
+            .first()
+        )
+
         if existing:
             logger.info(f"  Transaction {tx.id} already exists (ID: {existing.id})")
             skipped_count += 1
@@ -195,15 +202,15 @@ try:
             category_id=new_category_id,
             period_id=new_period_id,
             is_personal=bool(tx.is_personal),
-            timestamp=tx.timestamp
+            timestamp=tx.timestamp,
         )
         mysql_session.add(new_tx)
         migrated_count += 1
         if migrated_count % 50 == 0:
             logger.info(f"  Migrated {migrated_count} transactions...")
-    
+
     mysql_session.commit()
-    logger.info(f"\n✓ Migration completed!")
+    logger.info("\n✓ Migration completed!")
     logger.info(f"  Categories: {len(sqlite_categories)}")
     logger.info(f"  Members: {len(sqlite_members)}")
     logger.info(f"  Periods: {len(sqlite_periods)}")
@@ -213,6 +220,7 @@ except Exception as e:
     mysql_session.rollback()
     logger.error(f"\n✗ Migration failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 finally:
@@ -222,4 +230,3 @@ finally:
     mysql_engine.dispose()
 
 logger.info("\nMigration script completed successfully!")
-

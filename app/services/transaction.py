@@ -1,6 +1,7 @@
 """
 Transaction management service (expenses, deposits, refunds).
 """
+
 import app.db as database
 from app.core.i18n import _
 from app.services.utils import cents_to_dollars, dollars_to_cents
@@ -46,19 +47,15 @@ def record_expense(
             category_id=category["id"],
             is_personal=True,
         )
-        
+
         if description:
-            return (
-                _("Personal expense '{}' of {} recorded successfully.").format(
-                    description,
-                    cents_to_dollars(amount_cents),
-                )
+            return _("Personal expense '{}' of {} recorded successfully.").format(
+                description,
+                cents_to_dollars(amount_cents),
             )
         else:
-            return (
-                _("Personal expense of {} recorded successfully.").format(
-                    cents_to_dollars(amount_cents),
-                )
+            return _("Personal expense of {} recorded successfully.").format(
+                cents_to_dollars(amount_cents),
             )
 
     # For shared/individual expenses, split among active members
@@ -109,23 +106,19 @@ def record_expense(
     )
 
     if description:
-        return (
-            _("Expense '{}' of {} recorded successfully. "
-              "Remainder of {} assigned to {}.").format(
-                description,
-                cents_to_dollars(amount_cents),
-                cents_to_dollars(remainder),
-                remainder_payer_name,
-            )
+        return _(
+            "Expense '{}' of {} recorded successfully. " "Remainder of {} assigned to {}."
+        ).format(
+            description,
+            cents_to_dollars(amount_cents),
+            cents_to_dollars(remainder),
+            remainder_payer_name,
         )
     else:
-        return (
-            _("Expense of {} recorded successfully. "
-              "Remainder of {} assigned to {}.").format(
-                cents_to_dollars(amount_cents),
-                cents_to_dollars(remainder),
-                remainder_payer_name,
-            )
+        return _("Expense of {} recorded successfully. " "Remainder of {} assigned to {}.").format(
+            cents_to_dollars(amount_cents),
+            cents_to_dollars(remainder),
+            remainder_payer_name,
         )
 
 
@@ -159,19 +152,15 @@ def record_deposit(
     )
 
     if description:
-        return (
-            _("Deposit '{}' of {} from {} recorded successfully.").format(
-                description,
-                cents_to_dollars(amount_cents),
-                payer_name,
-            )
+        return _("Deposit '{}' of {} from {} recorded successfully.").format(
+            description,
+            cents_to_dollars(amount_cents),
+            payer_name,
         )
     else:
-        return (
-            _("Deposit of {} from {} recorded successfully.").format(
-                cents_to_dollars(amount_cents),
-                payer_name,
-            )
+        return _("Deposit of {} from {} recorded successfully.").format(
+            cents_to_dollars(amount_cents),
+            payer_name,
         )
 
 
@@ -212,18 +201,13 @@ def record_refund(
 
     # Use original description for display, not refund_desc (which always has a value)
     if description:
-        return (
-            _("Refund '{}' of {} to {} recorded successfully.").format(
-                description,
-                cents_to_dollars(amount_cents),
-                recipient_name,
-            )
+        return _("Refund '{}' of {} to {} recorded successfully.").format(
+            description,
+            cents_to_dollars(amount_cents),
+            recipient_name,
         )
     else:
-        return (
-            _("Refund of {} to {} recorded successfully.").format(
-                cents_to_dollars(amount_cents),
-                recipient_name,
-            )
+        return _("Refund of {} to {} recorded successfully.").format(
+            cents_to_dollars(amount_cents),
+            recipient_name,
         )
-

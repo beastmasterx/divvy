@@ -1,18 +1,19 @@
 """
 API v1 router for Transaction endpoints.
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+import app.db as database
 from app.api.dependencies import get_db
 from app.api.schemas.transaction import (
-    ExpenseCreate,
     DepositCreate,
+    ExpenseCreate,
     RefundCreate,
     TransactionMessageResponse,
 )
 from app.services import transaction as transaction_service
-import app.db as database
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -24,19 +25,19 @@ def create_expense(
 ):
     """
     Create a new expense.
-    
+
     Supports three expense types:
     - shared: Split among all members, no individual payer
     - personal: Only affects the payer (not split)
     - individual: Split among all members, payer gets credit
-    
+
     Returns:
         Success or error message
     """
     # Handle expense_type if provided
     is_personal = expense.is_personal
     payer_name = expense.payer_name
-    
+
     # If expense_type is provided, override is_personal
     if expense.expense_type:
         if expense.expense_type in ("s", "shared"):
@@ -46,7 +47,7 @@ def create_expense(
             is_personal = True
         else:  # individual
             is_personal = False
-    
+
     result = transaction_service.record_expense(
         description=expense.description,
         amount_str=expense.amount,
@@ -54,10 +55,10 @@ def create_expense(
         category_name=expense.category_name,
         is_personal=is_personal,
     )
-    
+
     if result.startswith("Error:"):
         raise HTTPException(status_code=400, detail=result)
-    
+
     return TransactionMessageResponse(message=result)
 
 
@@ -68,7 +69,7 @@ def create_deposit(
 ):
     """
     Create a new deposit.
-    
+
     Returns:
         Success or error message
     """
@@ -77,10 +78,10 @@ def create_deposit(
         amount_str=deposit.amount,
         payer_name=deposit.payer_name,
     )
-    
+
     if result.startswith("Error:"):
         raise HTTPException(status_code=400, detail=result)
-    
+
     return TransactionMessageResponse(message=result)
 
 
@@ -91,7 +92,7 @@ def create_refund(
 ):
     """
     Create a new refund.
-    
+
     Returns:
         Success or error message
     """
@@ -100,9 +101,8 @@ def create_refund(
         amount_str=refund.amount,
         member_name=refund.member_name,
     )
-    
+
     if result.startswith("Error:"):
         raise HTTPException(status_code=400, detail=result)
-    
-    return TransactionMessageResponse(message=result)
 
+    return TransactionMessageResponse(message=result)

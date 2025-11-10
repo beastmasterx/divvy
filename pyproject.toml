@@ -53,16 +53,6 @@ ignore = [
 fixable = ["ALL"]
 unfixable = []
 
-[tool.ruff.format]
-# Use double quotes for strings
-quote-style = "double"
-# Indent with spaces
-indent-style = "space"
-# Skip magic trailing comma
-skip-magic-trailing-comma = false
-# Line ending style
-line-ending = "auto"
-
 [tool.ruff.lint.isort]
 # Use double quotes
 known-first-party = ["divvy"]
@@ -70,3 +60,6 @@ known-first-party = ["divvy"]
 [tool.ruff.lint.per-file-ignores]
 # Allow longer lines in tests
 "tests/*" = ["E501"]
+
+[tool.black]
+line-length = 100

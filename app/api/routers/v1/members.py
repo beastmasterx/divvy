@@ -4,13 +4,13 @@ API v1 router for Member endpoints.
 
 from fastapi import APIRouter, HTTPException
 
+import app.db as database
 from app.api.schemas.member import (
     MemberCreate,
-    MemberResponse,
     MemberMessageResponse,
+    MemberResponse,
 )
 from app.services import member as member_service
-import app.db as database
 
 router = APIRouter(prefix="/members", tags=["members"])
 
@@ -47,10 +47,11 @@ def list_members(
     Returns:
         List of members
     """
-    if active_only:
-        members = database.get_active_members()
-    else:
-        members = database.get_all_members()
+    members = (
+        database.get_active_members()
+        if active_only
+        else database.get_all_members()
+    )
 
     return [MemberResponse(**member) for member in members]
 

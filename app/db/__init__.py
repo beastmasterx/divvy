@@ -3,9 +3,11 @@ Database module for Divvy application.
 Refactored to use SQLAlchemy ORM while maintaining backwards compatibility.
 Supports SQLite, PostgreSQL, MySQL, and MSSQL via environment variable DIVVY_DATABASE_URL.
 """
+
 import logging
 import os
 from datetime import datetime, timezone
+
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
@@ -39,20 +41,20 @@ def initialize_database():
     Uses SQLAlchemy to create tables, which works across all database types.
     """
     engine = get_engine()
-    
+
     # Check if tables exist (database-agnostic check)
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
-    
+
     if "members" in existing_tables:
         # Database already initialized
         initialize_first_period_if_needed()
         ensure_virtual_member_exists()
         return
-    
+
     # Create all tables
     Base.metadata.create_all(bind=engine)
-    
+
     # Pre-populate default categories
     with get_session() as session:
         default_categories = [
@@ -62,14 +64,14 @@ def initialize_database():
             "Rent",
             "Other",
         ]
-        
+
         for cat_name in default_categories:
             # Check if category already exists
             existing = session.query(Category).filter_by(name=cat_name).first()
             if not existing:
                 session.add(Category(name=cat_name))
         session.commit()
-    
+
     logger.info("Database initialized successfully.")
     # Ensure current period exists after initialization
     initialize_first_period_if_needed()
@@ -270,11 +272,11 @@ def initialize_first_period_if_needed():
     engine = get_engine()
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
-    
+
     if "periods" not in existing_tables:
         # Periods table doesn't exist yet - skip period initialization
         return
-    
+
     if get_current_period() is None:
         create_new_period("Initial Period")
 
@@ -287,7 +289,7 @@ def ensure_virtual_member_exists():
             virtual_member_obj = Member(
                 email=f"{PUBLIC_FUND_MEMBER_INTERNAL_NAME}@system.local",
                 name=PUBLIC_FUND_MEMBER_INTERNAL_NAME,
-                is_active=False
+                is_active=False,
             )
             session.add(virtual_member_obj)
             session.commit()
@@ -304,6 +306,7 @@ def get_member_display_name(member: dict) -> str:
     """Get display name for member (translates virtual member to user-friendly name)."""
     if is_virtual_member(member):
         from app.core.i18n import _
+
         return _("Group")  # Translatable display name
     return member["name"]
 
