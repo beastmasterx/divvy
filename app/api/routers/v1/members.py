@@ -53,7 +53,7 @@ def list_members(
         else database.get_all_members()
     )
 
-    return [MemberResponse(**member) for member in members]
+    return [MemberResponse.model_validate(member) for member in members]
 
 
 @router.get("/{member_id}", response_model=MemberResponse)
@@ -75,7 +75,7 @@ def get_member(
             status_code=404, detail=f"Member {member_id} not found"
         )
 
-    return MemberResponse(**member)
+    return MemberResponse.model_validate(member)
 
 
 @router.delete("/{member_id}", response_model=MemberMessageResponse)

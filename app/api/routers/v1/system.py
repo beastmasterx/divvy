@@ -45,9 +45,9 @@ def get_system_status(
     period_summary = None
     if status["period_summary"]:
         period_summary = PeriodSummaryResponse(
-            period=PeriodResponse(**status["period_summary"]["period"]),
+            period=PeriodResponse.model_validate(status["period_summary"]["period"]),
             transactions=[
-                TransactionResponse(**tx) for tx in status["period_summary"]["transactions"]
+                TransactionResponse.model_validate(tx) for tx in status["period_summary"]["transactions"]
             ],
             balances=[
                 MemberBalance(member_name=name, balance_description=desc)
@@ -59,7 +59,7 @@ def get_system_status(
 
     return SystemStatusResponse(
         current_period=(
-            PeriodResponse(**status["current_period"]) if status["current_period"] else None
+            PeriodResponse.model_validate(status["current_period"]) if status["current_period"] else None
         ),
         period_summary=period_summary,
         total_members=status["total_members"],

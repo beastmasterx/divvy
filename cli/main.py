@@ -1,6 +1,13 @@
+from typing import Any
+
 import app.db as database
 from app.core.config import load_env_files
-from app.core.i18n import _, set_language, translate_category, translate_transaction_type
+from app.core.i18n import (
+    _,
+    set_language,
+    translate_category,
+    translate_transaction_type,
+)
 from app.services import member, period, settlement, transaction, utils
 
 
@@ -30,7 +37,9 @@ def _get_display_width(text: str) -> int:
     return width
 
 
-def _pad_to_display_width(text: str, target_width: int, align: str = "<") -> str:
+def _pad_to_display_width(
+    text: str, target_width: int, align: str = "<"
+) -> str:
     """
     Pad text to target display width, accounting for wide characters.
     align: '<' for left, '>' for right, '^' for center
@@ -53,7 +62,9 @@ def _pad_to_display_width(text: str, target_width: int, align: str = "<") -> str
         return text + " " * padding_needed
 
 
-def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | None:
+def select_from_list(
+    items: list[dict[str, Any]], name_key: str, prompt: str
+) -> dict[str, Any] | None:
     """Displays a numbered list and returns the selected item."""
     if not items:
         print(_("No {} available.").format(prompt.lower()))
@@ -66,7 +77,9 @@ def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | No
 
     while True:
         try:
-            choice = input(_("Enter your choice (1-{}): ").format(len(items))).strip()
+            choice = input(
+                _("Enter your choice (1-{}): ").format(len(items))
+            ).strip()
             if not choice:
                 print(_("Input cannot be empty. Please enter a number."))
                 continue
@@ -75,7 +88,9 @@ def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | No
                 return items[index]
             else:
                 print(
-                    _("Invalid choice. Please enter a number between 1 and {}.").format(len(items))
+                    _(
+                        "Invalid choice. Please enter a number between 1 and {}."
+                    ).format(len(items))
                 )
         except ValueError:
             print(_("Invalid input. Please enter a number."))
@@ -83,22 +98,26 @@ def select_from_list(items: list[dict], name_key: str, prompt: str) -> dict | No
             return None
 
 
-def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
+def _display_settlement_plan(
+    settlement_transactions: list[dict[str, Any]],
+) -> None:
     """Displays settlement plan transactions in table format."""
 
     if not settlement_transactions:
-        print(_("No settlement transactions needed (all balances already zero)."))
+        print(
+            _("No settlement transactions needed (all balances already zero).")
+        )
         return
 
     print(_("\n--- Settlement Plan ---"))
 
     # Prepare transactions with all needed data
-    transactions_data = []
+    transactions_data: list[dict[str, Any]] = []
     for tx in settlement_transactions:
         # Category is blank for settlement transactions
         category_name = ""
 
-        date_only = tx["date"]
+        date_only = tx.get("date", "")
 
         # Determine transaction type for display
         amount_cents = tx["amount"]
@@ -151,7 +170,9 @@ def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
         else 10
     )
     max_payer_width = (
-        max(_get_display_width(t["payer"]) for t in transactions_data) if transactions_data else 8
+        max(_get_display_width(t["payer"]) for t in transactions_data)
+        if transactions_data
+        else 8
     )
 
     # Use display width for headers too
@@ -163,7 +184,9 @@ def _display_settlement_plan(settlement_transactions: list[dict]) -> None:
     header_description = _("Description")
     header_from_to = _("From/To")
 
-    category_width = max(max_category_width, _get_display_width(header_category))
+    category_width = max(
+        max_category_width, _get_display_width(header_category)
+    )
     desc_width = max(max_desc_width, _get_display_width(header_description))
     payer_width = max(max_payer_width, _get_display_width(header_from_to))
     split_width = max(10, _get_display_width(header_split))
@@ -226,19 +249,27 @@ def _display_view_period(period_id: int | None = None) -> None:
 
     # Get active members with balances
     active_members = database.get_active_members()
-    active_balances = period.get_active_member_balances(period_data["id"])
+    active_balances = period.get_active_member_balances(period_data.id)
 
     # Calculate public fund balance for the period
-    virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
+    virtual_member = database.get_member_by_name(
+        database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
+    )
     public_fund_balance = 0
     for tx in transactions:
-        if tx["transaction_type"] == "deposit":
-            if tx["payer_id"] and virtual_member and tx["payer_id"] == virtual_member["id"]:
-                public_fund_balance += tx["amount"]
-        elif tx["transaction_type"] == "expense":
-            payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+        if tx.transaction_type == "deposit":
+            if (
+                tx.payer_id
+                and virtual_member
+                and tx.payer_id == virtual_member.id
+            ):
+                public_fund_balance += tx.amount
+        elif tx.transaction_type == "expense":
+            payer = (
+                database.get_member_by_id(tx.payer_id) if tx.payer_id else None
+            )
             if payer and database.is_virtual_member(payer):
-                expense_amount = tx["amount"]
+                expense_amount = tx.amount
                 fund_used = min(expense_amount, public_fund_balance)
                 public_fund_balance -= fund_used
 
@@ -249,35 +280,51 @@ def _display_view_period(period_id: int | None = None) -> None:
     fund_sign = "+" if public_fund_balance >= 0 else "-"
 
     print("\n" + "=" * 60)
-    print(_("                 {}").format(period_data["name"]))
+    print(_("                 {}").format(period_data.name))
     print("=" * 60)
     # Extract date only from start_date (handle both datetime objects and strings)
-    start_date = period_data["start_date"]
+    start_date = period_data.start_date
     if hasattr(start_date, "strftime"):
         # datetime object
         start_date_only = start_date.strftime("%Y-%m-%d")
     else:
         # string (backwards compatibility)
-        start_date_only = start_date.split()[0] if " " in str(start_date) else str(start_date)
+        start_date_only = (
+            start_date.split()[0]
+            if " " in str(start_date)
+            else str(start_date)
+        )
 
-    if period_data["is_settled"] and period_data.get("settled_date"):
+    if period_data.is_settled and period_data.settled_date:
         # Settled period: show settlement date
-        settled_date = period_data["settled_date"]
+        settled_date = period_data.settled_date
         if hasattr(settled_date, "strftime"):
             settled_date_only = settled_date.strftime("%Y-%m-%d")
         else:
             settled_date_only = (
-                settled_date.split()[0] if " " in str(settled_date) else str(settled_date)
+                settled_date.split()[0]
+                if " " in str(settled_date)
+                else str(settled_date)
             )
-        print(_("Started: {} | Settled: {}").format(start_date_only, settled_date_only))
-    elif period_data["is_settled"] and period_data.get("end_date"):
+        print(
+            _("Started: {} | Settled: {}").format(
+                start_date_only, settled_date_only
+            )
+        )
+    elif period_data.is_settled and period_data.end_date:
         # Fallback to end_date if settled_date is not available
-        end_date = period_data["end_date"]
+        end_date = period_data.end_date
         if hasattr(end_date, "strftime"):
             end_date_only = end_date.strftime("%Y-%m-%d")
         else:
-            end_date_only = end_date.split()[0] if " " in str(end_date) else str(end_date)
-        print(_("Started: {} | Settled: {}").format(start_date_only, end_date_only))
+            end_date_only = (
+                end_date.split()[0] if " " in str(end_date) else str(end_date)
+            )
+        print(
+            _("Started: {} | Settled: {}").format(
+                start_date_only, end_date_only
+            )
+        )
     else:
         # Active period: show active status
         print(_("Started: {} | Active").format(start_date_only))
@@ -292,29 +339,33 @@ def _display_view_period(period_id: int | None = None) -> None:
         print(_("\n--- Transactions ({}) ---").format(len(transactions)))
 
         # Prepare transactions with all needed data
-        transactions_data = []
+        transactions_data: list[dict[str, Any]] = []
         for tx in transactions:
             # Category: only show for expenses, blank for deposits/refunds
             category_name = ""
-            if tx["transaction_type"] == "expense" and tx["category_id"]:
-                category = database.get_category_by_id(tx["category_id"])
+            if tx.transaction_type == "expense" and tx.category_id:
+                category = database.get_category_by_id(tx.category_id)
                 if category:
-                    category_name = translate_category(category["name"])
+                    category_name = translate_category(category.name)
                 else:
-                    category_name = _("Category ID {}").format(tx["category_id"])
+                    category_name = _("Category ID {}").format(tx.category_id)
             # For deposits/refunds, leave category blank (not "Uncategorized")
 
-            # SQLite column names: check for TIMESTAMP (as defined in schema) or lowercase variant
-            timestamp = tx.get("TIMESTAMP", tx.get("timestamp", ""))
+            # Use timestamp attribute directly
+            timestamp = tx.timestamp
             # Handle both datetime objects and strings
             if hasattr(timestamp, "strftime"):
                 date_only = timestamp.strftime("%Y-%m-%d")
             else:
                 timestamp_str = str(timestamp)
-                date_only = timestamp_str.split()[0] if " " in timestamp_str else timestamp_str
+                date_only = (
+                    timestamp_str.split()[0]
+                    if " " in timestamp_str
+                    else timestamp_str
+                )
 
-            tx_type = translate_transaction_type(tx["transaction_type"])
-            amount_cents = tx["amount"]
+            tx_type = translate_transaction_type(tx.transaction_type)
+            amount_cents = tx.amount
 
             # Handle amount sign: negative amounts (refunds) show as negative
             # Positive deposits show as positive, expenses show as negative
@@ -322,30 +373,32 @@ def _display_view_period(period_id: int | None = None) -> None:
                 # Refund (negative deposit)
                 amount_formatted = utils.cents_to_dollars(abs(amount_cents))
                 amount_sign = "-"
-                tx_type = translate_transaction_type("refund")  # Show as Refund type for clarity
-            elif tx["transaction_type"] == "deposit":
+                tx_type = translate_transaction_type(
+                    "refund"
+                )  # Show as Refund type for clarity
+            elif tx.transaction_type == "deposit":
                 amount_formatted = utils.cents_to_dollars(amount_cents)
                 amount_sign = "+"
             else:  # expense
                 amount_formatted = utils.cents_to_dollars(amount_cents)
                 amount_sign = "-"
 
-            desc = tx["description"] if tx["description"] else ""
+            desc = tx.description if tx.description else ""
 
             payer_name = _("Unknown")
             from_to_display = ""
-            if tx["payer_id"]:
-                payer = database.get_member_by_id(tx["payer_id"])
+            if tx.payer_id:
+                payer = database.get_member_by_id(tx.payer_id)
                 if payer:
                     payer_name = database.get_member_display_name(payer)
                 else:
-                    payer_name = _("Member ID {}").format(tx["payer_id"])
+                    payer_name = _("Member ID {}").format(tx.payer_id)
 
             # Format payer column: use From/To for deposits/refunds, Payer for expenses
-            if tx["transaction_type"] == "expense":
+            if tx.transaction_type == "expense":
                 # For expenses, show "Payer: Name"
                 from_to_display = _("Payer: {}").format(payer_name)
-            elif tx["transaction_type"] == "deposit":
+            elif tx.transaction_type == "deposit":
                 if amount_cents < 0:
                     # Negative deposit = Refund, show "To: Name"
                     from_to_display = _("To: {}").format(payer_name)
@@ -358,13 +411,17 @@ def _display_view_period(period_id: int | None = None) -> None:
 
             # Determine expense type display for Split column
             split_type_display = ""
-            if tx["transaction_type"] == "expense":
-                payer = database.get_member_by_id(tx["payer_id"]) if tx["payer_id"] else None
+            if tx.transaction_type == "expense":
+                payer = (
+                    database.get_member_by_id(tx.payer_id)
+                    if tx.payer_id
+                    else None
+                )
                 is_virtual = payer and database.is_virtual_member(payer)
 
                 if is_virtual:
                     split_type_display = _("Shared")
-                elif tx.get("is_personal", 0):
+                elif tx.is_personal:
                     split_type_display = _("Personal")
                 else:
                     split_type_display = _("Individual")
@@ -383,7 +440,9 @@ def _display_view_period(period_id: int | None = None) -> None:
             )
 
         # Sort by date, category, type, payer
-        transactions_data.sort(key=lambda x: (x["date"], x["category"], x["type"], x["payer"]))
+        transactions_data.sort(
+            key=lambda x: (x["date"], x["category"], x["type"], x["payer"])
+        )
 
         # Calculate column widths using display width (not character count)
         max_category_width = (
@@ -392,7 +451,9 @@ def _display_view_period(period_id: int | None = None) -> None:
             else 10
         )
         max_desc_width = (
-            max(_get_display_width(t["description"]) for t in transactions_data)
+            max(
+                _get_display_width(t["description"]) for t in transactions_data
+            )
             if transactions_data
             else 10
         )
@@ -416,8 +477,12 @@ def _display_view_period(period_id: int | None = None) -> None:
         header_description = _("Description")
         header_from_to = _("From/To")
 
-        category_width = max(max_category_width, _get_display_width(header_category))
-        desc_width = max(max_desc_width, _get_display_width(header_description))
+        category_width = max(
+            max_category_width, _get_display_width(header_category)
+        )
+        desc_width = max(
+            max_desc_width, _get_display_width(header_description)
+        )
         payer_width = max(max_payer_width, _get_display_width(header_from_to))
         split_width = max(max_split_width, _get_display_width(header_split))
 
@@ -462,14 +527,14 @@ def _display_view_period(period_id: int | None = None) -> None:
     # Active members with balances
     if active_members:
         print(_("\n--- Balances ({} active) ---").format(len(active_members)))
-        member_strings = []
+        member_strings: list[str] = []
         for member in active_members:
-            balance_cents = active_balances.get(member["name"], 0)
+            balance_cents = active_balances.get(member.name, 0)
             balance_formatted = utils.cents_to_dollars(abs(balance_cents))
             balance_sign = "+" if balance_cents >= 0 else "-"
-            remainder_str = "✓" if member["paid_remainder_in_cycle"] else "✗"
+            remainder_str = "✓" if member.paid_remainder_in_cycle else "✗"
             member_strings.append(
-                f"{member['name']} {remainder_str} {balance_sign}${balance_formatted}"
+                f"{member.name} {remainder_str} {balance_sign}${balance_formatted}"
             )
         print("  " + " | ".join(member_strings))
     else:
@@ -479,7 +544,7 @@ def _display_view_period(period_id: int | None = None) -> None:
     print("\n" + "=" * 60 + "\n")
 
 
-def select_period() -> dict | None:
+def select_period() -> dict[str, Any] | None:
     """Selects a period from all periods, showing the current active period by default.
     Returns the selected period dict, or None if cancelled.
     If user presses Enter without input and there's a current period, returns the current period.
@@ -491,31 +556,32 @@ def select_period() -> dict | None:
         return None
 
     current_period = database.get_current_period()
-    current_period_id = current_period["id"] if current_period else None
+    current_period_id = current_period.id if current_period else None
 
     # Create display strings for periods
-    periods_for_display = []
-    for period in all_periods:
+    periods_for_display: list[dict[str, Any]] = []
+    for p in all_periods:
         # Extract date only from start_date (handle both datetime objects and strings)
-        start_date = period["start_date"]
-        if hasattr(start_date, "strftime"):
-            # datetime object
-            start_date_only = start_date.strftime("%Y-%m-%d")
-        else:
-            # string (backwards compatibility)
-            start_date_only = start_date.split()[0] if " " in str(start_date) else str(start_date)
-        status = _("Active") if not period["is_settled"] else _("Settled")
+        start_date = p.start_date
+        start_date_only = start_date.strftime("%Y-%m-%d")
+        status = _("Active") if not p.is_settled else _("Settled")
 
         # Mark the current active period
-        is_current = current_period_id is not None and period["id"] == current_period_id
+        is_current = (
+            current_period_id is not None and p.id == current_period_id
+        )
         marker = _(" [Current]") if is_current else ""
 
-        display_name = f"{period['name']} ({start_date_only}, {status}){marker}"
-        periods_for_display.append({**period, "display_name": display_name})
+        display_name = f"{p.name} ({start_date_only}, {status}){marker}"
+        periods_for_display.append(
+            {"period": p, "display_name": display_name, "id": p.id}
+        )
 
     # Sort so current period appears first
     if current_period_id:
-        periods_for_display.sort(key=lambda p: (p["id"] != current_period_id, -p["id"]))
+        periods_for_display.sort(
+            key=lambda p: (p["id"] != current_period_id, -p["id"])
+        )
 
     # Display the list with a hint about the default
     if not periods_for_display:
@@ -523,9 +589,9 @@ def select_period() -> dict | None:
         return None
 
     print(_("\n--- Select {} ---").format(_("Period")))
-    for i, period in enumerate(periods_for_display, 1):
+    for i, p in enumerate(periods_for_display, 1):
         default_hint = " (default)" if i == 1 and current_period_id else ""
-        print(f"{i}. {period['display_name']}{default_hint}")
+        print(f"{i}. {p['display_name']}{default_hint}")
     print(_("------------------------"))
 
     # Allow Enter to select default (first item, which is current period)
@@ -539,17 +605,18 @@ def select_period() -> dict | None:
             if not choice:
                 # Empty input - return default (current period) if available
                 if current_period_id and periods_for_display:
-                    return periods_for_display[0]
+                    return periods_for_display[0]  # Return the dict with period info
                 print(_("Input cannot be empty. Please enter a number."))
                 continue
             index = int(choice) - 1
             if 0 <= index < len(periods_for_display):
-                return periods_for_display[index]
+                selected = periods_for_display[index]
+                return selected  # Return the dict with period info
             else:
                 print(
-                    _("Invalid choice. Please enter a number between 1 and {}.").format(
-                        len(periods_for_display)
-                    )
+                    _(
+                        "Invalid choice. Please enter a number between 1 and {}."
+                    ).format(len(periods_for_display))
                 )
         except ValueError:
             print(_("Invalid input. Please enter a number."))
@@ -567,23 +634,34 @@ def select_payer(for_expense: bool = False) -> str | None:
         print(_("No active members available."))
         return None
 
+    # Convert Member objects to dicts for select_from_list
+    members_dicts: list[dict[str, Any]] = [
+        {"id": member.id, "name": member.name} for member in members
+    ]
+
     # For deposits, add virtual member as an option for public fund
     if not for_expense:
-        virtual_member = database.get_member_by_name(database.PUBLIC_FUND_MEMBER_INTERNAL_NAME)
+        virtual_member = database.get_member_by_name(
+            database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
+        )
         if virtual_member:
             # Create a display version with translated name
-            members_with_group = members + [
-                {**virtual_member, "name": database.get_member_display_name(virtual_member)}
+            virtual_display = {
+                "id": virtual_member.id,
+                "name": database.get_member_display_name(virtual_member),
+            }
+            members_with_group: list[dict[str, Any]] = members_dicts + [
+                virtual_display
             ]
             payer = select_from_list(members_with_group, "name", _("Payer"))
             if payer:
                 # Return internal name if virtual member selected
-                if payer.get("id") == virtual_member["id"]:
+                if payer.get("id") == virtual_member.id:
                     return database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
                 return payer["name"]
             return None
 
-    payer = select_from_list(members, "name", _("Payer"))
+    payer = select_from_list(members_dicts, "name", _("Payer"))
     return payer["name"] if payer else None
 
 
@@ -591,7 +669,7 @@ def show_menu():
     """Prints the main menu."""
     try:
         current_period = database.get_current_period()
-        period_name = current_period["name"] if current_period else _("None")
+        period_name = current_period.name if current_period else _("None")
     except Exception:
         # If database not ready yet, show default
         period_name = _("Initializing...")
@@ -637,7 +715,9 @@ def main():
             # Ask if it's a shared expense or personal expense
             expense_type = (
                 input(
-                    _("Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): ")
+                    _(
+                        "Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): "
+                    )
                 )
                 .strip()
                 .lower()
@@ -662,17 +742,30 @@ def main():
             categories = database.get_all_categories()
             # Create a display version with translated names but keep original for lookup
             categories_for_display = [
-                {**cat, "display_name": translate_category(cat["name"])} for cat in categories
+                {
+                    "id": cat.id,
+                    "name": cat.name,
+                    "display_name": translate_category(cat.name),
+                }
+                for cat in categories
             ]
-            category = select_from_list(categories_for_display, "display_name", _("Category"))
+            category = select_from_list(
+                categories_for_display, "display_name", _("Category")
+            )
             if category is None:
                 print(_("Expense recording cancelled."))
                 continue
-            category_name = category["name"]  # Use original name for database lookup
+            category_name = category[
+                "name"
+            ]  # Use original name for database lookup
 
             desc = description if description else None
             result = transaction.record_expense(
-                desc, amount_str, payer_name, category_name, is_personal=is_personal
+                desc,
+                amount_str,
+                payer_name,
+                category_name,
+                is_personal=is_personal,
             )
             print(result)
 
@@ -695,12 +788,17 @@ def main():
 
         elif choice == "3":
             # Add Refund
-            all_members_list = database.get_all_members()
-            if not all_members_list:
+            all_members = [
+                {"id": member.id, "name": member.name}
+                for member in database.get_all_members()
+            ]
+            if not all_members:
                 print(_("No members available."))
                 continue
 
-            selected_member = select_from_list(all_members_list, "name", _("Member to refund"))
+            selected_member = select_from_list(
+                all_members, "name", _("Member to refund")
+            )
             if selected_member is None:
                 print(_("Refund cancelled."))
                 continue
@@ -713,7 +811,9 @@ def main():
                 continue
 
             desc = description if description else None
-            result = transaction.record_refund(desc, amount_str, selected_member["name"])
+            result = transaction.record_refund(
+                desc, amount_str, selected_member["name"]
+            )
             print(result)
 
         elif choice == "4":
@@ -731,11 +831,17 @@ def main():
             # Show settlement plan before asking for confirmation
             current_period = database.get_current_period()
             if current_period:
-                settlement_plan = settlement.get_settlement_plan(current_period["id"])
+                settlement_plan = settlement.get_settlement_plan(
+                    current_period.id
+                )
                 if settlement_plan:
                     _display_settlement_plan(settlement_plan)
                 else:
-                    print(_("\nNo settlement transactions needed (all balances already zero).\n"))
+                    print(
+                        _(
+                            "\nNo settlement transactions needed (all balances already zero).\n"
+                        )
+                    )
 
             # Ask for confirmation
             response = input(_("Close this period? (y/n): "))
@@ -745,7 +851,9 @@ def main():
 
             # Get new period name
             period_name = input(
-                _("Enter name for new period (press Enter for auto-generated): ")
+                _(
+                    "Enter name for new period (press Enter for auto-generated): "
+                )
             ).strip()
             if not period_name:
                 period_name = None
@@ -772,21 +880,21 @@ def main():
             existing_member = database.get_member_by_email(email)
 
             if existing_member:
-                if existing_member["is_active"]:
+                if existing_member.is_active:
                     print(
-                        _("Error: Member with email '{}' already exists and is active.").format(
-                            email
-                        )
+                        _(
+                            "Error: Member with email '{}' already exists and is active."
+                        ).format(email)
                     )
                 else:
                     # Member is inactive - ask to rejoin
                     response = input(
                         _("Member '{}' is inactive. Rejoin? (y/n): ").format(
-                            existing_member["name"]
+                            existing_member.name
                         )
                     )
                     if response.lower() in ("y", "yes"):
-                        result = member.rejoin_member_by_id(existing_member["id"])
+                        result = member.rejoin_member_by_id(existing_member.id)
                         print(result)
                     else:
                         print(_("Rejoin cancelled."))
@@ -796,7 +904,10 @@ def main():
                 print(result)
 
         elif choice == "7":
-            members = database.get_active_members()
+            members = [
+                {"id": member.id, "name": member.name}
+                for member in database.get_active_members()
+            ]
             if not members:
                 print(_("No active members to remove."))
                 continue
@@ -804,15 +915,21 @@ def main():
             # Show current period status first
             _display_view_period()
 
-            selected_member = select_from_list(members, "name", _("Member to remove"))
+            selected_member = select_from_list(
+                members, "name", _("Member to remove")
+            )
             if selected_member is None:
                 print(_("Member removal cancelled."))
                 continue
 
             # Get member's current balance
             active_balances = period.get_active_member_balances()
-            member_balance_cents = active_balances.get(selected_member["name"], 0)
-            member_balance_formatted = utils.cents_to_dollars(abs(member_balance_cents))
+            member_balance_cents = active_balances.get(
+                selected_member["name"], 0
+            )
+            member_balance_formatted = utils.cents_to_dollars(
+                abs(member_balance_cents)
+            )
             balance_sign = "+" if member_balance_cents >= 0 else "-"
             balance_display = f"{balance_sign}${member_balance_formatted}"
 
@@ -824,9 +941,15 @@ def main():
                         selected_member["name"], balance_display
                     )
                 )
-                print(_("   Other members should settle this balance before removal."))
+                print(
+                    _(
+                        "   Other members should settle this balance before removal."
+                    )
+                )
                 response = input(
-                    _("Remove member '{}' anyway? (y/n): ").format(selected_member["name"])
+                    _("Remove member '{}' anyway? (y/n): ").format(
+                        selected_member["name"]
+                    )
                 )
             elif member_balance_cents < 0:
                 # Member owes money (negative balance)
@@ -837,7 +960,9 @@ def main():
                 )
                 print(_("   This balance should be settled before removal."))
                 response = input(
-                    _("Remove member '{}' anyway? (y/n): ").format(selected_member["name"])
+                    _("Remove member '{}' anyway? (y/n): ").format(
+                        selected_member["name"]
+                    )
                 )
             else:
                 # Zero balance - safe to remove

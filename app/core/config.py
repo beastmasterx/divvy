@@ -7,13 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    # dotenv is optional - provide a no-op function if not installed
-    def load_dotenv(*args, **kwargs):
-        pass
-
+from dotenv import load_dotenv
 
 # Logging level mapping
 log_levels = {
@@ -45,7 +39,9 @@ def setup_logging() -> None:
     # Divvy log level (inherits root if not set)
     divvy_level_str = os.getenv("DIVVY_LOG_LEVEL")
     if divvy_level_str:
-        divvy_log_level = log_levels.get(divvy_level_str.upper(), root_log_level)
+        divvy_log_level = log_levels.get(
+            divvy_level_str.upper(), root_log_level
+        )
     else:
         divvy_log_level = root_log_level
 
@@ -60,7 +56,9 @@ def setup_logging() -> None:
     for logger_name in ["divvy", "app"]:
         divvy_logger = logging.getLogger(logger_name)
         divvy_logger.setLevel(divvy_log_level)
-        divvy_logger.propagate = False  # Don't propagate to root logger to avoid duplicates
+        divvy_logger.propagate = (
+            False  # Don't propagate to root logger to avoid duplicates
+        )
 
         # Add handler for Divvy logger
         if not divvy_logger.handlers:
@@ -109,7 +107,7 @@ def load_env_files(project_root: Path | None = None) -> None:
     env_name = os.getenv("DIVVY_ENV")
 
     # Collect files to load (don't log yet - logging not configured)
-    env_files_to_load = []
+    env_files_to_load: list[Path] = []
 
     # Base .env file from project root
     base_env = project_root / ".env"
@@ -151,4 +149,6 @@ def load_env_files(project_root: Path | None = None) -> None:
         if env_file == base_env:
             logger.info("Loaded base config: .env")
         else:
-            logger.info(f"Loaded environment-specific config: {env_file.relative_to(project_root)}")
+            logger.info(
+                f"Loaded environment-specific config: {env_file.relative_to(project_root)}"
+            )

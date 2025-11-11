@@ -25,8 +25,57 @@ SUPPORTED_LANGUAGES = {
 # Default language
 DEFAULT_LANGUAGE = "en_US"
 
-# Global translation object
-_translation = None
+
+# Global translation object - initialized at module load
+def _init_translation():
+    """Initialize translation object at module load."""
+    # Determine language (same logic as get_language(), but inline to avoid forward reference)
+    lang = DEFAULT_LANGUAGE
+
+    # Check DIVVY_LANG first (application-specific)
+    divvy_lang = os.getenv("DIVVY_LANG")
+    if divvy_lang:
+        normalized = SUPPORTED_LANGUAGES.get(divvy_lang)
+        if normalized:
+            lang = normalized
+    else:
+        # Check LANG environment variable
+        lang_env = os.getenv("LANG", "")
+        if lang_env:
+            # Extract language code (e.g., "zh_CN.UTF-8" -> "zh_CN")
+            lang_base = lang_env.split(".")[0]
+            normalized = SUPPORTED_LANGUAGES.get(lang_base)
+            if normalized:
+                lang = normalized
+        else:
+            # Try system locale
+            try:
+                system_locale, _ = locale.getlocale()
+                if system_locale:
+                    lang_base = (
+                        system_locale.split(".")[0]
+                        if "." in system_locale
+                        else system_locale
+                    )
+                    normalized = SUPPORTED_LANGUAGES.get(lang_base)
+                    if normalized:
+                        lang = normalized
+            except (AttributeError, ValueError):
+                pass
+
+    try:
+        return gettext.translation(
+            "divvy",
+            localedir=str(_LOCALE_DIR),
+            languages=[lang],
+            fallback=True,
+        )
+    except FileNotFoundError:
+        # If translation files don't exist, use fallback (English)
+        return gettext.NullTranslations()
+
+
+_translation = _init_translation()
 
 
 def get_language() -> str:
@@ -62,7 +111,11 @@ def get_language() -> str:
     try:
         system_locale, _ = locale.getlocale()
         if system_locale:
-            lang_base = system_locale.split(".")[0] if "." in system_locale else system_locale
+            lang_base = (
+                system_locale.split(".")[0]
+                if "." in system_locale
+                else system_locale
+            )
             normalized = SUPPORTED_LANGUAGES.get(lang_base)
             if normalized:
                 return normalized
@@ -117,9 +170,6 @@ def _(message: str) -> str:
     Returns:
         Translated message
     """
-    if _translation is None:
-        set_language()
-
     return _translation.gettext(message)
 
 
@@ -135,20 +185,15 @@ def ngettext(singular: str, plural: str, n: int) -> str:
     Returns:
         Translated message with correct plural form
     """
-    if _translation is None:
-        set_language()
-
     return _translation.ngettext(singular, plural, n)
-
-
-# Initialize translation on import
-set_language()
 
 
 def _get_category_translations() -> dict[str, str]:
     """Get category translations dictionary (called after language is set)."""
     return {
-        "Utilities (Water & Electricity & Gas)": _("Utilities (Water & Electricity & Gas)"),
+        "Utilities (Water & Electricity & Gas)": _(
+            "Utilities (Water & Electricity & Gas)"
+        ),
         "Groceries": _("Groceries"),
         "Daily Necessities": _("Daily Necessities"),
         "Rent": _("Rent"),

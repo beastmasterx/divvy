@@ -2,11 +2,13 @@
 System status service.
 """
 
+from typing import Any
+
 import app.db as database
 from app.services.period import get_period_summary
 
 
-def get_system_status() -> dict:
+def get_system_status() -> dict[str, Any]:
     """
     Returns comprehensive system status including:
     - Member information (active/inactive, remainder flags)
@@ -21,19 +23,23 @@ def get_system_status() -> dict:
     period_summary = get_period_summary() if current_period else {}
 
     # Count transactions by type
-    deposits = [tx for tx in all_transactions if tx["transaction_type"] == "deposit"]
-    expenses = [tx for tx in all_transactions if tx["transaction_type"] == "expense"]
+    deposits = [
+        tx for tx in all_transactions if tx.transaction_type == "deposit"
+    ]
+    expenses = [
+        tx for tx in all_transactions if tx.transaction_type == "expense"
+    ]
 
     # Prepare member details
-    member_details = []
+    member_details: list[dict[str, Any]] = []
     period_balances = period_summary.get("balances", {})
     for member in all_members:
         member_info = {
-            "name": member["name"],
-            "id": member["id"],
-            "is_active": bool(member["is_active"]),
-            "paid_remainder_in_cycle": bool(member["paid_remainder_in_cycle"]),
-            "period_balance": period_balances.get(member["name"], "N/A"),
+            "name": member.name,
+            "id": member.id,
+            "is_active": bool(member.is_active),
+            "paid_remainder_in_cycle": bool(member.paid_remainder_in_cycle),
+            "period_balance": period_balances.get(member.name, "N/A"),
         }
         member_details.append(member_info)
 

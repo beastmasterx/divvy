@@ -14,8 +14,10 @@ def add_new_member(email: str, name: str) -> str:
     """
     existing_member = database.get_member_by_email(email)
     if existing_member:
-        if existing_member["is_active"]:
-            return _("Error: Member with email '{}' already exists and is active.").format(email)
+        if existing_member.is_active is True:
+            return _(
+                "Error: Member with email '{}' already exists and is active."
+            ).format(email)
         else:
             return _(
                 "Error: Member with email '{}' exists but is inactive. Please use rejoin option."
@@ -23,7 +25,9 @@ def add_new_member(email: str, name: str) -> str:
 
     # Add the new member
     new_member_id = database.add_member(email, name)
-    if new_member_id is None:  # Should not happen if check for existing_member passed
+    if (
+        new_member_id is None
+    ):  # Should not happen if check for existing_member passed
         return _("Error: Could not add member '{}'.").format(name)
 
     return _("Member '{}' added successfully.").format(name)
@@ -38,11 +42,11 @@ def remove_member_by_id(member_id: int) -> str:
     if not member:
         return _("Error: Member with ID {} not found.").format(member_id)
 
-    if not member["is_active"]:
-        return _("Error: Member '{}' is already inactive.").format(member["name"])
+    if not member.is_active:
+        return _("Error: Member '{}' is already inactive.").format(member.name)
 
     database.deactivate_member(member_id)
-    return _("Member '{}' has been removed (deactivated).").format(member["name"])
+    return _("Member '{}' has been removed (deactivated).").format(member.name)
 
 
 def rejoin_member_by_id(member_id: int) -> str:
@@ -54,11 +58,13 @@ def rejoin_member_by_id(member_id: int) -> str:
     if not member:
         return _("Error: Member with ID {} not found.").format(member_id)
 
-    if member["is_active"]:
-        return _("Error: Member '{}' is already active.").format(member["name"])
+    if member.is_active:
+        return _("Error: Member '{}' is already active.").format(member.name)
 
     database.reactivate_member(member_id)
-    return _("Member '{}' has been reactivated (rejoined).").format(member["name"])
+    return _("Member '{}' has been reactivated (rejoined).").format(
+        member.name
+    )
 
 
 # Legacy functions for backward compatibility (used by CLI)
@@ -72,10 +78,10 @@ def remove_member(name: str) -> str:
     if not member:
         return _("Error: Member '{}' not found.").format(name)
 
-    if not member["is_active"]:
+    if not member.is_active:
         return _("Error: Member '{}' is already inactive.").format(name)
 
-    database.deactivate_member(member["id"])
+    database.deactivate_member(member.id)
     return _("Member '{}' has been removed (deactivated).").format(name)
 
 
@@ -89,8 +95,8 @@ def rejoin_member(name: str) -> str:
     if not member:
         return _("Error: Member '{}' not found.").format(name)
 
-    if member["is_active"]:
+    if member.is_active:
         return _("Error: Member '{}' is already active.").format(name)
 
-    database.reactivate_member(member["id"])
+    database.reactivate_member(member.id)
     return _("Member '{}' has been reactivated (rejoined).").format(name)

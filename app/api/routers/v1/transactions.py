@@ -18,7 +18,9 @@ from app.services import transaction as transaction_service
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-@router.post("/expenses", response_model=TransactionMessageResponse, status_code=201)
+@router.post(
+    "/expenses", response_model=TransactionMessageResponse, status_code=201
+)
 def create_expense(
     expense: ExpenseCreate,
     db: Session = Depends(get_db),
@@ -62,7 +64,9 @@ def create_expense(
     return TransactionMessageResponse(message=result)
 
 
-@router.post("/deposits", response_model=TransactionMessageResponse, status_code=201)
+@router.post(
+    "/deposits", response_model=TransactionMessageResponse, status_code=201
+)
 def create_deposit(
     deposit: DepositCreate,
     db: Session = Depends(get_db),
@@ -85,7 +89,9 @@ def create_deposit(
     return TransactionMessageResponse(message=result)
 
 
-@router.post("/refunds", response_model=TransactionMessageResponse, status_code=201)
+@router.post(
+    "/refunds", response_model=TransactionMessageResponse, status_code=201
+)
 def create_refund(
     refund: RefundCreate,
     db: Session = Depends(get_db),
@@ -99,7 +105,7 @@ def create_refund(
     result = transaction_service.record_refund(
         description=refund.description,
         amount_str=refund.amount,
-        member_name=refund.member_name,
+        recipient_name=refund.member_name,
     )
 
     if result.startswith("Error:"):

@@ -1,4 +1,5 @@
 import contextlib
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -8,15 +9,18 @@ from app.db import Transaction
 from app.db.session import get_session
 from cli.main import main, select_from_list, select_payer, show_menu
 
+if TYPE_CHECKING:
+    from _pytest.capture import CaptureFixture
+
 
 @pytest.fixture
-def setup_members():
+def setup_members() -> None:
     """Fixture to set up test members."""
     database.add_member("alice@example.com", "Alice")
     database.add_member("bob@example.com", "Bob")
 
 
-def test_show_menu(capsys):
+def test_show_menu(capsys: "CaptureFixture[str]"):
     """Test that menu displays correctly."""
     show_menu()
     captured = capsys.readouterr()
@@ -26,7 +30,7 @@ def test_show_menu(capsys):
     assert "View Period" in captured.out
 
 
-def test_menu_choice_add_member(setup_members, capsys):
+def test_menu_choice_add_member(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 6: Add a new member."""
     with (
         patch("builtins.input", side_effect=["6", "charlie@example.com", "Charlie", "8"]),
@@ -37,11 +41,11 @@ def test_menu_choice_add_member(setup_members, capsys):
     # Verify member was added
     member = database.get_member_by_email("charlie@example.com")
     assert member is not None
-    assert member["name"] == "Charlie"
-    assert member["email"] == "charlie@example.com"
+    assert member.name == "Charlie"
+    assert member.email == "charlie@example.com"
 
 
-def test_menu_choice_record_expense(setup_members, capsys):
+def test_menu_choice_record_expense(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 1: Record an expense."""
     # Mock the selections: description, amount, expense type (i=individual), payer (select 1=Alice), category (select first)
     inputs = [
@@ -67,7 +71,7 @@ def test_menu_choice_record_expense(setup_members, capsys):
         assert tx.amount == 1000
 
 
-def test_menu_choice_record_deposit(setup_members, capsys):
+def test_menu_choice_record_deposit(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 2: Record a deposit."""
     inputs = [
         "2",  # Menu choice
@@ -94,11 +98,12 @@ def test_menu_choice_record_deposit(setup_members, capsys):
         assert tx.amount == 5000
 
 
-def test_menu_choice_view_period(setup_members, capsys):
+def test_menu_choice_view_period(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 4: View period summary with period selection."""
     # Add some transactions first
     alice = database.get_member_by_name("Alice")
-    database.add_transaction("deposit", 10000, "Test deposit", alice["id"])
+    assert alice is not None
+    database.add_transaction("deposit", 10000, "Test deposit", alice.id)
 
     inputs = [
         "4",  # View period
@@ -125,11 +130,12 @@ def test_menu_choice_view_period(setup_members, capsys):
     )
 
 
-def test_menu_choice_settle_period(setup_members, capsys):
+def test_menu_choice_settle_period(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 5: Settle current period."""
     # Add some transactions first
     alice = database.get_member_by_name("Alice")
-    database.add_transaction("deposit", 10000, "Test deposit", alice["id"])
+    assert alice is not None
+    database.add_transaction("deposit", 10000, "Test deposit", alice.id)
 
     inputs = [
         "5",  # Settle period
@@ -146,11 +152,11 @@ def test_menu_choice_settle_period(setup_members, capsys):
 
     # Verify period was settled
     periods = database.get_all_periods()
-    settled_periods = [p for p in periods if p["is_settled"] == 1]
+    settled_periods = [p for p in periods if p.is_settled is True]
     assert len(settled_periods) > 0
 
 
-def test_menu_choice_exit(capsys):
+def test_menu_choice_exit(capsys: "CaptureFixture[str]"):
     """Test menu option 8: Exit."""
     inputs = ["8"]
 
@@ -162,7 +168,7 @@ def test_menu_choice_exit(capsys):
     assert "Exiting Divvy. Goodbye!" in captured.out
 
 
-def test_menu_invalid_choice(capsys):
+def test_menu_invalid_choice(capsys: "CaptureFixture[str]"):
     """Test handling of invalid menu choice."""
     inputs = ["99", "8"]  # Invalid choice, then exit
 
@@ -177,7 +183,7 @@ def test_menu_invalid_choice(capsys):
     assert "Invalid choice" in captured.out
 
 
-def test_select_from_list(capsys):
+def test_select_from_list(capsys: "CaptureFixture[str]"):
     """Test the select_from_list helper function."""
     items = [
         {"name": "Item1"},
@@ -194,7 +200,7 @@ def test_select_from_list(capsys):
     assert "Select Test Items" in captured.out
 
 
-def test_select_from_list_invalid_then_valid(capsys):
+def test_select_from_list_invalid_then_valid(capsys: "CaptureFixture[str]"):
     """Test select_from_list with invalid input then valid."""
     items = [
         {"name": "Item1"},
@@ -207,21 +213,21 @@ def test_select_from_list_invalid_then_valid(capsys):
         assert result["name"] == "Item1"
 
 
-def test_select_payer_for_expense(setup_members, capsys):
+def test_select_payer_for_expense(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test select_payer for expense."""
     with patch("builtins.input", return_value="1"):
         result = select_payer(for_expense=True)
         assert result == "Alice"
 
 
-def test_select_payer_for_deposit(setup_members, capsys):
+def test_select_payer_for_deposit(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test select_payer for deposit (includes Group/public fund option)."""
     with patch("builtins.input", return_value="1"):
         result = select_payer(for_expense=False)
         assert result == "Alice"
 
 
-def test_record_expense_with_empty_description(setup_members):
+def test_record_expense_with_empty_description(setup_members: None):
     """Test recording expense with empty description (should become None)."""
 
     inputs = [
@@ -247,7 +253,7 @@ def test_record_expense_with_empty_description(setup_members):
         assert tx.description is None or tx.description == ""
 
 
-def test_menu_choice_record_shared_expense(setup_members, capsys):
+def test_menu_choice_record_shared_expense(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 1: Record a shared expense (using virtual member)."""
     inputs = [
         "1",  # Menu choice
@@ -271,12 +277,12 @@ def test_menu_choice_record_shared_expense(setup_members, capsys):
         assert tx.amount == 300000  # 3000.00 in cents
 
         # Verify payer is virtual member
-        payer = database.get_member_by_id(tx.payer_id)
+        payer = database.get_member_by_id(tx.payer_id) if tx.payer_id else None
         assert payer is not None
-        assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
+        assert payer.name == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
 
 
-def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
+def test_menu_choice_record_deposit_to_public_fund(setup_members: None, capsys: "CaptureFixture[str]"):
     """Test menu option 2: Record a deposit to public fund (Group)."""
     # setup_members creates 2 members (Alice, Bob), Group is 3rd option
     active_members = database.get_active_members()
@@ -304,6 +310,6 @@ def test_menu_choice_record_deposit_to_public_fund(setup_members, capsys):
         assert tx.transaction_type == "deposit"
 
         # Verify payer is virtual member
-        payer = database.get_member_by_id(tx.payer_id)
+        payer = database.get_member_by_id(tx.payer_id) if tx.payer_id else None
         assert payer is not None
-        assert payer["name"] == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME
+        assert payer.name == database.PUBLIC_FUND_MEMBER_INTERNAL_NAME

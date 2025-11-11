@@ -5,7 +5,7 @@ Uses lazy imports to avoid RuntimeWarning when running via 'python -m cli.main'.
 """
 
 
-def __getattr__(name):
+def __getattr__(name: str):
     """Lazy import to avoid RuntimeWarning when running as module."""
     if name in ("main", "show_menu", "select_from_list", "select_payer", "select_period"):
         # Use importlib to import the module directly, avoiding circular import
@@ -21,6 +21,8 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
+# These are provided via __getattr__ at runtime
+# pyright: reportUnsupportedDunderAll=false
 __all__ = [
     "main",
     "show_menu",

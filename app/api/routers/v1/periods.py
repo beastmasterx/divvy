@@ -35,7 +35,7 @@ def get_current_period(
     if not current_period:
         raise HTTPException(status_code=404, detail="No active period found")
 
-    return PeriodResponse(**current_period)
+    return PeriodResponse.model_validate(current_period)
 
 
 @router.get("/current/summary", response_model=PeriodSummaryResponse)
@@ -59,8 +59,8 @@ def get_current_period_summary(
     ]
 
     return PeriodSummaryResponse(
-        period=PeriodResponse(**summary["period"]),
-        transactions=[TransactionResponse(**tx) for tx in summary["transactions"]],
+        period=PeriodResponse.model_validate(summary["period"]),
+        transactions=[TransactionResponse.model_validate(tx) for tx in summary["transactions"]],
         balances=balances,
         totals=PeriodTotalsResponse(**summary["totals"]),
         transaction_count=summary["transaction_count"],
@@ -85,7 +85,7 @@ def get_period(
     if not period_data:
         raise HTTPException(status_code=404, detail=f"Period {period_id} not found")
 
-    return PeriodResponse(**period_data)
+    return PeriodResponse.model_validate(period_data)
 
 
 @router.get("/{period_id}/summary", response_model=PeriodSummaryResponse)
@@ -113,8 +113,8 @@ def get_period_summary(
     ]
 
     return PeriodSummaryResponse(
-        period=PeriodResponse(**summary["period"]),
-        transactions=[TransactionResponse(**tx) for tx in summary["transactions"]],
+        period=PeriodResponse.model_validate(summary["period"]),
+        transactions=[TransactionResponse.model_validate(tx) for tx in summary["transactions"]],
         balances=balances,
         totals=PeriodTotalsResponse(**summary["totals"]),
         transaction_count=summary["transaction_count"],

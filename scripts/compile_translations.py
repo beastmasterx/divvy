@@ -31,14 +31,18 @@ def compile_translations():
 
     # Try using msgfmt (GNU gettext tools)
     try:
-        subprocess.run(["msgfmt", "--version"], capture_output=True, check=True)
+        subprocess.run(
+            ["msgfmt", "--version"], capture_output=True, check=True
+        )
         has_msgfmt = True
     except (subprocess.CalledProcessError, FileNotFoundError):
         has_msgfmt = False
 
     if not has_msgfmt:
         # Fallback: use Python's gettext to compile
-        print("msgfmt not found. Using Python's gettext to compile translations...")
+        print(
+            "msgfmt not found. Using Python's gettext to compile translations..."
+        )
         return compile_with_python()
 
     # Use msgfmt for compilation
@@ -70,7 +74,8 @@ def compile_translations():
 def compile_with_python():
     """Compile translations using Python's gettext module."""
     try:
-        from babel.messages import frontend as babel
+        # Check if babel is available (but don't use it, just inform user)
+        import babel.messages.frontend  # type: ignore[reportMissingImports] # noqa: F401
 
         # If babel is available, we could use it
         print("Note: Consider installing babel for better translation tools")
@@ -86,12 +91,11 @@ def compile_with_python():
             continue
 
         po_file = lang_dir / "LC_MESSAGES" / "divvy.po"
-        mo_file = lang_dir / "LC_MESSAGES" / "divvy.mo"
 
         if po_file.exists():
             try:
                 # Parse and compile .po file
-                catalog = gettext.translation(
+                gettext.translation(
                     "divvy",
                     localedir=str(LOCALE_DIR),
                     languages=[lang_dir.name],

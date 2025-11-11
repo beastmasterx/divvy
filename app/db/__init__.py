@@ -5,20 +5,12 @@ Supports SQLite, PostgreSQL, MySQL, and MSSQL via environment variable DIVVY_DAT
 """
 
 import logging
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-# UTC timezone - Python 3.11+ has datetime.UTC, older versions use timezone.utc
-try:
-    from datetime import UTC
-except ImportError:
-    UTC = timezone.utc
-
-# Module-level logger
-logger = logging.getLogger(__name__)
+from app.models import Base, Category, Member, Period, Transaction
 
 # Import ORM components from submodules
 from .connection import (
@@ -27,8 +19,9 @@ from .connection import (
     get_engine,
     reset_engine,
 )
-from .models import Base, Category, Member, Period, Transaction
 from .session import create_session, get_session
+
+logger = logging.getLogger(__name__)
 
 # Virtual member constants
 PUBLIC_FUND_MEMBER_INTERNAL_NAME = "_system_group_"
@@ -97,28 +90,40 @@ def add_member(email: str, name: str) -> int | None:
             return None
 
 
-def get_member_by_email(email: str) -> dict | None:
+def get_member_by_email(email: str) -> Member | None:
     """Retrieves a member by their email."""
     with get_session() as session:
         member = session.query(Member).filter_by(email=email).first()
-        return member.to_dict() if member else None
+        if member:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = member.id
+            session.expunge(member)
+        return member
 
 
-def get_member_by_name(name: str) -> dict | None:
+def get_member_by_name(name: str) -> Member | None:
     """Retrieves a member by their name. Note: names are not unique, returns first match."""
     with get_session() as session:
         member = session.query(Member).filter_by(name=name).first()
-        return member.to_dict() if member else None
+        if member:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = member.id
+            session.expunge(member)
+        return member
 
 
-def get_member_by_id(member_id: int) -> dict | None:
+def get_member_by_id(member_id: int) -> Member | None:
     """Retrieves a member by their ID."""
     with get_session() as session:
         member = session.query(Member).filter_by(id=member_id).first()
-        return member.to_dict() if member else None
+        if member:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = member.id
+            session.expunge(member)
+        return member
 
 
-def get_all_members() -> list[dict]:
+def get_all_members() -> list[Member]:
     """Retrieves all members, active or inactive (excluding virtual member)."""
     with get_session() as session:
         members = (
@@ -127,19 +132,30 @@ def get_all_members() -> list[dict]:
             .order_by(Member.id)
             .all()
         )
-        return [m.to_dict() for m in members]
+        # Expunge all members to detach from session
+        for member in members:
+            _ = member.id  # Ensure id is loaded
+            session.expunge(member)
+        return members
 
 
-def get_active_members() -> list[dict]:
+def get_active_members() -> list[Member]:
     """Retrieves all active members (excluding virtual member)."""
     with get_session() as session:
         members = (
             session.query(Member)
-            .filter(Member.is_active.is_(True), Member.name != PUBLIC_FUND_MEMBER_INTERNAL_NAME)
+            .filter(
+                Member.is_active.is_(True),
+                Member.name != PUBLIC_FUND_MEMBER_INTERNAL_NAME,
+            )
             .order_by(Member.id)
             .all()
         )
-        return [m.to_dict() for m in members]
+        # Expunge all members to detach from session
+        for member in members:
+            _ = member.id  # Ensure id is loaded
+            session.expunge(member)
+        return members
 
 
 def update_member_remainder_status(member_id: int, status: bool):
@@ -163,7 +179,11 @@ def reset_all_member_remainder_status():
 def deactivate_member(member_id: int) -> bool:
     """Deactivates a member by setting is_active to 0. Returns True if successful."""
     with get_session() as session:
-        result = session.query(Member).filter_by(id=member_id).update({"is_active": False})
+        result = (
+            session.query(Member)
+            .filter_by(id=member_id)
+            .update({"is_active": False})
+        )
         session.commit()
         return result > 0
 
@@ -171,7 +191,11 @@ def deactivate_member(member_id: int) -> bool:
 def reactivate_member(member_id: int) -> bool:
     """Reactivates a member by setting is_active to 1. Returns True if successful."""
     with get_session() as session:
-        result = session.query(Member).filter_by(id=member_id).update({"is_active": True})
+        result = (
+            session.query(Member)
+            .filter_by(id=member_id)
+            .update({"is_active": True})
+        )
         session.commit()
         return result > 0
 
@@ -179,7 +203,7 @@ def reactivate_member(member_id: int) -> bool:
 # --- Database operations for Periods ---
 
 
-def get_current_period() -> dict | None:
+def get_current_period() -> Period | None:
     """Gets the current active (unsettled) period."""
     with get_session() as session:
         period = (
@@ -188,13 +212,19 @@ def get_current_period() -> dict | None:
             .order_by(Period.start_date.desc())
             .first()
         )
-        return period.to_dict() if period else None
+        if period:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = period.id
+            session.expunge(period)
+        return period
 
 
 def create_new_period(name: str) -> int:
     """Creates a new settlement period and returns its ID."""
     with get_session() as session:
-        period = Period(name=name, start_date=datetime.now(UTC), is_settled=False)
+        period = Period(
+            name=name, start_date=datetime.now(UTC), is_settled=False
+        )
         session.add(period)
         session.flush()
         period_id = period.id
@@ -221,21 +251,31 @@ def settle_period(period_id: int) -> bool:
         return result > 0
 
 
-def get_period_by_id(period_id: int) -> dict | None:
+def get_period_by_id(period_id: int) -> Period | None:
     """Retrieves a period by its ID."""
     with get_session() as session:
         period = session.query(Period).filter_by(id=period_id).first()
-        return period.to_dict() if period else None
+        if period:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = period.id
+            session.expunge(period)
+        return period
 
 
-def get_all_periods() -> list[dict]:
+def get_all_periods() -> list[Period]:
     """Retrieves all periods, ordered by start_date descending."""
     with get_session() as session:
-        periods = session.query(Period).order_by(Period.start_date.desc()).all()
-        return [p.to_dict() for p in periods]
+        periods = (
+            session.query(Period).order_by(Period.start_date.desc()).all()
+        )
+        # Expunge all periods to detach from session
+        for period in periods:
+            _ = period.id  # Ensure id is loaded
+            session.expunge(period)
+        return periods
 
 
-def get_transactions_by_period(period_id: int) -> list[dict]:
+def get_transactions_by_period(period_id: int) -> list[Transaction]:
     """Retrieves all transactions for a specific period."""
     with get_session() as session:
         transactions = (
@@ -244,26 +284,11 @@ def get_transactions_by_period(period_id: int) -> list[dict]:
             .order_by(Transaction.timestamp)
             .all()
         )
-        result = []
-        for t in transactions:
-            tx_dict = t.to_dict()
-            # Add payer_name if payer_id exists
-            if tx_dict.get("payer_id"):
-                payer = get_member_by_id(tx_dict["payer_id"])
-                tx_dict["payer_name"] = payer["name"] if payer else None
-            else:
-                tx_dict["payer_name"] = None
-            # Add category_name if category_id exists
-            if tx_dict.get("category_id"):
-                category = get_category_by_id(tx_dict["category_id"])
-                tx_dict["category_name"] = category["name"] if category else None
-            else:
-                tx_dict["category_name"] = None
-            # Ensure timestamp is available (handle both TIMESTAMP and timestamp keys)
-            if "timestamp" not in tx_dict and "TIMESTAMP" in tx_dict:
-                tx_dict["timestamp"] = tx_dict["TIMESTAMP"]
-            result.append(tx_dict)
-        return result
+        # Expunge all transactions to detach from session
+        for transaction in transactions:
+            _ = transaction.id  # Ensure id is loaded
+            session.expunge(transaction)
+        return transactions
 
 
 def initialize_first_period_if_needed():
@@ -295,20 +320,20 @@ def ensure_virtual_member_exists():
             session.commit()
 
 
-def is_virtual_member(member: dict | None) -> bool:
+def is_virtual_member(member: Member | None) -> bool:
     """Check if a member is the virtual/system member."""
     if not member:
         return False
-    return member["name"].startswith(SYSTEM_MEMBER_PREFIX)
+    return member.name.startswith(SYSTEM_MEMBER_PREFIX)
 
 
-def get_member_display_name(member: dict) -> str:
+def get_member_display_name(member: Member) -> str:
     """Get display name for member (translates virtual member to user-friendly name)."""
     if is_virtual_member(member):
         from app.core.i18n import _
 
         return _("Group")  # Translatable display name
-    return member["name"]
+    return member.name
 
 
 # --- Database operations for Transactions ---
@@ -333,7 +358,7 @@ def add_transaction(
         if current_period is None:
             initialize_first_period_if_needed()
             current_period = get_current_period()
-        period_id = current_period["id"]
+        period_id = current_period.id if current_period else None
 
     with get_session() as session:
         transaction = Transaction(
@@ -353,51 +378,50 @@ def add_transaction(
         return transaction_id
 
 
-def get_all_transactions() -> list[dict]:
+def get_all_transactions() -> list[Transaction]:
     """Retrieves all transactions."""
     with get_session() as session:
-        transactions = session.query(Transaction).order_by(Transaction.timestamp).all()
-        result = []
-        for t in transactions:
-            tx_dict = t.to_dict()
-            # Add payer_name if payer_id exists
-            if tx_dict.get("payer_id"):
-                payer = get_member_by_id(tx_dict["payer_id"])
-                tx_dict["payer_name"] = payer["name"] if payer else None
-            else:
-                tx_dict["payer_name"] = None
-            # Add category_name if category_id exists
-            if tx_dict.get("category_id"):
-                category = get_category_by_id(tx_dict["category_id"])
-                tx_dict["category_name"] = category["name"] if category else None
-            else:
-                tx_dict["category_name"] = None
-            # Ensure timestamp is available (handle both TIMESTAMP and timestamp keys)
-            if "timestamp" not in tx_dict and "TIMESTAMP" in tx_dict:
-                tx_dict["timestamp"] = tx_dict["TIMESTAMP"]
-            result.append(tx_dict)
-        return result
+        transactions = (
+            session.query(Transaction).order_by(Transaction.timestamp).all()
+        )
+        # Expunge all transactions to detach from session
+        for transaction in transactions:
+            _ = transaction.id  # Ensure id is loaded
+            session.expunge(transaction)
+        return transactions
 
 
-def get_category_by_name(name: str) -> dict | None:
+def get_category_by_name(name: str) -> Category | None:
     """Retrieves a category by its name."""
     with get_session() as session:
         category = session.query(Category).filter_by(name=name).first()
-        return category.to_dict() if category else None
+        if category:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = category.id
+            session.expunge(category)
+        return category
 
 
-def get_all_categories() -> list[dict]:
+def get_all_categories() -> list[Category]:
     """Retrieves all categories."""
     with get_session() as session:
         categories = session.query(Category).order_by(Category.name).all()
-        return [c.to_dict() for c in categories]
+        # Expunge all categories to detach from session
+        for category in categories:
+            _ = category.id  # Ensure id is loaded
+            session.expunge(category)
+        return categories
 
 
-def get_category_by_id(category_id: int) -> dict | None:
+def get_category_by_id(category_id: int) -> Category | None:
     """Retrieves a category by its ID."""
     with get_session() as session:
         category = session.query(Category).filter_by(id=category_id).first()
-        return category.to_dict() if category else None
+        if category:
+            # Access id to ensure it's loaded, then expunge to detach from session
+            _ = category.id
+            session.expunge(category)
+        return category
 
 
 # Export all public API

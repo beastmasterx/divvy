@@ -30,7 +30,7 @@ def record_expense(
     payer = database.get_member_by_name(payer_name)
     if not payer:
         return _("Error: Payer '{}' not found.").format(payer_name)
-    payer_id_for_transaction = payer["id"]
+    payer_id_for_transaction = payer.id
 
     category = database.get_category_by_name(category_name)
     if not category:
@@ -44,12 +44,14 @@ def record_expense(
             amount=amount_cents,
             description=description,
             payer_id=payer_id_for_transaction,
-            category_id=category["id"],
+            category_id=category.id,
             is_personal=True,
         )
 
         if description:
-            return _("Personal expense '{}' of {} recorded successfully.").format(
+            return _(
+                "Personal expense '{}' of {} recorded successfully."
+            ).format(
                 description,
                 cents_to_dollars(amount_cents),
             )
@@ -73,7 +75,7 @@ def record_expense(
         # First, check if all members have paid a remainder in the current cycle
         all_paid_remainder = True
         for member in active_members:
-            if not member["paid_remainder_in_cycle"]:
+            if not member.paid_remainder_in_cycle:
                 all_paid_remainder = False
                 break
 
@@ -84,10 +86,10 @@ def record_expense(
 
         # Find the next member to pay the remainder
         for member in active_members:
-            if not member["paid_remainder_in_cycle"]:
-                remainder_payer_id = member["id"]
-                remainder_payer_name = member["name"]
-                database.update_member_remainder_status(member["id"], True)
+            if not member.paid_remainder_in_cycle:
+                remainder_payer_id = member.id
+                remainder_payer_name = member.name
+                database.update_member_remainder_status(member.id, True)
                 break
 
         if (
@@ -101,13 +103,14 @@ def record_expense(
         amount=amount_cents,
         description=description,
         payer_id=payer_id_for_transaction,
-        category_id=category["id"],
+        category_id=category.id,
         is_personal=False,
     )
 
     if description:
         return _(
-            "Expense '{}' of {} recorded successfully. " "Remainder of {} assigned to {}."
+            "Expense '{}' of {} recorded successfully. "
+            "Remainder of {} assigned to {}."
         ).format(
             description,
             cents_to_dollars(amount_cents),
@@ -115,7 +118,10 @@ def record_expense(
             remainder_payer_name,
         )
     else:
-        return _("Expense of {} recorded successfully. " "Remainder of {} assigned to {}.").format(
+        return _(
+            "Expense of {} recorded successfully. "
+            "Remainder of {} assigned to {}."
+        ).format(
             cents_to_dollars(amount_cents),
             cents_to_dollars(remainder),
             remainder_payer_name,
@@ -147,7 +153,7 @@ def record_deposit(
         transaction_type="deposit",
         amount=amount_cents,
         description=description,
-        payer_id=payer["id"],
+        payer_id=payer.id,
         category_id=None,
     )
 
@@ -189,13 +195,15 @@ def record_refund(
     refund_base = _("Refund to {}").format(recipient_name)
     refund_desc = description if description else refund_base
     if not description or not description.startswith(_("Refund")):
-        refund_desc = _("Refund: {}").format(refund_desc) if description else refund_base
+        refund_desc = (
+            _("Refund: {}").format(refund_desc) if description else refund_base
+        )
 
     database.add_transaction(
         transaction_type="deposit",
         amount=-amount_cents,  # Negative amount for refund
         description=refund_desc,
-        payer_id=recipient["id"],  # Recipient gets the refund
+        payer_id=recipient.id,  # Recipient gets the refund
         category_id=None,
     )
 

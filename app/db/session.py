@@ -11,21 +11,17 @@ from .connection import get_engine
 
 # Lazy session factory - only creates engine when first used
 # This allows .env files to be loaded before engine creation
-_SessionLocal = None
+_session_local = None
 
 
 def _get_session_factory():
     """Get or create the session factory (lazy initialization)."""
-    global _SessionLocal
-    if _SessionLocal is None:
-        _SessionLocal = sessionmaker(bind=get_engine(), autocommit=False, autoflush=False)
-    return _SessionLocal
-
-
-# For backwards compatibility, expose SessionLocal as a callable
-def SessionLocal():
-    """Create a new session using the lazy-initialized factory."""
-    return _get_session_factory()()
+    global _session_local
+    if _session_local is None:
+        _session_local = sessionmaker(
+            bind=get_engine(), autocommit=False, autoflush=False
+        )
+    return _session_local
 
 
 @contextmanager
