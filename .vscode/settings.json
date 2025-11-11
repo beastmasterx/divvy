@@ -7,5 +7,4 @@
             "source.organizeImports.ruff": "explicit"
         },
     },
-    "python.analysis.typeCheckingMode": "strict",
 }
