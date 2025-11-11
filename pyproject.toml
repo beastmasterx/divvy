@@ -1,10 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "divvy"
 version = "3.0.0"
 description = "Expense splitting CLI with multi-database support"
 requires-python = ">=3.12"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 # Runtime dependencies are managed via environment.yml (conda)
 # Development tool dependencies are defined in [project.optional-dependencies.dev]
 
@@ -71,6 +75,10 @@ known-first-party = ["divvy"]
 
 [tool.black]
 line-length = 100
+
+[tool.setuptools]
+# Explicitly specify packages to include (exclude data directory)
+packages = ["app", "cli"]
 
 [tool.pyright]
 # Enable strict type checking mode
