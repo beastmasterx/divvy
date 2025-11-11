@@ -2,6 +2,7 @@
 Pydantic schemas (DTOs) for API requests and responses.
 """
 
+from .category import CategoryResponse
 from .member import (
     MemberCreate,
     MemberMessageResponse,
@@ -36,6 +37,8 @@ from .transaction import (
 )
 
 __all__ = [
+    # Category schemas
+    "CategoryResponse",
     # Member schemas
     "MemberCreate",
     "MemberResponse",

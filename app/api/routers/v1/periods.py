@@ -21,6 +21,20 @@ from app.services import period as period_service
 router = APIRouter(prefix="/periods", tags=["periods"])
 
 
+@router.get("/", response_model=list[PeriodResponse])
+def list_periods(
+    db: Session = Depends(get_db),
+):
+    """
+    List all periods.
+
+    Returns:
+        List of all periods, ordered by start_date descending
+    """
+    periods = database.get_all_periods()
+    return [PeriodResponse.model_validate(period) for period in periods]
+
+
 @router.get("/current", response_model=PeriodResponse)
 def get_current_period(
     db: Session = Depends(get_db),
@@ -60,7 +74,10 @@ def get_current_period_summary(
 
     return PeriodSummaryResponse(
         period=PeriodResponse.model_validate(summary["period"]),
-        transactions=[TransactionResponse.model_validate(tx) for tx in summary["transactions"]],
+        transactions=[
+            TransactionResponse.model_validate(tx)
+            for tx in summary["transactions"]
+        ],
         balances=balances,
         totals=PeriodTotalsResponse(**summary["totals"]),
         transaction_count=summary["transaction_count"],
@@ -83,7 +100,9 @@ def get_period(
     """
     period_data = database.get_period_by_id(period_id)
     if not period_data:
-        raise HTTPException(status_code=404, detail=f"Period {period_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Period {period_id} not found"
+        )
 
     return PeriodResponse.model_validate(period_data)
 
@@ -104,7 +123,9 @@ def get_period_summary(
     """
     summary = period_service.get_period_summary(period_id)
     if not summary:
-        raise HTTPException(status_code=404, detail=f"Period {period_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Period {period_id} not found"
+        )
 
     # Convert balances from dict[str, str] to list[MemberBalance]
     balances = [
@@ -114,7 +135,10 @@ def get_period_summary(
 
     return PeriodSummaryResponse(
         period=PeriodResponse.model_validate(summary["period"]),
-        transactions=[TransactionResponse.model_validate(tx) for tx in summary["transactions"]],
+        transactions=[
+            TransactionResponse.model_validate(tx)
+            for tx in summary["transactions"]
+        ],
         balances=balances,
         totals=PeriodTotalsResponse(**summary["totals"]),
         transaction_count=summary["transaction_count"],
@@ -138,7 +162,8 @@ def get_period_balances(
     balances = period_service.get_period_balances(period_id)
     if not balances:
         raise HTTPException(
-            status_code=404, detail=f"Period {period_id} not found or has no balances"
+            status_code=404,
+            detail=f"Period {period_id} not found or has no balances",
         )
 
     return balances
