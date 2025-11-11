@@ -1,4 +1,4 @@
-# Divvy - Expense Splitting CLI
+# Divvy - Expense Splitting
 
 A command-line utility designed to help groups track and split shared expenses fairly. Perfect for roommates, shared households, and collaborative expense management.
 
@@ -83,6 +83,11 @@ Divvy is a Python-based CLI application that simplifies expense tracking and spl
    conda activate divvy
    ```
 
+   This will automatically install:
+
+   - Runtime dependencies from conda (Python, FastAPI, SQLAlchemy, etc.)
+   - Development tools from `pyproject.toml` (pytest, ruff, black, pyright, etc.)
+
 3. **Run the application**:
 
    ```bash
@@ -90,6 +95,7 @@ Divvy is a Python-based CLI application that simplifies expense tracking and spl
    ```
 
    Or use the utility scripts (see [Utility Scripts](#utility-scripts) below):
+
    ```bash
    ./scripts/run.sh      # Default environment (uses base .env)
    ./scripts/dev.sh      # Development environment
@@ -121,6 +127,7 @@ Divvy provides utility shell scripts in the `scripts/` directory to simplify run
 - **`./scripts/test-all.sh`**: Runs all tests with coverage reporting using test environment
 
 **Example usage:**
+
 ```bash
 # Development
 ./scripts/dev.sh
@@ -187,12 +194,14 @@ export DIVVY_ENV=production
 **Note:** Only `DIVVY_ENV` is supported. Other environment variable names (e.g., `ENV`, `ENVIRONMENT`) are not used to maintain consistency with the `DIVVY_` prefix convention.
 
 **Environment File Priority:**
+
 1. Base `.env` file (loaded first, lower priority)
 2. Environment-specific `.env.{ENV}` file (loaded second, higher priority)
    - Example: If `DIVVY_ENV=dev`, loads `.env.dev`
 3. Shell environment variables (always highest priority)
 
 **Example Structure:**
+
 ```
 .env              # Base configuration (shared settings)
 .env.dev          # Development environment overrides
@@ -202,12 +211,14 @@ export DIVVY_ENV=production
 ```
 
 **Example `.env.dev` file:**
+
 ```bash
 # Development database
 DIVVY_DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/divvy_dev
 ```
 
 **Example `.env.production` file:**
+
 ```bash
 # Production database
 DIVVY_DATABASE_URL=postgresql://user:pass@prod-server:5432/divvy_prod
@@ -253,10 +264,12 @@ export LANG=en_US.UTF-8
 ```
 
 **Supported Language Codes:**
+
 - `en`, `en_US` - English (United States) - Default
 - `zh`, `zh_CN`, `zh_CN.UTF-8` - Chinese (Simplified)
 
 The application checks language settings in this order:
+
 1. `DIVVY_LANG` environment variable (application-specific)
 2. `LANG` environment variable (system default)
 3. System locale settings
@@ -266,7 +279,8 @@ The application checks language settings in this order:
 
 Divvy uses Python's standard logging system with two levels of control:
 
-- **`LOG_LEVEL`**: Controls root Python logging (affects all libraries including third-party). 
+- **`LOG_LEVEL`**: Controls root Python logging (affects all libraries including third-party).
+
   - Default: `WARNING`
   - Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
@@ -478,7 +492,7 @@ This project uses [Ruff](https://github.com/astral-sh/ruff) for code linting and
 
 ### Running Ruff
 
-After installing dependencies (Ruff is included in `environment.yml`), you can use the following commands:
+After installing dependencies (Ruff is included in the dev dependencies from `pyproject.toml`), you can use the following commands:
 
 **Check for linting issues:**
 
@@ -547,9 +561,18 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 1. Clone the repository
 2. Create a conda environment: `conda env create -f environment.yml`
+   - This installs runtime dependencies via conda and dev tools via pip from `pyproject.toml`
 3. Activate the environment: `conda activate divvy`
 4. Run linting: `ruff check --fix . && ruff format .`
 5. Run tests to verify setup: `pytest tests/ -v`
+
+**Note:** If you're using pip/poetry instead of conda, you can install dev dependencies with:
+
+```bash
+pip install -e ".[dev]"
+# or with poetry
+poetry install --with dev
+```
 
 ## License
 

@@ -5,10 +5,18 @@ description = "Expense splitting CLI with multi-database support"
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-# Note: Dependencies are managed via environment.yml (conda)
-# This file is used for package metadata and tool configuration only
+# Runtime dependencies are managed via environment.yml (conda)
+# Development tool dependencies are defined in [project.optional-dependencies.dev]
 
 [project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.0.137",
+    "black>=23.0.0",
+    "pyright>=1.1.330",
+    "sqlalchemy-stubs>=0.4",
+]
 postgresql = ["psycopg2-binary>=2.9.0"]
 mysql = [
     "pymysql>=1.0.0",

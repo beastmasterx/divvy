@@ -4,9 +4,6 @@ channels:
   - defaults
 dependencies:
   - python>=3.10
-  - pytest>=7.0.0
-  - pytest-cov>=4.0.0
-  - ruff>=0.0.137
   - sqlalchemy>=2.0.0
   - python-dotenv>=1.0.0
   - fastapi>=0.121.0
@@ -14,7 +11,6 @@ dependencies:
   - pydantic>=2.0.0
   - email-validator>=2.3.0
   - python-multipart>=0.0.20
-  - black>=23.0.0
-  - pyright>=1.1.330
-  - sqlalchemy-stubs>=0.4
   - pip
+  - pip:
+    - -e ".[dev]"  # Installs dev tools from pyproject.toml
