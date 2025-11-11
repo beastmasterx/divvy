@@ -2,7 +2,7 @@
 name = "divvy"
 version = "3.0.0"
 description = "Expense splitting CLI with multi-database support"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 # Runtime dependencies are managed via environment.yml (conda)
@@ -34,8 +34,8 @@ all-databases = [
 # Line length matches common Python standards
 line-length = 100
 
-# Target Python 3.10+
-target-version = "py310"
+# Target Python 3.12+
+target-version = "py312"
 
 [tool.ruff.lint]
 # Enable a comprehensive set of rule categories
