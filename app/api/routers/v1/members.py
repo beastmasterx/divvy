@@ -9,6 +9,7 @@ from app.api.schemas.member import (
     MemberCreate,
     MemberMessageResponse,
     MemberResponse,
+    MemberUpdate,
 )
 from app.services import member as member_service
 
@@ -28,6 +29,31 @@ def create_member(
     result = member_service.add_new_member(member_data.email, member_data.name)
 
     # Check if it's an error message
+    if result.startswith("Error:"):
+        raise HTTPException(status_code=400, detail=result)
+
+    return MemberMessageResponse(message=result)
+
+
+@router.put("/{member_id}", response_model=MemberMessageResponse)
+def update_member(
+    member_id: int,
+    member_data: MemberUpdate,
+):
+    """
+    Update a member.
+
+    Args:
+        member_id: ID of the member to update
+        member_data: Member data to update
+
+    Returns:
+        Success or error message
+    """
+    result = member_service.update_member_by_id(
+        member_id, member_data.is_active
+    )
+
     if result.startswith("Error:"):
         raise HTTPException(status_code=400, detail=result)
 

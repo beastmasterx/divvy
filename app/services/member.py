@@ -67,6 +67,33 @@ def rejoin_member_by_id(member_id: int) -> str:
     )
 
 
+def update_member_by_id(member_id: int, is_active: bool | None = None) -> str:
+    """
+    Updates a member by ID.
+    Currently supports updating is_active status.
+    Returns a message describing what happened.
+    """
+    member = database.get_member_by_id(member_id)
+    if not member:
+        return _("Error: Member with ID {} not found.").format(member_id)
+
+    if is_active is not None:
+        if member.is_active == is_active:
+            status_text = _("active") if is_active else _("inactive")
+            return _("Error: Member '{}' is already {}.").format(
+                member.name, status_text
+            )
+
+        if is_active:
+            database.reactivate_member(member_id)
+            return _("Member '{}' has been reactivated.").format(member.name)
+        else:
+            database.deactivate_member(member_id)
+            return _("Member '{}' has been deactivated.").format(member.name)
+
+    return _("Error: No fields to update.")
+
+
 # Legacy functions for backward compatibility (used by CLI)
 def remove_member(name: str) -> str:
     """
