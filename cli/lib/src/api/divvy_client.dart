@@ -80,47 +80,4 @@ class DivvyClient {
 
   /// Get the categories API client
   CategoriesApi get categories => _categoriesApi;
-
-  /// Handle API errors and convert to user-friendly messages.
-  ///
-  /// Parameters:
-  /// - [error]: The error from Dio
-  ///
-  /// Returns:
-  /// A user-friendly error message
-  String handleError(dynamic error) {
-    if (error is DioException) {
-      switch (error.type) {
-        case DioExceptionType.connectionTimeout:
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.receiveTimeout:
-          return 'Connection timeout. Please check your network connection.';
-        case DioExceptionType.badResponse:
-          final statusCode = error.response?.statusCode;
-          final message =
-              error.response?.data?['detail'] ??
-              error.response?.data?['message'] ??
-              'Unknown error';
-          if (statusCode == 404) {
-            return 'Resource not found: $message';
-          } else if (statusCode == 400) {
-            return 'Invalid request: $message';
-          } else if (statusCode == 422) {
-            return 'Validation error: $message';
-          } else {
-            return 'Server error ($statusCode): $message';
-          }
-        case DioExceptionType.cancel:
-          return 'Request cancelled.';
-        case DioExceptionType.unknown:
-          if (error.error is SocketException) {
-            return 'Cannot connect to server. Please check if the API is running at $_baseUrl';
-          }
-          return 'Unknown error: ${error.message}';
-        default:
-          return 'Network error: ${error.message}';
-      }
-    }
-    return 'Unexpected error: $error';
-  }
 }

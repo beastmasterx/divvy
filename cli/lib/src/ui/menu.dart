@@ -1,23 +1,24 @@
 // Menu system for the CLI application.
 
 import 'dart:io';
+
+import 'package:dio/dio.dart';
+
 import '../api/divvy_client.dart';
+import '../services/categories.dart';
 import '../services/members.dart';
 import '../services/periods.dart';
-import '../services/transactions.dart';
 import '../services/settlement.dart';
-import '../services/categories.dart';
+import '../services/transactions.dart';
 import '../utils/i18n.dart';
 import '../utils/validation.dart';
-import 'selectors.dart';
 import 'displays.dart';
+import 'selectors.dart';
 
 /// Show the main menu.
 void showMenu(String? currentPeriodName) {
   print(translate('\n--- Divvy Expense Splitter ---'));
-  print(
-    translate('Current Period: {}', [currentPeriodName ?? translate('None')]),
-  );
+  print(translate('Current Period: {}', [currentPeriodName ?? translate('None')]));
   print(translate('1. Add Expense'));
   print(translate('2. Add Deposit'));
   print(translate('3. Add Refund'));
@@ -49,11 +50,7 @@ Future<void> handleAddExpense(DivvyClient client) async {
   }
 
   // Ask for expense type
-  stdout.write(
-    translate(
-      'Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): ',
-    ),
-  );
+  stdout.write(translate('Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): '));
   final expenseTypeInput = stdin.readLineSync()?.trim().toLowerCase() ?? 'i';
 
   String? payerName;
@@ -66,9 +63,7 @@ Future<void> handleAddExpense(DivvyClient client) async {
     expenseType = 'shared';
   } else if (expenseTypeInput == 'p' || expenseTypeInput == 'personal') {
     final activeMembers = await listMembers(client, activeOnly: true);
-    final membersList = activeMembers
-        .map((m) => (id: m.id, name: m.name))
-        .toList();
+    final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
     final selected = selectPayer(members: membersList, forExpense: true);
     if (selected == null) {
       print(translate('Expense recording cancelled.'));
@@ -80,9 +75,7 @@ Future<void> handleAddExpense(DivvyClient client) async {
   } else {
     // individual (default)
     final activeMembers = await listMembers(client, activeOnly: true);
-    final membersList = activeMembers
-        .map((m) => (id: m.id, name: m.name))
-        .toList();
+    final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
     final selected = selectPayer(members: membersList, forExpense: true);
     if (selected == null) {
       print(translate('Expense recording cancelled.'));
@@ -95,9 +88,7 @@ Future<void> handleAddExpense(DivvyClient client) async {
 
   // Select category
   final categories = await listCategories(client);
-  final categoriesList = categories
-      .map((c) => (id: c.id, name: c.name))
-      .toList();
+  final categoriesList = categories.map((c) => (id: c.id, name: c.name)).toList();
   final categoryName = selectCategory(categories: categoriesList);
   if (categoryName == null) {
     print(translate('Expense recording cancelled.'));
@@ -115,8 +106,8 @@ Future<void> handleAddExpense(DivvyClient client) async {
       expenseType: expenseType,
     );
     print(result);
-  } catch (e) {
-    print('Error: ${client.handleError(e)}');
+  } catch (e, s) {
+    handleError(e, s);
   }
 }
 
@@ -140,9 +131,7 @@ Future<void> handleAddDeposit(DivvyClient client) async {
   }
 
   final activeMembers = await listMembers(client, activeOnly: true);
-  final membersList = activeMembers
-      .map((m) => (id: m.id, name: m.name))
-      .toList();
+  final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
   final payerName = selectPayer(members: membersList, forExpense: false);
   if (payerName == null) {
     print(translate('Deposit recording cancelled.'));
@@ -157,8 +146,8 @@ Future<void> handleAddDeposit(DivvyClient client) async {
       description: description.isEmpty ? null : description,
     );
     print(result);
-  } catch (e) {
-    print('Error: ${client.handleError(e)}');
+  } catch (e, s) {
+    handleError(e, s);
   }
 }
 
@@ -172,11 +161,7 @@ Future<void> handleAddRefund(DivvyClient client) async {
     return;
   }
 
-  final selected = selectFromList<({int id, String name})>(
-    membersList,
-    (m) => m.name,
-    translate('Member to refund'),
-  );
+  final selected = selectFromList<({int id, String name})>(membersList, (m) => m.name, translate('Member to refund'));
   if (selected == null) {
     print(translate('Refund cancelled.'));
     return;
@@ -207,8 +192,8 @@ Future<void> handleAddRefund(DivvyClient client) async {
       description: description.isEmpty ? null : description,
     );
     print(result);
-  } catch (e) {
-    print('Error: ${client.handleError(e)}');
+  } catch (e, s) {
+    handleError(e, s);
   }
 }
 
@@ -234,8 +219,8 @@ Future<void> handleViewPeriod(DivvyClient client) async {
   try {
     final summary = await getPeriodSummary(client, periodId: selected.id);
     displayViewPeriod(summary);
-  } catch (e) {
-    print('Error: ${client.handleError(e)}');
+  } catch (e, s) {
+    handleError(e, s);
   }
 }
 
@@ -249,18 +234,11 @@ Future<void> handleClosePeriod(DivvyClient client) async {
     // Show settlement plan
     final currentPeriod = await getCurrentPeriod(client);
     if (currentPeriod != null) {
-      final settlementPlan = await getSettlementPlan(
-        client,
-        periodId: currentPeriod.id,
-      );
+      final settlementPlan = await getSettlementPlan(client, periodId: currentPeriod.id);
       if (settlementPlan.isNotEmpty) {
         displaySettlementPlan(settlementPlan);
       } else {
-        print(
-          translate(
-            '\nNo settlement transactions needed (all balances already zero).\n',
-          ),
-        );
+        print(translate('\nNo settlement transactions needed (all balances already zero).\n'));
       }
     }
 
@@ -273,19 +251,14 @@ Future<void> handleClosePeriod(DivvyClient client) async {
     }
 
     // Get new period name
-    stdout.write(
-      translate('Enter name for new period (press Enter for auto-generated): '),
-    );
+    stdout.write(translate('Enter name for new period (press Enter for auto-generated): '));
     final periodName = stdin.readLineSync()?.trim();
     final finalPeriodName = periodName?.isEmpty ?? true ? null : periodName;
 
-    final result = await settleCurrentPeriod(
-      client,
-      periodName: finalPeriodName,
-    );
+    final result = await settleCurrentPeriod(client, periodName: finalPeriodName);
     print(result);
-  } catch (e) {
-    print('Error: ${client.handleError(e)}');
+  } catch (e, s) {
+    handleError(e, s);
   }
 }
 
@@ -323,26 +296,17 @@ Future<void> handleAddMember(DivvyClient client) async {
 
   if (existingMember != null) {
     if (existingMember.isActive) {
-      print(
-        translate(
-          'Error: Member with email \'{}\' already exists and is active.',
-          [email],
-        ),
-      );
+      print(translate('Error: Member with email \'{}\' already exists and is active.', [email]));
     } else {
       // Member is inactive - ask to rejoin
-      stdout.write(
-        translate('Member \'{}\' is inactive. Rejoin? (y/n): ', [
-          existingMember.name,
-        ]),
-      );
+      stdout.write(translate('Member \'{}\' is inactive. Rejoin? (y/n): ', [existingMember.name]));
       final response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
       if (response == 'y' || response == 'yes') {
         try {
           final result = await rejoinMember(client, existingMember.id);
           print(result);
-        } catch (e) {
-          print('Error: ${client.handleError(e)}');
+        } catch (e, s) {
+          handleError(e, s);
         }
       } else {
         print(translate('Rejoin cancelled.'));
@@ -353,8 +317,8 @@ Future<void> handleAddMember(DivvyClient client) async {
     try {
       final result = await createMember(client, email, name);
       print(result);
-    } catch (e) {
-      print('Error: ${client.handleError(e)}');
+    } catch (e, s) {
+      handleError(e, s);
     }
   }
 }
@@ -362,9 +326,7 @@ Future<void> handleAddMember(DivvyClient client) async {
 /// Handle menu option 7: Remove Member
 Future<void> handleRemoveMember(DivvyClient client) async {
   final activeMembers = await listMembers(client, activeOnly: true);
-  final membersList = activeMembers
-      .map((m) => (id: m.id, name: m.name))
-      .toList();
+  final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
 
   if (membersList.isEmpty) {
     print(translate('No active members to remove.'));
@@ -379,11 +341,7 @@ Future<void> handleRemoveMember(DivvyClient client) async {
     // If period summary fails, continue anyway
   }
 
-  final selected = selectFromList<({int id, String name})>(
-    membersList,
-    (m) => m.name,
-    translate('Member to remove'),
-  );
+  final selected = selectFromList<({int id, String name})>(membersList, (m) => m.name, translate('Member to remove'));
   if (selected == null) {
     print(translate('Member removal cancelled.'));
     return;
@@ -405,39 +363,17 @@ Future<void> handleRemoveMember(DivvyClient client) async {
 
     String response;
     if (memberBalance > 0) {
-      print(
-        translate('\n⚠️  Warning: \'{}\' is owed {}.', [
-          selected.name,
-          balanceDisplay,
-        ]),
-      );
-      print(
-        translate(
-          '   Other members should settle this balance before removal.',
-        ),
-      );
-      stdout.write(
-        translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]),
-      );
+      print(translate('\n⚠️  Warning: \'{}\' is owed {}.', [selected.name, balanceDisplay]));
+      print(translate('   Other members should settle this balance before removal.'));
+      stdout.write(translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]));
       response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
     } else if (memberBalance < 0) {
-      print(
-        translate('\n⚠️  Warning: \'{}\' owes {}.', [
-          selected.name,
-          balanceDisplay,
-        ]),
-      );
+      print(translate('\n⚠️  Warning: \'{}\' owes {}.', [selected.name, balanceDisplay]));
       print(translate('   This balance should be settled before removal.'));
-      stdout.write(
-        translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]),
-      );
+      stdout.write(translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]));
       response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
     } else {
-      stdout.write(
-        translate('Remove member \'{}\' (Balance: \$0.00)? (y/n): ', [
-          selected.name,
-        ]),
-      );
+      stdout.write(translate('Remove member \'{}\' (Balance: \$0.00)? (y/n): ', [selected.name]));
       response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
     }
 
@@ -448,8 +384,8 @@ Future<void> handleRemoveMember(DivvyClient client) async {
 
     final result = await removeMember(client, selected.id);
     print(result);
-  } catch (e) {
-    print('Error: ${client.handleError(e)}');
+  } catch (e, s) {
+    handleError(e, s);
   }
 }
 
@@ -499,11 +435,43 @@ Future<void> runMenu(DivvyClient client) async {
         default:
           print(translate('Invalid choice, please try again.'));
       }
-    } catch (e) {
+    } catch (e, s) {
       // Handle all errors gracefully and continue the menu loop
-      print('\n⚠️  ${client.handleError(e)}\n');
+      handleError(e, s);
       // Wait a moment before showing menu again
       await Future.delayed(const Duration(milliseconds: 500));
     }
+  }
+}
+
+/// Handle API errors and convert to user-friendly messages.
+///
+/// Parameters:
+/// - [error]: The error from Dio
+/// - [stackTrace]: The stack trace of the error
+///
+void handleError(Object error, [StackTrace? stackTrace]) {
+  final message = switch (error) {
+    DioException(:final type, :final response) => switch (type) {
+      DioExceptionType.connectionTimeout => 'Connection timeout.',
+      DioExceptionType.sendTimeout => 'Request timed out.',
+      DioExceptionType.receiveTimeout => 'Response timed out.',
+      DioExceptionType.cancel => 'Request cancelled.',
+      DioExceptionType.badResponse => switch (response) {
+        Response(:final statusCode, :final data) => '$statusCode: $data',
+        _ => '${error.message}',
+      },
+      _ => '${error.message}',
+    },
+    _ => '$error',
+  };
+
+  print('\n⚠️: $message');
+
+  bool isDebug = false;
+  assert(isDebug = true);
+
+  if (isDebug && stackTrace != null) {
+    print('\n$stackTrace');
   }
 }
