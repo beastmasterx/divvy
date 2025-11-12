@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, make_transient
 
 from app.models import Base, Category, Member, Period, Transaction
 
@@ -280,14 +281,31 @@ def get_transactions_by_period(period_id: int) -> list[Transaction]:
     with get_session() as session:
         transactions = (
             session.query(Transaction)
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+            )
             .filter_by(period_id=period_id)
             .order_by(Transaction.timestamp)
             .all()
         )
-        # Expunge all transactions to detach from session
+        # Access relationships and their attributes before expunging to ensure they're loaded
         for transaction in transactions:
             _ = transaction.id  # Ensure id is loaded
-            session.expunge(transaction)
+            # Access payer and its name attribute to load it into memory
+            payer = transaction.payer
+            if payer:
+                _ = payer.name
+                # Make payer transient so it doesn't require a session
+                make_transient(payer)
+            # Access category and its name attribute to load it into memory
+            category = transaction.category
+            if category:
+                _ = category.name
+                # Make category transient so it doesn't require a session
+                make_transient(category)
+            # Make transaction transient so it doesn't require a session
+            make_transient(transaction)
         return transactions
 
 
@@ -382,12 +400,31 @@ def get_all_transactions() -> list[Transaction]:
     """Retrieves all transactions."""
     with get_session() as session:
         transactions = (
-            session.query(Transaction).order_by(Transaction.timestamp).all()
+            session.query(Transaction)
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+            )
+            .order_by(Transaction.timestamp)
+            .all()
         )
-        # Expunge all transactions to detach from session
+        # Access relationships and their attributes before expunging to ensure they're loaded
         for transaction in transactions:
             _ = transaction.id  # Ensure id is loaded
-            session.expunge(transaction)
+            # Access payer and its name attribute to load it into memory
+            payer = transaction.payer
+            if payer:
+                _ = payer.name
+                # Make payer transient so it doesn't require a session
+                make_transient(payer)
+            # Access category and its name attribute to load it into memory
+            category = transaction.category
+            if category:
+                _ = category.name
+                # Make category transient so it doesn't require a session
+                make_transient(category)
+            # Make transaction transient so it doesn't require a session
+            make_transient(transaction)
         return transactions
 
 
