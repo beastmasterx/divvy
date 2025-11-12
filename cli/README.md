@@ -235,6 +235,28 @@ dart run build_runner build --delete-conflicting-outputs
 
 The generated client will be in `lib/src/generated/api/divvy/`.
 
+#### Manual JAR Download (Slow Network)
+
+If you experience network issues or timeouts during the build process, you can manually download the required JAR files before running the build:
+
+```bash
+# Create cache directory if it doesn't exist
+mkdir -p .dart_tool/openapi_generator_cache
+
+# Download the OpenAPI Generator CLI
+curl -L -o .dart_tool/openapi_generator_cache/openapi-generator-cli-7.9.0.jar \
+  https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.9.0/openapi-generator-cli-7.9.0.jar
+
+# Download the custom Dart generator
+curl -L -o .dart_tool/openapi_generator_cache/custom-openapi-dart-generator-7.2.jar \
+  https://repo1.maven.org/maven2/com/bluetrainsoftware/maven/openapi-dart-generator/7.2/openapi-dart-generator-7.2.jar
+
+# Verify downloads
+java -jar .dart_tool/openapi_generator_cache/openapi-generator-cli-7.9.0.jar --version
+```
+
+After downloading the JAR files, the build process will skip the download step and use the cached files.
+
 ### Code Structure
 
 - **Services**: Business logic layer that wraps API calls
@@ -324,6 +346,8 @@ If you see `UnimplementedError`:
 
 1. Run: `dart run build_runner build --delete-conflicting-outputs`
 2. Verify `api/openapi.json` exists and is up-to-date
+
+If the build hangs or times out during JAR download, see [Manual JAR Download](#manual-jar-download-slow-network) in the Development section.
 
 ### Tests Failing
 
