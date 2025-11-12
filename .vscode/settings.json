@@ -7,6 +7,8 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
     },
+    "python.analysis.autoImportCompletions": true,
+    "python.terminal.activateEnvironment": true,
     "[dart]": {
         "editor.formatOnType": true,
         "editor.rulers": [
