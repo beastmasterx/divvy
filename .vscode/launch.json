@@ -1,0 +1,134 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API: FastAPI (Debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--reload"
+      ],
+      "jinja": true,
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "presentation": {
+        "hidden": false,
+        "group": "API",
+        "order": 1
+      }
+    },
+    {
+      "name": "API: FastAPI (Production)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--host", "0.0.0.0",
+        "--port", "8000"
+      ],
+      "jinja": true,
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DIVVY_ENV": "production"
+      },
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "presentation": {
+        "hidden": false,
+        "group": "API",
+        "order": 2
+      }
+    },
+    {
+      "name": "CLI: Python (Debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/cli-py/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}",
+      "presentation": {
+        "hidden": false,
+        "group": "CLI",
+        "order": 1
+      }
+    },
+    {
+      "name": "CLI: Python (Development)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/cli-py/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "DIVVY_ENV": "dev",
+        "DIVVY_LOG_LEVEL": "DEBUG"
+      },
+      "cwd": "${workspaceFolder}",
+      "presentation": {
+        "hidden": false,
+        "group": "CLI",
+        "order": 2
+      }
+    },
+    {
+      "name": "CLI: Dart (Debug)",
+      "type": "dart",
+      "request": "launch",
+      "program": "${workspaceFolder}/cli/bin/cli.dart",
+      "console": "terminal",
+      "cwd": "${workspaceFolder}/cli",
+      "presentation": {
+        "hidden": false,
+        "group": "CLI",
+        "order": 3
+      }
+    },
+    {
+      "name": "CLI: Dart (Release)",
+      "type": "dart",
+      "request": "launch",
+      "program": "${workspaceFolder}/cli/bin/cli.dart",
+      "console": "terminal",
+      "cwd": "${workspaceFolder}/cli",
+      "vmAdditionalArgs": [
+        "--enable-asserts"
+      ],
+      "presentation": {
+        "hidden": false,
+        "group": "CLI",
+        "order": 4
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: API + CLI (Python)",
+      "configurations": [
+        "API: FastAPI (Debug)",
+        "CLI: Python (Debug)"
+      ],
+      "presentation": {
+        "hidden": false,
+        "group": "Compound",
+        "order": 1
+      },
+      "stopAll": true
+    }
+  ]
+}
+

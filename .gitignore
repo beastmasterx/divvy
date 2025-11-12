@@ -220,7 +220,7 @@ __marimo__/
 .azurite/
  
 # IDE settings (uncomment if you want to ignore VS Code settings)
-.vscode/
+# .vscode/
 
 # Divvy-specific ignores
 # Database files in data directory (including subdirectories)
