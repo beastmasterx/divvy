@@ -1,4 +1,4 @@
-/// Main entry point for the Divvy CLI application.
+// Main entry point for the Divvy CLI application.
 
 import 'dart:io';
 import 'package:cli/src/api/divvy_client.dart';
@@ -14,7 +14,7 @@ Future<void> main(List<String> arguments) async {
 
   // Initialize API client
   final client = DivvyClient();
-  
+
   // Show startup message
   print('Divvy Expense Splitter CLI v$version');
   print('Connecting to API at: ${client.baseUrl}');

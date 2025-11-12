@@ -1,7 +1,7 @@
-/// Utility functions for text formatting and display width calculation.
-///
-/// Supports wide characters (CJK, emoji, etc.) where each wide character
-/// counts as 2 display units instead of 1.
+// Utility functions for text formatting and display width calculation.
+//
+// Supports wide characters (CJK, emoji, etc.) where each wide character
+// counts as 2 display units instead of 1.
 
 /// Calculate display width of text for table alignment.
 ///

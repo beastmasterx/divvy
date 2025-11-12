@@ -1,4 +1,4 @@
-/// Utility functions for input validation.
+// Utility functions for input validation.
 
 /// Validate and parse a dollar amount string.
 ///

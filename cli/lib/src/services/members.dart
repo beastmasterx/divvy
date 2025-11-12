@@ -1,4 +1,4 @@
-/// Service layer for member operations.
+// Service layer for member operations.
 
 import 'package:divvy_api_client/src/model/member_response.dart';
 import 'package:divvy_api_client/src/model/member_create.dart';
@@ -23,11 +23,11 @@ class Member {
 }
 
 /// List all members.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [activeOnly]: If true, only return active members
-/// 
+///
 /// Returns:
 /// List of members
 Future<List<Member>> listMembers(
@@ -38,22 +38,26 @@ Future<List<Member>> listMembers(
     activeOnly: activeOnly,
   );
   final members = response.data ?? BuiltList<MemberResponse>();
-  return members.map((m) => Member(
-    id: m.id,
-    email: m.email,
-    name: m.name,
-    isActive: m.isActive,
-    paidRemainderInCycle: m.paidRemainderInCycle,
-  )).toList();
+  return members
+      .map(
+        (m) => Member(
+          id: m.id,
+          email: m.email,
+          name: m.name,
+          isActive: m.isActive,
+          paidRemainderInCycle: m.paidRemainderInCycle,
+        ),
+      )
+      .toList();
 }
 
 /// Create a new member.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [email]: Member email
 /// - [name]: Member name
-/// 
+///
 /// Returns:
 /// Success or error message
 Future<String> createMember(
@@ -61,9 +65,11 @@ Future<String> createMember(
   String email,
   String name,
 ) async {
-  final request = MemberCreate((b) => b
-    ..email = email
-    ..name = name);
+  final request = MemberCreate(
+    (b) => b
+      ..email = email
+      ..name = name,
+  );
   final response = await client.members.createMemberApiV1MembersPost(
     memberCreate: request,
   );
@@ -71,17 +77,14 @@ Future<String> createMember(
 }
 
 /// Remove (deactivate) a member.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [memberId]: Member ID
-/// 
+///
 /// Returns:
 /// Success or error message
-Future<String> removeMember(
-  DivvyClient client,
-  int memberId,
-) async {
+Future<String> removeMember(DivvyClient client, int memberId) async {
   final response = await client.members.removeMemberApiV1MembersMemberIdDelete(
     memberId: memberId,
   );
@@ -89,35 +92,28 @@ Future<String> removeMember(
 }
 
 /// Rejoin (reactivate) an inactive member.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [memberId]: Member ID
-/// 
+///
 /// Returns:
 /// Success or error message
-Future<String> rejoinMember(
-  DivvyClient client,
-  int memberId,
-) async {
-  final response = await client.members.rejoinMemberApiV1MembersMemberIdRejoinPost(
-    memberId: memberId,
-  );
+Future<String> rejoinMember(DivvyClient client, int memberId) async {
+  final response = await client.members
+      .rejoinMemberApiV1MembersMemberIdRejoinPost(memberId: memberId);
   return response.data?.message ?? 'Success';
 }
 
 /// Get member by email.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [email]: Member email
-/// 
+///
 /// Returns:
 /// Member if found, null otherwise
-Future<Member?> getMemberByEmail(
-  DivvyClient client,
-  String email,
-) async {
+Future<Member?> getMemberByEmail(DivvyClient client, String email) async {
   // Get all members and find by email
   final members = await listMembers(client, activeOnly: false);
   try {
@@ -128,17 +124,14 @@ Future<Member?> getMemberByEmail(
 }
 
 /// Get member by name.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [name]: Member name
-/// 
+///
 /// Returns:
 /// Member if found, null otherwise
-Future<Member?> getMemberByName(
-  DivvyClient client,
-  String name,
-) async {
+Future<Member?> getMemberByName(DivvyClient client, String name) async {
   // Get all members and find by name
   final members = await listMembers(client, activeOnly: false);
   try {
@@ -147,4 +140,3 @@ Future<Member?> getMemberByName(
     return null;
   }
 }
-

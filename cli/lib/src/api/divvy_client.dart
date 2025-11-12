@@ -1,7 +1,7 @@
-/// API client wrapper for Divvy API.
-/// 
-/// Provides a convenient interface to the generated API client with
-/// configuration and error handling.
+// API client wrapper for Divvy API.
+//
+// Provides a convenient interface to the generated API client with
+// configuration and error handling.
 
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -26,15 +26,17 @@ class DivvyClient {
 
   DivvyClient({String? baseUrl}) {
     _baseUrl = baseUrl ?? _getBaseUrlFromEnv();
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
 
     // Initialize API clients with serializers
     final serializers = standardSerializers;
@@ -80,10 +82,10 @@ class DivvyClient {
   CategoriesApi get categories => _categoriesApi;
 
   /// Handle API errors and convert to user-friendly messages.
-  /// 
+  ///
   /// Parameters:
   /// - [error]: The error from Dio
-  /// 
+  ///
   /// Returns:
   /// A user-friendly error message
   String handleError(dynamic error) {
@@ -95,9 +97,10 @@ class DivvyClient {
           return 'Connection timeout. Please check your network connection.';
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
-          final message = error.response?.data?['detail'] ?? 
-                         error.response?.data?['message'] ?? 
-                         'Unknown error';
+          final message =
+              error.response?.data?['detail'] ??
+              error.response?.data?['message'] ??
+              'Unknown error';
           if (statusCode == 404) {
             return 'Resource not found: $message';
           } else if (statusCode == 400) {
@@ -121,4 +124,3 @@ class DivvyClient {
     return 'Unexpected error: $error';
   }
 }
-

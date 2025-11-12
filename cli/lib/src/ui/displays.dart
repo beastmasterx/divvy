@@ -1,6 +1,6 @@
-/// Display functions for showing period views, transactions, and balances.
-/// 
-/// Provides formatted table displays with wide character support.
+// Display functions for showing period views, transactions, and balances.
+//
+// Provides formatted table displays with wide character support.
 
 import '../utils/formatting.dart';
 import '../utils/i18n.dart';
@@ -64,7 +64,7 @@ class PeriodSummaryData {
 /// Display a period view with transactions and balances.
 void displayViewPeriod(PeriodSummaryData summary) {
   final period = summary;
-  
+
   // Format dates
   final startDateStr = _formatDate(period.startDate);
   final depositsFormatted = '+${period.depositsFormatted}';
@@ -80,7 +80,9 @@ void displayViewPeriod(PeriodSummaryData summary) {
   // Print period status
   if (period.isSettled && period.settledDate != null) {
     final settledDateStr = _formatDate(period.settledDate!);
-    print(translate('Started: {} | Settled: {}', [startDateStr, settledDateStr]));
+    print(
+      translate('Started: {} | Settled: {}', [startDateStr, settledDateStr]),
+    );
   } else if (period.isSettled && period.endDate != null) {
     final endDateStr = _formatDate(period.endDate!);
     print(translate('Started: {} | Settled: {}', [startDateStr, endDateStr]));
@@ -88,12 +90,20 @@ void displayViewPeriod(PeriodSummaryData summary) {
     print(translate('Started: {} | Active', [startDateStr]));
   }
 
-  print(translate('Deposits: {} | Expenses: {} | Fund: {}{}',
-      [depositsFormatted, expensesFormatted, fundSign, fundFormatted]));
+  print(
+    translate('Deposits: {} | Expenses: {} | Fund: {}{}', [
+      depositsFormatted,
+      expensesFormatted,
+      fundSign,
+      fundFormatted,
+    ]),
+  );
 
   // Display transactions
   if (period.transactions.isNotEmpty) {
-    print(translate('\n--- Transactions ({}) ---', [period.transactions.length]));
+    print(
+      translate('\n--- Transactions ({}) ---', [period.transactions.length]),
+    );
     _displayTransactionTable(period.transactions);
   } else {
     print(translate('\n--- Transactions (0) ---'));
@@ -102,7 +112,11 @@ void displayViewPeriod(PeriodSummaryData summary) {
 
   // Display member balances
   if (period.memberBalances.isNotEmpty) {
-    print(translate('\n--- Balances ({} active) ---', [period.memberBalances.length]));
+    print(
+      translate('\n--- Balances ({} active) ---', [
+        period.memberBalances.length,
+      ]),
+    );
     final memberStrings = period.memberBalances.map((member) {
       final balanceFormatted = centsToDollars(member.balance.abs());
       final balanceSign = member.balance >= 0 ? '+' : '-';
@@ -121,7 +135,11 @@ void displayViewPeriod(PeriodSummaryData summary) {
 /// Display settlement plan transactions.
 void displaySettlementPlan(List<TransactionDisplay> transactions) {
   if (transactions.isEmpty) {
-    print(translate('No settlement transactions needed (all balances already zero).'));
+    print(
+      translate(
+        'No settlement transactions needed (all balances already zero).',
+      ),
+    );
     return;
   }
 
@@ -175,7 +193,8 @@ void _displayTransactionTable(List<TransactionDisplay> transactions) {
   splitWidth = splitWidth > 10 ? splitWidth : 10;
 
   // Print header
-  final headerLine = '  ${padToDisplayWidth(headerDate, 12)} | '
+  final headerLine =
+      '  ${padToDisplayWidth(headerDate, 12)} | '
       '${padToDisplayWidth(headerCategory, categoryWidth)} | '
       '${padToDisplayWidth(headerType, 8)} | '
       '${padToDisplayWidth(headerSplit, splitWidth)} | '
@@ -183,14 +202,17 @@ void _displayTransactionTable(List<TransactionDisplay> transactions) {
       '${padToDisplayWidth(headerDescription, descWidth)} | '
       '${padToDisplayWidth(headerFromTo, payerWidth)}';
   print(headerLine);
-  print('  ${'-' * 12} | ${'-' * categoryWidth} | ${'-' * 8} | '
-      '${'-' * splitWidth} | ${'-' * 12} | ${'-' * descWidth} | '
-      '${'-' * payerWidth}');
+  print(
+    '  ${'-' * 12} | ${'-' * categoryWidth} | ${'-' * 8} | '
+    '${'-' * splitWidth} | ${'-' * 12} | ${'-' * descWidth} | '
+    '${'-' * payerWidth}',
+  );
 
   // Print transactions
   for (final tx in transactions) {
     final descDisplay = tx.description;
-    final txLine = '  ${padToDisplayWidth(tx.date, 12)} | '
+    final txLine =
+        '  ${padToDisplayWidth(tx.date, 12)} | '
         '${padToDisplayWidth(tx.category, categoryWidth)} | '
         '${padToDisplayWidth(tx.type, 8)} | '
         '${padToDisplayWidth(tx.split, splitWidth)} | '
@@ -206,4 +228,3 @@ String _formatDate(DateTime date) {
   return '${date.year}-${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
 }
-

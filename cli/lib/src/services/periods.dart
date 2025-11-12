@@ -1,4 +1,4 @@
-/// Service layer for period operations.
+// Service layer for period operations.
 
 import 'package:divvy_api_client/src/model/period_response.dart';
 import 'package:divvy_api_client/src/model/period_settle_request.dart';
@@ -28,35 +28,40 @@ class Period {
 }
 
 /// List all periods.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
-/// 
+///
 /// Returns:
 /// List of periods, ordered by start_date descending
 Future<List<Period>> listPeriods(DivvyClient client) async {
   final response = await client.periods.listPeriodsApiV1PeriodsGet();
   final periods = response.data ?? BuiltList<PeriodResponse>();
-  return periods.map((p) => Period(
-    id: p.id,
-    name: p.name,
-    startDate: p.startDate,
-    endDate: p.endDate,
-    isSettled: p.isSettled,
-    settledDate: p.settledDate,
-  )).toList();
+  return periods
+      .map(
+        (p) => Period(
+          id: p.id,
+          name: p.name,
+          startDate: p.startDate,
+          endDate: p.endDate,
+          isSettled: p.isSettled,
+          settledDate: p.settledDate,
+        ),
+      )
+      .toList();
 }
 
 /// Get current active period.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
-/// 
+///
 /// Returns:
 /// Current period, or null if not found
 Future<Period?> getCurrentPeriod(DivvyClient client) async {
   try {
-    final response = await client.periods.getCurrentPeriodApiV1PeriodsCurrentGet();
+    final response = await client.periods
+        .getCurrentPeriodApiV1PeriodsCurrentGet();
     final p = response.data;
     if (p == null) return null;
     return Period(
@@ -73,7 +78,7 @@ Future<Period?> getCurrentPeriod(DivvyClient client) async {
 }
 
 /// Parse balance description to extract balance in cents.
-/// 
+///
 /// Examples: "Is owed $123.45" -> 12345, "Owes $67.89" -> -6789, "Settled" -> 0
 int _parseBalanceDescription(String description) {
   if (description.toLowerCase().contains('settled')) {
@@ -96,11 +101,11 @@ int _parseBalanceDescription(String description) {
 }
 
 /// Get period summary.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [periodId]: Period ID (null for current period)
-/// 
+///
 /// Returns:
 /// Period summary data
 Future<PeriodSummaryData> getPeriodSummary(
@@ -108,20 +113,21 @@ Future<PeriodSummaryData> getPeriodSummary(
   int? periodId,
 }) async {
   final response = periodId == null
-      ? await client.periods.getCurrentPeriodSummaryApiV1PeriodsCurrentSummaryGet()
+      ? await client.periods
+            .getCurrentPeriodSummaryApiV1PeriodsCurrentSummaryGet()
       : await client.periods.getPeriodSummaryApiV1PeriodsPeriodIdSummaryGet(
           periodId: periodId,
         );
-  
+
   final summary = response.data;
   if (summary == null) {
     throw Exception('Period summary not found');
   }
-  
+
   // Get active members to get paidRemainder info
   final activeMembers = await listMembers(client, activeOnly: true);
   final memberMap = {for (var m in activeMembers) m.name: m};
-  
+
   // Convert transactions
   final transactions = summary.transactions.map((tx) {
     final dateOnly = tx.timestamp.toLocal().toString().split(' ')[0];
@@ -131,7 +137,7 @@ Future<PeriodSummaryData> getPeriodSummary(
     final amountFormatted = formatAmountWithSign(amount);
     final description = tx.description ?? '';
     final payer = tx.payerName ?? '';
-    
+
     // Determine split type
     String split;
     if (type == 'expense') {
@@ -144,7 +150,7 @@ Future<PeriodSummaryData> getPeriodSummary(
     } else {
       split = '';
     }
-    
+
     return TransactionDisplay(
       date: dateOnly,
       category: category,
@@ -156,7 +162,7 @@ Future<PeriodSummaryData> getPeriodSummary(
       payer: payer,
     );
   }).toList();
-  
+
   // Convert member balances
   final memberBalances = summary.balances.map((balance) {
     final member = memberMap[balance.memberName];
@@ -167,7 +173,7 @@ Future<PeriodSummaryData> getPeriodSummary(
       paidRemainder: member?.paidRemainderInCycle ?? false,
     );
   }).toList();
-  
+
   // Calculate public fund balance from transactions
   int publicFundBalance = 0;
   for (final tx in summary.transactions) {
@@ -183,7 +189,7 @@ Future<PeriodSummaryData> getPeriodSummary(
       }
     }
   }
-  
+
   return PeriodSummaryData(
     periodId: summary.period.id,
     periodName: summary.period.name,
@@ -202,11 +208,11 @@ Future<PeriodSummaryData> getPeriodSummary(
 }
 
 /// Settle current period.
-/// 
+///
 /// Parameters:
 /// - [client]: The API client
 /// - [periodName]: Optional name for new period
-/// 
+///
 /// Returns:
 /// Success or error message
 Future<String> settleCurrentPeriod(
@@ -218,9 +224,9 @@ Future<String> settleCurrentPeriod(
       b.periodName = periodName;
     }
   });
-  final response = await client.periods.settleCurrentPeriodApiV1PeriodsCurrentSettlePost(
-    periodSettleRequest: request,
-  );
+  final response = await client.periods
+      .settleCurrentPeriodApiV1PeriodsCurrentSettlePost(
+        periodSettleRequest: request,
+      );
   return response.data?.message ?? 'Success';
 }
-

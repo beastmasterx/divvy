@@ -1,24 +1,20 @@
-/// Interactive UI selectors for user input.
-/// 
-/// Provides functions for selecting items from lists, members, periods, and categories.
+// Interactive UI selectors for user input.
+//
+// Provides functions for selecting items from lists, members, periods, and categories.
 
 import 'dart:io';
 import '../utils/i18n.dart';
 
 /// Select an item from a list by number.
-/// 
+///
 /// Parameters:
 /// - [items]: List of items (maps with a name key)
 /// - [nameKey]: Key to use for displaying item names
 /// - [prompt]: Prompt text for the selection
-/// 
+///
 /// Returns:
 /// The selected item, or null if cancelled or empty list
-T? selectFromList<T>(
-  List<T> items,
-  String Function(T) getName,
-  String prompt,
-) {
+T? selectFromList<T>(List<T> items, String Function(T) getName, String prompt) {
   if (items.isEmpty) {
     print(translate('No {} available.', [prompt.toLowerCase()]));
     return null;
@@ -44,10 +40,11 @@ T? selectFromList<T>(
       if (index >= 0 && index < items.length) {
         return items[index];
       } else {
-        print(translate(
-          'Invalid choice. Please enter a number between 1 and {}.',
-          [items.length],
-        ));
+        print(
+          translate('Invalid choice. Please enter a number between 1 and {}.', [
+            items.length,
+          ]),
+        );
       }
     } on FormatException {
       print(translate('Invalid input. Please enter a number.'));
@@ -62,11 +59,11 @@ T? selectFromList<T>(
 }
 
 /// Select a period from all periods, with current period as default.
-/// 
+///
 /// Parameters:
 /// - [periods]: List of periods (with id, name, startDate, isSettled)
 /// - [currentPeriodId]: ID of the current active period (optional)
-/// 
+///
 /// Returns:
 /// The selected period, or null if cancelled
 T? selectPeriod<T>({
@@ -85,7 +82,8 @@ T? selectPeriod<T>({
   // Create display strings for periods
   final periodsWithDisplay = periods.map((p) {
     final startDate = getStartDate(p);
-    final dateOnly = '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}';
+    final dateOnly =
+        '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}';
     final status = getIsSettled(p) ? translate('Settled') : translate('Active');
     final isCurrent = currentPeriodId != null && getId(p) == currentPeriodId;
     final marker = isCurrent ? translate(' [Current]') : '';
@@ -111,10 +109,11 @@ T? selectPeriod<T>({
 
   while (true) {
     try {
-      stdout.write(translate(
-        'Enter your choice (1-{}, or Enter for default): ',
-        [periodsWithDisplay.length],
-      ));
+      stdout.write(
+        translate('Enter your choice (1-{}, or Enter for default): ', [
+          periodsWithDisplay.length,
+        ]),
+      );
       final choice = stdin.readLineSync()?.trim() ?? '';
 
       if (choice.isEmpty) {
@@ -130,10 +129,11 @@ T? selectPeriod<T>({
       if (index >= 0 && index < periodsWithDisplay.length) {
         return periodsWithDisplay[index].period;
       } else {
-        print(translate(
-          'Invalid choice. Please enter a number between 1 and {}.',
-          [periodsWithDisplay.length],
-        ));
+        print(
+          translate('Invalid choice. Please enter a number between 1 and {}.', [
+            periodsWithDisplay.length,
+          ]),
+        );
       }
     } on FormatException {
       print(translate('Invalid input. Please enter a number.'));
@@ -148,16 +148,16 @@ T? selectPeriod<T>({
 }
 
 /// Select a payer from active members.
-/// 
+///
 /// For deposits, includes virtual member (Group) as an option for public fund.
 /// For expenses, only shows regular active members.
-/// 
+///
 /// Parameters:
 /// - [members]: List of active members
 /// - [forExpense]: If true, exclude virtual member (for expenses)
 /// - [virtualMemberName]: Internal name of virtual member (default: "_system_group_")
 /// - [virtualMemberDisplayName]: Display name for virtual member (default: "Group")
-/// 
+///
 /// Returns:
 /// The selected member name, or null if cancelled
 String? selectPayer({
@@ -211,26 +211,28 @@ String? selectPayer({
 }
 
 /// Select a category from available categories.
-/// 
+///
 /// Parameters:
 /// - [categories]: List of categories (with id and name)
-/// 
+///
 /// Returns:
 /// The selected category name, or null if cancelled
-String? selectCategory({
-  required List<({int id, String name})> categories,
-}) {
+String? selectCategory({required List<({int id, String name})> categories}) {
   if (categories.isEmpty) {
     print(translate('No {} available.', [translate('Category').toLowerCase()]));
     return null;
   }
 
   // Convert to list for selectFromList
-  final categoriesList = categories.map((c) => {
-    'id': c.id,
-    'name': c.name,
-    'displayName': translateCategory(c.name), // Translated name
-  }).toList();
+  final categoriesList = categories
+      .map(
+        (c) => {
+          'id': c.id,
+          'name': c.name,
+          'displayName': translateCategory(c.name), // Translated name
+        },
+      )
+      .toList();
 
   final selected = selectFromList<Map<String, dynamic>>(
     categoriesList,
@@ -241,4 +243,3 @@ String? selectCategory({
   // Return original name (not translated) for API
   return selected?['name'] as String?;
 }
-

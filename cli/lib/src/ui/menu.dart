@@ -1,4 +1,4 @@
-/// Menu system for the CLI application.
+// Menu system for the CLI application.
 
 import 'dart:io';
 import '../api/divvy_client.dart';
@@ -15,7 +15,9 @@ import 'displays.dart';
 /// Show the main menu.
 void showMenu(String? currentPeriodName) {
   print(translate('\n--- Divvy Expense Splitter ---'));
-  print(translate('Current Period: {}', [currentPeriodName ?? translate('None')]));
+  print(
+    translate('Current Period: {}', [currentPeriodName ?? translate('None')]),
+  );
   print(translate('1. Add Expense'));
   print(translate('2. Add Deposit'));
   print(translate('3. Add Refund'));
@@ -47,9 +49,11 @@ Future<void> handleAddExpense(DivvyClient client) async {
   }
 
   // Ask for expense type
-  stdout.write(translate(
-    'Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): ',
-  ));
+  stdout.write(
+    translate(
+      'Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): ',
+    ),
+  );
   final expenseTypeInput = stdin.readLineSync()?.trim().toLowerCase() ?? 'i';
 
   String? payerName;
@@ -65,10 +69,7 @@ Future<void> handleAddExpense(DivvyClient client) async {
     final membersList = activeMembers
         .map((m) => (id: m.id, name: m.name))
         .toList();
-    final selected = selectPayer(
-      members: membersList,
-      forExpense: true,
-    );
+    final selected = selectPayer(members: membersList, forExpense: true);
     if (selected == null) {
       print(translate('Expense recording cancelled.'));
       return;
@@ -82,10 +83,7 @@ Future<void> handleAddExpense(DivvyClient client) async {
     final membersList = activeMembers
         .map((m) => (id: m.id, name: m.name))
         .toList();
-    final selected = selectPayer(
-      members: membersList,
-      forExpense: true,
-    );
+    final selected = selectPayer(members: membersList, forExpense: true);
     if (selected == null) {
       print(translate('Expense recording cancelled.'));
       return;
@@ -97,7 +95,9 @@ Future<void> handleAddExpense(DivvyClient client) async {
 
   // Select category
   final categories = await listCategories(client);
-  final categoriesList = categories.map((c) => (id: c.id, name: c.name)).toList();
+  final categoriesList = categories
+      .map((c) => (id: c.id, name: c.name))
+      .toList();
   final categoryName = selectCategory(categories: categoriesList);
   if (categoryName == null) {
     print(translate('Expense recording cancelled.'));
@@ -140,11 +140,10 @@ Future<void> handleAddDeposit(DivvyClient client) async {
   }
 
   final activeMembers = await listMembers(client, activeOnly: true);
-  final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
-  final payerName = selectPayer(
-    members: membersList,
-    forExpense: false,
-  );
+  final membersList = activeMembers
+      .map((m) => (id: m.id, name: m.name))
+      .toList();
+  final payerName = selectPayer(members: membersList, forExpense: false);
   if (payerName == null) {
     print(translate('Deposit recording cancelled.'));
     return;
@@ -250,13 +249,18 @@ Future<void> handleClosePeriod(DivvyClient client) async {
     // Show settlement plan
     final currentPeriod = await getCurrentPeriod(client);
     if (currentPeriod != null) {
-      final settlementPlan = await getSettlementPlan(client, periodId: currentPeriod.id);
+      final settlementPlan = await getSettlementPlan(
+        client,
+        periodId: currentPeriod.id,
+      );
       if (settlementPlan.isNotEmpty) {
         displaySettlementPlan(settlementPlan);
       } else {
-        print(translate(
-          '\nNo settlement transactions needed (all balances already zero).\n',
-        ));
+        print(
+          translate(
+            '\nNo settlement transactions needed (all balances already zero).\n',
+          ),
+        );
       }
     }
 
@@ -269,9 +273,9 @@ Future<void> handleClosePeriod(DivvyClient client) async {
     }
 
     // Get new period name
-    stdout.write(translate(
-      'Enter name for new period (press Enter for auto-generated): ',
-    ));
+    stdout.write(
+      translate('Enter name for new period (press Enter for auto-generated): '),
+    );
     final periodName = stdin.readLineSync()?.trim();
     final finalPeriodName = periodName?.isEmpty ?? true ? null : periodName;
 
@@ -319,16 +323,19 @@ Future<void> handleAddMember(DivvyClient client) async {
 
   if (existingMember != null) {
     if (existingMember.isActive) {
-      print(translate(
-        'Error: Member with email \'{}\' already exists and is active.',
-        [email],
-      ));
+      print(
+        translate(
+          'Error: Member with email \'{}\' already exists and is active.',
+          [email],
+        ),
+      );
     } else {
       // Member is inactive - ask to rejoin
-      stdout.write(translate(
-        'Member \'{}\' is inactive. Rejoin? (y/n): ',
-        [existingMember.name],
-      ));
+      stdout.write(
+        translate('Member \'{}\' is inactive. Rejoin? (y/n): ', [
+          existingMember.name,
+        ]),
+      );
       final response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
       if (response == 'y' || response == 'yes') {
         try {
@@ -355,7 +362,9 @@ Future<void> handleAddMember(DivvyClient client) async {
 /// Handle menu option 7: Remove Member
 Future<void> handleRemoveMember(DivvyClient client) async {
   final activeMembers = await listMembers(client, activeOnly: true);
-  final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
+  final membersList = activeMembers
+      .map((m) => (id: m.id, name: m.name))
+      .toList();
 
   if (membersList.isEmpty) {
     print(translate('No active members to remove.'));
@@ -396,22 +405,39 @@ Future<void> handleRemoveMember(DivvyClient client) async {
 
     String response;
     if (memberBalance > 0) {
-      print(translate(
-        '\n⚠️  Warning: \'{}\' is owed {}.',
-        [selected.name, balanceDisplay],
-      ));
-      print(translate(
-        '   Other members should settle this balance before removal.',
-      ));
-      stdout.write(translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]));
+      print(
+        translate('\n⚠️  Warning: \'{}\' is owed {}.', [
+          selected.name,
+          balanceDisplay,
+        ]),
+      );
+      print(
+        translate(
+          '   Other members should settle this balance before removal.',
+        ),
+      );
+      stdout.write(
+        translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]),
+      );
       response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
     } else if (memberBalance < 0) {
-      print(translate('\n⚠️  Warning: \'{}\' owes {}.', [selected.name, balanceDisplay]));
+      print(
+        translate('\n⚠️  Warning: \'{}\' owes {}.', [
+          selected.name,
+          balanceDisplay,
+        ]),
+      );
       print(translate('   This balance should be settled before removal.'));
-      stdout.write(translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]));
+      stdout.write(
+        translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]),
+      );
       response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
     } else {
-      stdout.write(translate('Remove member \'{}\' (Balance: \$0.00)? (y/n): ', [selected.name]));
+      stdout.write(
+        translate('Remove member \'{}\' (Balance: \$0.00)? (y/n): ', [
+          selected.name,
+        ]),
+      );
       response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
     }
 
@@ -481,4 +507,3 @@ Future<void> runMenu(DivvyClient client) async {
     }
   }
 }
-
