@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "divvy"
 version = "3.0.0"
 description = "Expense splitting CLI with multi-database support"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 readme = "README.md"
 license = "Apache-2.0"
 # Runtime dependencies are managed via environment.yml (conda)
@@ -37,8 +37,8 @@ all-databases = [
 # Line length matches common Python standards
 line-length = 120
 
-# Target Python 3.12+
-target-version = "py312"
+# Target Python 3.14+
+target-version = "py314"
 
 [tool.ruff.lint]
 # Enable a comprehensive set of rule categories
