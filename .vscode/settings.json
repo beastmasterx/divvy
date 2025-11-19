@@ -6,6 +6,7 @@
     },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.rulers": [120],
     },
     "python.analysis.autoImportCompletions": true,
     "python.terminal.activateEnvironment": true,
