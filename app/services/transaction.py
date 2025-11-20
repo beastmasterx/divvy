@@ -4,6 +4,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from sqlalchemy.orm import Session
 
 from app.core.i18n import _
+from app.exceptions import InternalServerError, NotFoundError, ValidationError
 from app.models.models import SplitKind, Transaction, TransactionKind
 from app.repositories.transaction import TransactionRepository
 
@@ -52,11 +53,13 @@ class TransactionService:
             dict[int, int]: {user_id: amount_owed_in_cents}
 
         Raises:
-            ValueError: If transaction not found or has invalid split configuration
+            NotFoundError: If transaction not found
+            ValidationError: If transaction has invalid split configuration
+            InternalServerError: If share calculation fails
         """
         transaction = self.get_transaction_by_id(transaction_id)
         if not transaction:
-            raise ValueError(_("Transaction %s not found") % transaction_id)
+            raise NotFoundError(_("Transaction %s not found") % transaction_id)
 
         # Edge case: no expense shares
         if transaction.transaction_kind != TransactionKind.EXPENSE or not transaction.expense_shares:
@@ -95,7 +98,7 @@ class TransactionService:
                     amount_decimal = Decimal(transaction.amount) * Decimal(str(s.share_percentage)) / 100
                     shares[s.user_id] = int(amount_decimal.quantize(Decimal("1"), rounding=ROUND_HALF_EVEN))
                 else:
-                    raise ValueError(
+                    raise ValidationError(
                         _(
                             "Transaction %(transaction_id)s has split_kind='custom' but "
                             "ExpenseShare for user %(user_id)s has no share_amount or "
@@ -118,7 +121,7 @@ class TransactionService:
                     for i in range(abs(remainder)):
                         shares[sorted_user_ids[i]] -= 1
         else:
-            raise ValueError(
+            raise ValidationError(
                 _("Transaction %(transaction_id)s has invalid split_kind: '%(split_kind)s'")
                 % {"transaction_id": transaction_id, "split_kind": transaction.split_kind}
             )
@@ -126,7 +129,7 @@ class TransactionService:
         # Final validation
         total = sum(shares.values())
         if total != transaction.amount:
-            raise RuntimeError(
+            raise InternalServerError(
                 _(
                     "Share calculation error for transaction %(transaction_id)s: "
                     "shares sum to %(total)s but transaction amount is %(amount)s"

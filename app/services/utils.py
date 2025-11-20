@@ -3,6 +3,7 @@ Utility functions for services.
 """
 
 from app.core.i18n import _
+from app.exceptions import ValidationError
 
 
 def cents_to_dollars(cents: int) -> str:
@@ -15,4 +16,4 @@ def dollars_to_cents(dollars_str: str) -> int:
     try:
         return int(float(dollars_str) * 100)
     except ValueError as err:
-        raise ValueError(_("Invalid amount format. Please enter a number.")) from err
+        raise ValidationError(_("Invalid amount format. Please enter a number.")) from err

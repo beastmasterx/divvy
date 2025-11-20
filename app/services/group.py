@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy.orm import Session
 
 from app.core.i18n import _
+from app.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.models.models import Group, Period, User
 from app.repositories.group import GroupRepository
 from app.services.user import UserService
@@ -41,18 +42,19 @@ class GroupService:
             group_id: ID of the group to delete
 
         Raises:
-            ValueError: If group not found, or active period with transactions is not settled
+            NotFoundError: If group not found
+            BusinessRuleError: If active period with transactions is not settled
         """
         group = self.get_group_by_id(group_id)
         if not group:
-            raise ValueError(_("Group %s not found") % group_id)
+            raise NotFoundError(_("Group %s not found") % group_id)
 
         # Check for active period with transactions
         active_period = self.get_current_period_by_group_id(group_id)
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_settled:
-            raise ValueError(
+            raise BusinessRuleError(
                 _(
                     "Cannot delete group '%(group_name)s': the active period '%(period_name)s' "
                     "has transactions and is not settled. Please settle the period first."
@@ -85,7 +87,8 @@ class GroupService:
             user_id: ID of the user to add
 
         Raises:
-            ValueError: If group/user not found, or user already in group
+            NotFoundError: If group/user not found
+            ConflictError: If user already in group
         """
         self._validate_group_and_user(group_id, user_id)
 
@@ -96,7 +99,7 @@ class GroupService:
 
         # Check for duplicate membership
         if self.group_repository.check_if_user_is_in_group(group_id, user_id):
-            raise ValueError(
+            raise ConflictError(
                 _("User '%(user_name)s' is already a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
             )
@@ -115,8 +118,8 @@ class GroupService:
             user_id: ID of the user to remove
 
         Raises:
-            ValueError: If group/user not found, user not in group, or
-                       active period with transactions is not settled
+            NotFoundError: If group/user not found, or user not in group
+            BusinessRuleError: If active period with transactions is not settled
         """
         self._validate_group_and_user(group_id, user_id)
 
@@ -127,7 +130,7 @@ class GroupService:
 
         # Check if user is actually in the group
         if not self.group_repository.check_if_user_is_in_group(group_id, user_id):
-            raise ValueError(
+            raise NotFoundError(
                 _("User '%(user_name)s' is not a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
             )
@@ -137,7 +140,7 @@ class GroupService:
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_settled:
-            raise ValueError(
+            raise BusinessRuleError(
                 _(
                     "Cannot remove user '%(user_name)s' from group '%(group_name)s': "
                     "the active period '%(period_name)s' has transactions and is not settled. "
@@ -169,12 +172,12 @@ class GroupService:
             user_id: ID of the user
 
         Raises:
-            ValueError: If group or user not found
+            NotFoundError: If group or user not found
         """
         group = self.get_group_by_id(group_id)
         if not group:
-            raise ValueError(_("Group %s not found") % group_id)
+            raise NotFoundError(_("Group %s not found") % group_id)
 
         user = self.user_service.get_user_by_id(user_id)
         if not user:
-            raise ValueError(_("User %s not found") % user_id)
+            raise NotFoundError(_("User %s not found") % user_id)

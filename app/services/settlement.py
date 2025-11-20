@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.i18n import _
+from app.exceptions import ValidationError
 from app.models.models import Transaction, TransactionKind
 from app.services.transaction import TransactionService
 
@@ -30,7 +31,7 @@ class SettlementService:
             elif transaction.transaction_kind == TransactionKind.REFUND:
                 balances[transaction.payer_id] -= transaction.amount
             else:
-                raise ValueError(
+                raise ValidationError(
                     _("Invalid transaction kind: %(transaction_kind)s")
                     % {"transaction_kind": transaction.transaction_kind}
                 )

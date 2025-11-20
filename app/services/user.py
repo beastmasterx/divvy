@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy.orm import Session
 
 from app.core.i18n import _
+from app.exceptions import BusinessRuleError, NotFoundError
 from app.models.models import Group, User
 from app.repositories.user import UserRepository
 
@@ -39,17 +40,18 @@ class UserService:
             user_id: ID of the user to delete
 
         Raises:
-            ValueError: If user not found or user is still a member of groups
+            NotFoundError: If user not found
+            BusinessRuleError: If user is still a member of groups
         """
         user = self.get_user_by_id(user_id)
         if not user:
-            raise ValueError(_("User %s not found") % user_id)
+            raise NotFoundError(_("User %s not found") % user_id)
 
         groups = self.get_groups_by_user_id(user_id)
 
         if groups:
             group_names = [g.name for g in groups]
-            raise ValueError(
+            raise BusinessRuleError(
                 _(
                     "Cannot delete user '%(user_name)s': they are still a member of group(s) "
                     "%(group_names)s. Please remove them from all groups first."
