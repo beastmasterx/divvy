@@ -20,6 +20,10 @@ class CategoryService:
         """Retrieve a specific category by its ID."""
         return self.category_repository.get_category_by_id(category_id)
 
+    def get_category_by_name(self, name: str) -> Category | None:
+        """Retrieve a specific category by its name."""
+        return self.category_repository.get_category_by_name(name)
+
     def create_category(self, category: Category) -> Category:
         """Create a new category."""
         return self.category_repository.create_category(category)

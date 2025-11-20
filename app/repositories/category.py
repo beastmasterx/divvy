@@ -22,6 +22,11 @@ class CategoryRepository:
         stmt = select(Category).where(Category.id == category_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def get_category_by_name(self, name: str) -> Category | None:
+        """Retrieve a specific category by its name."""
+        stmt = select(Category).where(Category.name == name)
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def create_category(self, category: Category) -> Category:
         """Create a new category and persist it to the database."""
         self.session.add(category)
