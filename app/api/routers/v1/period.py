@@ -2,10 +2,12 @@
 API v1 router for Period endpoints.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_period_service
 from app.api.schemas import PeriodRequest, PeriodResponse
+from app.core.i18n import _
+from app.exceptions import NotFoundError
 from app.services import PeriodService
 
 router = APIRouter(prefix="/periods", tags=["periods"])
@@ -31,10 +33,12 @@ def get_period(
     Get a specific period by its ID.
     """
     period = period_service.get_period_by_id(period_id)
+    if not period:
+        raise NotFoundError(_("Period %s not found") % period_id)
     return PeriodResponse.model_validate(period)
 
 
-@router.post("/", response_model=PeriodResponse)
+@router.post("/", response_model=PeriodResponse, status_code=status.HTTP_201_CREATED)
 def create_period(
     period: PeriodRequest,
     period_service: PeriodService = Depends(get_period_service),
@@ -59,7 +63,7 @@ def update_period(
     return PeriodResponse.model_validate(updated_period)
 
 
-@router.delete("/{period_id}")
+@router.delete("/{period_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_period(
     period_id: int,
     period_service: PeriodService = Depends(get_period_service),
