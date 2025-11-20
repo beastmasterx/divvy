@@ -1,5 +1,5 @@
 """
-API v1 router for Period endpoints.
+API v1 router for Group endpoints.
 """
 
 from fastapi import APIRouter, Depends
