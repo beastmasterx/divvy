@@ -27,3 +27,10 @@ class PeriodResponse(BaseModel):
 
     created_by: int = Field(..., description="Period created by")
     updated_by: int = Field(..., description="Period updated by")
+
+
+class PeriodSettlementRequest(BaseModel):
+    """Schema for period settle request."""
+
+    is_settled: bool = Field(..., description="Period settled status")
+    settled_date: datetime = Field(..., description="Period settled date")

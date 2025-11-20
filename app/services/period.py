@@ -1,8 +1,9 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas import PeriodRequest
+from app.api.schemas import PeriodRequest, PeriodSettlementRequest
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models.models import Period
@@ -36,6 +37,15 @@ class PeriodService:
         period.name = p.name
         period.start_date = p.start_date
         period.end_date = p.end_date
+        return self.period_repository.update_period(period)
+
+    def settle_period(self, period_id: int, p: PeriodSettlementRequest) -> Period:
+        """Settle an existing period."""
+        period = self.get_period_by_id(period_id)
+        if not period:
+            raise NotFoundError(_("Period %s not found") % period_id)
+        period.is_settled = p.is_settled
+        period.settled_date = p.settled_date if p.is_settled else datetime.now(UTC)
         return self.period_repository.update_period(period)
 
     def delete_period(self, period_id: int) -> None:

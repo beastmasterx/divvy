@@ -5,7 +5,7 @@ API v1 router for Period endpoints.
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_period_service, get_settlement_service
-from app.api.schemas import PeriodRequest, PeriodResponse, TransactionResponse
+from app.api.schemas import PeriodRequest, PeriodResponse, SettlementPlanResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.services import PeriodService, SettlementService
@@ -89,7 +89,7 @@ def get_balances(
     return settlement_service.get_all_balances(period_id)
 
 
-@router.get("/{period_id}/settlement-plan", response_model=list[TransactionResponse])
+@router.get("/{period_id}/get-settlement-plan", response_model=list[SettlementPlanResponse])
 def get_settlement_plan(
     period_id: int,
     period_service: PeriodService = Depends(get_period_service),
@@ -98,8 +98,15 @@ def get_settlement_plan(
     """
     Get the settlement plan for a specific period.
     """
-    period = period_service.get_period_by_id(period_id)
-    if not period:
-        raise NotFoundError(_("Period %s not found") % period_id)
-    settlement_plan = settlement_service.get_settlement_plan(period_id)
-    return [TransactionResponse.model_validate(transaction) for transaction in settlement_plan]
+    return settlement_service.get_settlement_plan(period_id)
+
+
+@router.post("/{period_id}/apply-settlement-plan", status_code=status.HTTP_204_NO_CONTENT)
+def apply_settlement_plan(
+    period_id: int,
+    settlement_service: SettlementService = Depends(get_settlement_service),
+):
+    """
+    Apply the settlement plan and settle the period.
+    """
+    settlement_service.apply_settlement_plan(period_id)

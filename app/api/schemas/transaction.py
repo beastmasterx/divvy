@@ -13,7 +13,6 @@ class TransactionRequest(BaseModel):
     payer_id: int = Field(..., description="ID of the user who paid the transaction")
     category_id: int = Field(..., description="ID of the category of the transaction")
     period_id: int = Field(..., description="ID of the period of the transaction")
-    group_id: int = Field(..., description="ID of the group of the transaction")
     transaction_kind: TransactionKind = Field(..., description="Kind of transaction")
     split_kind: SplitKind = Field(..., description="Kind of split")
     expense_shares: list[ExpenseShareRequest] = Field(..., description="Expense shares for the transaction")
@@ -28,11 +27,9 @@ class TransactionResponse(BaseModel):
     payer_id: int = Field(..., description="ID of the user who paid the transaction")
     category_id: int = Field(..., description="ID of the category of the transaction")
     period_id: int = Field(..., description="ID of the period of the transaction")
-    group_id: int = Field(..., description="ID of the group of the transaction")
     payer_name: str = Field(..., description="Name of the user who paid the transaction")
     category_name: str = Field(..., description="Name of the category of the transaction")
     period_name: str = Field(..., description="Name of the period of the transaction")
-    group_name: str = Field(..., description="Name of the group of the transaction")
     transaction_kind: TransactionKind = Field(..., description="Kind of transaction")
     split_kind: SplitKind = Field(..., description="Kind of split")
     expense_shares: list[ExpenseShareResponse] = Field(..., description="Expense shares for the transaction")
@@ -60,3 +57,18 @@ class ExpenseShareResponse(BaseModel):
     transaction_id: int = Field(..., description="ID of the transaction who shared the transaction")
     share_amount: int = Field(..., description="Amount of the share in cents")
     share_percentage: float = Field(..., description="Percentage of the share")
+
+
+class SettlementPlanResponse(BaseModel):
+    """Schema for settlement plan response."""
+
+    transaction_kind: TransactionKind = Field(..., description="Kind of transaction")
+    amount: int = Field(..., description="Amount of the transaction in cents")
+    payer_id: int = Field(..., description="ID of the user who paid the transaction")
+    period_id: int = Field(..., description="ID of the period of the transaction")
+    category_id: int = Field(..., description="ID of the category of the transaction")
+    split_kind: SplitKind = Field(..., description="Kind of split")
+    description: str = Field(..., description="Description of the transaction")
+    payer_name: str = Field(..., description="Name of the user who paid the transaction")
+    category_name: str = Field(..., description="Name of the category of the transaction")
+    period_name: str = Field(..., description="Name of the period of the transaction")
