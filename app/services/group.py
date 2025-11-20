@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
+from app.api.schemas import GroupRequest
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.models.models import Group, Period, User
@@ -24,12 +25,40 @@ class GroupService:
         """Retrieve a specific group by its ID."""
         return self.group_repository.get_group_by_id(group_id)
 
-    def create_group(self, group: Group) -> Group:
-        """Create a new group."""
+    def create_group(self, group_request: GroupRequest) -> Group:
+        """Create a new group.
+
+        Args:
+            group_request: Pydantic schema containing group data
+
+        Returns:
+            Created Group ORM model
+        """
+        # Convert Pydantic schema to ORM model using specific fields
+        group = Group(name=group_request.name)
         return self.group_repository.create_group(group)
 
-    def update_group(self, group: Group) -> Group:
-        """Update an existing group."""
+    def update_group(self, group_id: int, group_request: GroupRequest) -> Group:
+        """Update an existing group.
+
+        Args:
+            group_id: ID of the group to update
+            group_request: Pydantic schema containing updated group data
+
+        Returns:
+            Updated Group ORM model
+
+        Raises:
+            NotFoundError: If group not found
+        """
+        # Fetch existing group
+        group = self.get_group_by_id(group_id)
+        if not group:
+            raise NotFoundError(_("Group %s not found") % group_id)
+
+        # Update fields from request
+        group.name = group_request.name
+
         return self.group_repository.update_group(group)
 
     def delete_group(self, group_id: int) -> None:
