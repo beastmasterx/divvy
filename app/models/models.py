@@ -5,7 +5,6 @@ Supports SQLite, PostgreSQL, MySQL, and MSSQL.
 
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -16,9 +15,14 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column, relationship, validates
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
 
 
 class Base(DeclarativeBase):
@@ -40,7 +44,8 @@ class SplitKind(str, Enum):
 
     PERSONAL = "personal"  # Only the payer (no split)
     EQUAL = "equal"  # Split equally among all participants
-    CUSTOM = "custom"  # Custom amounts per person
+    AMOUNT = "amount"  # Custom amounts per person (in cents)
+    PERCENTAGE = "percentage"  # Custom percentages per person
 
 
 class TimestampMixin:
@@ -50,7 +55,11 @@ class TimestampMixin:
         DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), index=True
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        index=True,
     )
 
 
@@ -93,7 +102,9 @@ class User(TimestampMixin, Base):
     # Relationships
     group_users: Mapped[list[GroupUser]] = relationship("GroupUser", back_populates="user")
     paid_transactions: Mapped[list[Transaction]] = relationship(
-        "Transaction", foreign_keys="Transaction.payer_id", back_populates="payer"
+        "Transaction",
+        foreign_keys="Transaction.payer_id",
+        back_populates="payer",
     )
     expense_shares: Mapped[list[ExpenseShare]] = relationship("ExpenseShare", back_populates="user")
 
@@ -204,29 +215,34 @@ class Transaction(AuditMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     transaction_kind: Mapped[str] = mapped_column(
-        String(50), CheckConstraint("transaction_kind IN ('expense', 'deposit', 'refund')"), nullable=False
+        String(50),
+        CheckConstraint("transaction_kind IN ('expense', 'deposit', 'refund')"),
+        nullable=False,
     )
     split_kind: Mapped[str] = mapped_column(
-        String(20), CheckConstraint("split_kind IN ('personal', 'equal', 'custom')"), default="equal", nullable=False
+        String(20),
+        CheckConstraint("split_kind IN ('personal', 'equal', 'amount', 'percentage')"),
+        default="equal",
+        nullable=False,
     )
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)  # Stored in cents
     payer_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     category_id: Mapped[int] = mapped_column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
     period_id: Mapped[int] = mapped_column(Integer, ForeignKey("periods.id"), nullable=False, index=True)
-    group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"), nullable=False, index=True)
-    # DEPRECATED: Use split_kind == 'personal' instead. This field is kept for backward compatibility.
-    is_personal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    # DEPRECATED: Use created_at instead. This field is kept for backward compatibility.
-    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
 
     # Relationships
-    payer: Mapped[User] = relationship("User", foreign_keys="Transaction.payer_id", back_populates="paid_transactions")
+    payer: Mapped[User] = relationship(
+        "User",
+        foreign_keys="Transaction.payer_id",
+        back_populates="paid_transactions",
+    )
     category: Mapped[Category] = relationship("Category", back_populates="transactions")
     period: Mapped[Period] = relationship("Period", back_populates="transactions")
-    group: Mapped[Group] = relationship("Group", back_populates="transactions")
     expense_shares: Mapped[list[ExpenseShare]] = relationship(
-        "ExpenseShare", back_populates="transaction", cascade="all, delete-orphan"
+        "ExpenseShare",
+        back_populates="transaction",
+        cascade="all, delete-orphan",
     )
 
     @validates("transaction_kind")
@@ -249,79 +265,6 @@ class Transaction(AuditMixin, Base):
             raise ValueError(f"Invalid split_kind: {value}. Must be one of {valid_values}")
         return value
 
-    def validate_shares_consistency(self) -> None:
-        """Validate that expense shares are consistent with split_kind.
-
-        Should be called after adding/modifying expense shares before commit.
-
-        Raises:
-            ValueError: If shares are inconsistent with split_kind.
-        """
-        num_shares = len(self.expense_shares)
-
-        # Personal split should have exactly one share
-        if self.split_kind == SplitKind.PERSONAL.value:
-            if num_shares != 1:
-                raise ValueError(
-                    f"Transaction {self.id} has split_kind='personal' but has {num_shares} shares. "
-                    f"Personal transactions must have exactly 1 share."
-                )
-            # Optionally verify the single share is the payer
-            if self.expense_shares[0].user_id != self.payer_id:
-                raise ValueError(
-                    f"Transaction {self.id} has split_kind='personal' but the share is not for the payer. "
-                    f"Personal expenses must be shared only by the payer."
-                )
-
-        # Equal and custom splits should have at least one share (preferably 2+)
-        elif self.split_kind in (SplitKind.EQUAL.value, SplitKind.CUSTOM.value):
-            if num_shares < 1:
-                raise ValueError(
-                    f"Transaction {self.id} has split_kind='{self.split_kind}' but has no expense shares. "
-                    f"At least one share is required."
-                )
-
-            # For custom splits, validate that shares add up to transaction amount
-            if self.split_kind == SplitKind.CUSTOM.value:
-                total_amount = 0
-                total_percentage = 0.0
-                uses_amount = False
-                uses_percentage = False
-
-                for share in self.expense_shares:
-                    if share.share_amount is not None:
-                        total_amount += share.share_amount
-                        uses_amount = True
-                    elif share.share_percentage is not None:
-                        total_percentage += share.share_percentage
-                        uses_percentage = True
-                    else:
-                        raise ValueError(
-                            f"Transaction {self.id} has split_kind='custom' but ExpenseShare for user "
-                            f"{share.user_id} has neither share_amount nor share_percentage specified."
-                        )
-
-                # Cannot mix amounts and percentages
-                if uses_amount and uses_percentage:
-                    raise ValueError(
-                        f"Transaction {self.id} has split_kind='custom' with mixed share_amount and "
-                        f"share_percentage. All shares must use the same method."
-                    )
-
-                # Validate totals
-                if uses_amount and total_amount != self.amount:
-                    raise ValueError(
-                        f"Transaction {self.id} custom share amounts total {total_amount} cents but "
-                        f"transaction amount is {self.amount} cents. They must match."
-                    )
-
-                # Validate that the percentages add up to 100.0%
-                if uses_percentage and abs(total_percentage - 100.0) > 0.0:
-                    raise ValueError(
-                        f"Transaction {self.id} custom share percentages total {total_percentage}% but "
-                        f"must equal 100%. Current total: {total_percentage}%"
-                    )
-
     @property
     def payer_name(self) -> str | None:
         """Get payer name from relationship."""
@@ -337,28 +280,8 @@ class Transaction(AuditMixin, Base):
         """Get all users who share in this transaction."""
         return [share.user for share in self.expense_shares]
 
-    def validate_and_auto_fix_group(self) -> None:
-        """Ensure transaction's group_id matches its period's group_id.
-
-        Auto-fixes if group_id is None by setting it from period.
-        Raises ValueError if they mismatch.
-        """
-        if self.period and self.period.group_id and self.group_id != self.period.group_id:
-            raise ValueError(
-                f"Transaction {self.id} group_id ({self.group_id}) doesn't match "
-                f"period's group_id ({self.period.group_id})"
-            )
-
     def __repr__(self) -> str:
         return (
             f"<Transaction(id={self.id}, kind='{self.transaction_kind}', "
             f"amount={self.amount}, payer_id={self.payer_id}, split='{self.split_kind}')>"
         )
-
-
-# Event listeners for automatic validation
-@event.listens_for(Transaction, "before_insert")
-@event.listens_for(Transaction, "before_update")
-def validate_transaction_before_save(mapper: Mapper[Any], connection: Any, target: Transaction) -> None:
-    """Automatically validate transaction consistency before insert/update."""
-    target.validate_shares_consistency()

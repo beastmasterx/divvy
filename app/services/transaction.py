@@ -3,9 +3,10 @@ from decimal import ROUND_HALF_EVEN, Decimal
 
 from sqlalchemy.orm import Session
 
+from app.api.schemas import TransactionRequest
 from app.core.i18n import _
 from app.exceptions import InternalServerError, NotFoundError, ValidationError
-from app.models import SplitKind, Transaction, TransactionKind
+from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind
 from app.repositories import TransactionRepository
 
 
@@ -23,12 +24,92 @@ class TransactionService:
         """Retrieve a specific transaction by its ID."""
         return self.transaction_repository.get_transaction_by_id(transaction_id)
 
-    def create_transaction(self, transaction: Transaction) -> Transaction:
-        """Create a new transaction."""
+    def create_transaction(self, request: TransactionRequest) -> Transaction:
+        """Create a new transaction.
+
+        Args:
+            request: Transaction request schema containing transaction data
+
+        Returns:
+            Created Transaction model
+
+        Raises:
+            ValidationError: If transaction validation fails
+        """
+        expense_shares = [
+            ExpenseShare(
+                user_id=s.user_id,
+                share_amount=s.share_amount,
+                share_percentage=s.share_percentage,
+            )
+            for s in request.expense_shares
+        ]
+
+        self._validate_transaction(
+            transaction_kind=request.transaction_kind,
+            split_kind=request.split_kind,
+            expense_shares=expense_shares,
+            amount=request.amount,
+            payer_id=request.payer_id,
+        )
+
+        transaction = Transaction(
+            description=request.description,
+            amount=request.amount,
+            payer_id=request.payer_id,
+            category_id=request.category_id,
+            period_id=request.period_id,
+            transaction_kind=request.transaction_kind,
+            split_kind=request.split_kind,
+            expense_shares=expense_shares,
+        )
         return self.transaction_repository.create_transaction(transaction)
 
-    def update_transaction(self, transaction: Transaction) -> Transaction:
-        """Update an existing transaction."""
+    def update_transaction(self, transaction_id: int, request: TransactionRequest) -> Transaction:
+        """Update an existing transaction.
+
+        Args:
+            transaction_id: ID of the transaction to update
+            request: Transaction request schema containing updated transaction data
+
+        Returns:
+            Updated Transaction model
+
+        Raises:
+            NotFoundError: If transaction not found
+            ValidationError: If transaction validation fails
+        """
+        transaction = self.get_transaction_by_id(transaction_id)
+        if not transaction:
+            raise NotFoundError(_("Transaction %s not found") % transaction_id)
+
+        expense_shares = [
+            ExpenseShare(
+                user_id=s.user_id,
+                share_amount=s.share_amount,
+                share_percentage=s.share_percentage,
+            )
+            for s in request.expense_shares
+        ]
+
+        self._validate_transaction(
+            transaction_kind=request.transaction_kind,
+            split_kind=request.split_kind,
+            expense_shares=expense_shares,
+            amount=request.amount,
+            payer_id=request.payer_id,
+            transaction_id=transaction_id,
+        )
+
+        transaction.description = request.description
+        transaction.amount = request.amount
+        transaction.payer_id = request.payer_id
+        transaction.category_id = request.category_id
+        transaction.period_id = request.period_id
+        transaction.transaction_kind = request.transaction_kind
+        transaction.split_kind = request.split_kind
+        transaction.expense_shares = expense_shares
+
         return self.transaction_repository.update_transaction(transaction)
 
     def delete_transaction(self, transaction_id: int) -> None:
@@ -89,25 +170,48 @@ class TransactionService:
                 for i in range(remainder):
                     shares[sorted_user_ids[i]] += 1
 
-        elif transaction.split_kind == SplitKind.CUSTOM.value:
-            # Custom split - use specified amount or percentage
+        elif transaction.split_kind == SplitKind.AMOUNT.value:
+            # Amount-based split - use specified amounts
             for s in transaction.expense_shares:
-                if s.share_amount is not None:
-                    shares[s.user_id] = s.share_amount
-                elif s.share_percentage is not None:
-                    amount_decimal = Decimal(transaction.amount) * Decimal(str(s.share_percentage)) / 100
-                    shares[s.user_id] = int(amount_decimal.quantize(Decimal("1"), rounding=ROUND_HALF_EVEN))
-                else:
+                if s.share_amount is None:
                     raise ValidationError(
                         _(
-                            "Transaction %(transaction_id)s has split_kind='custom' but "
-                            "ExpenseShare for user %(user_id)s has no share_amount or "
-                            "share_percentage specified"
+                            "Transaction %(transaction_id)s has split_kind='amount' but "
+                            "ExpenseShare for user %(user_id)s has no share_amount specified"
                         )
                         % {"transaction_id": transaction_id, "user_id": s.user_id}
                     )
+                shares[s.user_id] = s.share_amount
 
-            # Validate and correct remainder for custom splits
+            # Validate and correct remainder for amount splits
+            total_shares = sum(shares.values())
+            remainder = transaction.amount - total_shares
+
+            if remainder != 0:
+                # Distribute remainder to first N users (sorted for determinism)
+                sorted_user_ids = sorted(shares.keys())
+                if remainder > 0:
+                    for i in range(remainder):
+                        shares[sorted_user_ids[i]] += 1
+                else:  # remainder < 0
+                    for i in range(abs(remainder)):
+                        shares[sorted_user_ids[i]] -= 1
+
+        elif transaction.split_kind == SplitKind.PERCENTAGE.value:
+            # Percentage-based split - calculate amounts from percentages
+            for s in transaction.expense_shares:
+                if s.share_percentage is None:
+                    raise ValidationError(
+                        _(
+                            "Transaction %(transaction_id)s has split_kind='percentage' but "
+                            "ExpenseShare for user %(user_id)s has no share_percentage specified"
+                        )
+                        % {"transaction_id": transaction_id, "user_id": s.user_id}
+                    )
+                amount_decimal = Decimal(transaction.amount) * Decimal(str(s.share_percentage)) / 100
+                shares[s.user_id] = int(amount_decimal.quantize(Decimal("1"), rounding=ROUND_HALF_EVEN))
+
+            # Validate and correct remainder for percentage splits
             total_shares = sum(shares.values())
             remainder = transaction.amount - total_shares
 
@@ -142,3 +246,144 @@ class TransactionService:
             )
 
         return shares
+
+    def _validate_transaction(
+        self,
+        transaction_kind: TransactionKind,
+        split_kind: SplitKind,
+        expense_shares: list[ExpenseShare],
+        amount: int,
+        payer_id: int,
+        transaction_id: int | None = None,
+    ) -> None:
+        """Validate transaction consistency including transaction_kind, split_kind, and expense_shares.
+
+        This method validates:
+        - Only EXPENSE transactions can have expense_shares
+        - EXPENSE transactions must have expense_shares
+        - split_kind consistency with expense_shares (personal, equal, amount, percentage)
+        - Amount/percentage split totals add up correctly
+
+        Args:
+            transaction_kind: The type of transaction (expense, deposit, refund)
+            split_kind: How the transaction is split (personal, equal, amount, percentage)
+            expense_shares: List of expense shares
+            amount: Transaction amount in cents
+            payer_id: ID of the user who paid
+            transaction_id: Optional transaction ID for error messages
+
+        Raises:
+            ValidationError: If validation fails.
+        """
+        transaction_ref = f"Transaction {transaction_id}" if transaction_id else "Transaction"
+        num_shares = len(expense_shares)
+
+        # Validate transaction_kind vs expense_shares relationship
+        if transaction_kind != TransactionKind.EXPENSE:
+            # Only EXPENSE transactions can have expense_shares
+            if expense_shares:
+                raise ValidationError(
+                    _(
+                        "%(ref)s has transaction_kind='%(kind)s' but has expense_shares. "
+                        "Only 'expense' transactions can have expense shares."
+                    )
+                    % {"ref": transaction_ref, "kind": transaction_kind.value}
+                )
+            # Deposits and refunds don't need split_kind validation
+            return
+
+        # EXPENSE transactions must have expense_shares
+        if not expense_shares:
+            raise ValidationError(
+                _(
+                    "%(ref)s has transaction_kind='expense' but has no expense_shares. "
+                    "Expense transactions must have at least one expense share."
+                )
+                % {"ref": transaction_ref}
+            )
+
+        # Validate split_kind consistency with expense_shares
+        # Personal split should have exactly one share
+        if split_kind == SplitKind.PERSONAL:
+            if num_shares != 1:
+                raise ValidationError(
+                    _(
+                        "%(ref)s has split_kind='personal' but has %(num)d shares. "
+                        "Personal transactions must have exactly 1 share."
+                    )
+                    % {"ref": transaction_ref, "num": num_shares}
+                )
+            # Verify the single share is the payer
+            if expense_shares[0].user_id != payer_id:
+                raise ValidationError(
+                    _(
+                        "%(ref)s has split_kind='personal' but the share is not for the payer. "
+                        "Personal expenses must be shared only by the payer."
+                    )
+                    % {"ref": transaction_ref}
+                )
+
+        # Equal splits should have at least one share
+        elif split_kind == SplitKind.EQUAL:
+            if num_shares < 1:
+                raise ValidationError(
+                    _("%(ref)s has split_kind='equal' but has no expense shares. " "At least one share is required.")
+                    % {"ref": transaction_ref}
+                )
+
+        # Amount-based splits: validate all shares have share_amount and totals match
+        elif split_kind == SplitKind.AMOUNT:
+            if num_shares < 1:
+                raise ValidationError(
+                    _("%(ref)s has split_kind='amount' but has no expense shares. " "At least one share is required.")
+                    % {"ref": transaction_ref}
+                )
+
+            total_amount = 0
+            for share in expense_shares:
+                if share.share_amount is None:
+                    raise ValidationError(
+                        _(
+                            "%(ref)s has split_kind='amount' but ExpenseShare for user "
+                            "%(user_id)s has no share_amount specified."
+                        )
+                        % {"ref": transaction_ref, "user_id": share.user_id}
+                    )
+                total_amount += share.share_amount
+
+            # Validate totals match transaction amount
+            if total_amount != amount:
+                raise ValidationError(
+                    _("%(ref)s share amounts total %(total)d cents but " "transaction amount is %(amount)d cents.")
+                    % {"ref": transaction_ref, "total": total_amount, "amount": amount}
+                )
+
+        # Percentage-based splits: validate all shares have share_percentage and total 100%
+        elif split_kind == SplitKind.PERCENTAGE:
+            if num_shares < 1:
+                raise ValidationError(
+                    _(
+                        "%(ref)s has split_kind='percentage' but has no expense shares. "
+                        "At least one share is required."
+                    )
+                    % {"ref": transaction_ref}
+                )
+
+            total_percentage = 0.0
+            for share in expense_shares:
+                if share.share_percentage is None:
+                    raise ValidationError(
+                        _(
+                            "%(ref)s has split_kind='percentage' but ExpenseShare for user "
+                            "%(user_id)s has no share_percentage specified."
+                        )
+                        % {"ref": transaction_ref, "user_id": share.user_id}
+                    )
+                total_percentage += share.share_percentage
+
+            # Validate that the percentages add up to 100.0%
+            if abs(total_percentage - 100.0) > 0.0:
+                raise ValidationError(
+                    _("%(ref)s share percentages total %(total).1f%% but " "must equal 100%%")
+                    % {"ref": transaction_ref, "total": total_percentage}
+                )
