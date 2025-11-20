@@ -1,221 +1,141 @@
-"""
-Transaction management service (expenses, deposits, refunds).
-"""
+from collections.abc import Sequence
+from decimal import ROUND_HALF_EVEN, Decimal
 
-import app.db as database
+from sqlalchemy.orm import Session
+
 from app.core.i18n import _
-from app.services.utils import cents_to_dollars, dollars_to_cents
+from app.models.models import SplitKind, Transaction, TransactionKind
+from app.repositories.transaction import TransactionRepository
 
 
-def record_expense(
-    description: str | None,
-    amount_str: str,
-    payer_name: str,
-    category_name: str,
-    is_personal: bool = False,
-) -> str:
-    """
-    Records a new expense.
-    - Converts amount to cents.
-    - Validates participants.
-    - Calculates the split and remainder.
-    - Records the expense transaction in the database.
-    - Updates the remainder-paid cycle for the member who paid the remainder.
-    """
-    try:
-        amount_cents = dollars_to_cents(amount_str)
-    except ValueError as e:
-        return f"Error: {e}"
+class TransactionService:
+    """Service layer for transaction-related business logic and operations."""
 
-    payer = database.get_member_by_name(payer_name)
-    if not payer:
-        return _("Error: Payer '{}' not found.").format(payer_name)
-    payer_id_for_transaction = payer.id
+    def __init__(self, session: Session):
+        self.transaction_repository = TransactionRepository(session)
 
-    category = database.get_category_by_name(category_name)
-    if not category:
-        return _("Error: Category '{}' not found.").format(category_name)
+    def get_all_transactions(self) -> Sequence[Transaction]:
+        """Retrieve all transactions."""
+        return self.transaction_repository.get_all_transactions()
 
-    # For personal expenses, only the payer owes the amount (no split, no remainder logic)
-    if is_personal:
-        # Record the personal expense transaction
-        database.add_transaction(
-            transaction_type="expense",
-            amount=amount_cents,
-            description=description,
-            payer_id=payer_id_for_transaction,
-            category_id=category.id,
-            is_personal=True,
-        )
+    def get_transaction_by_id(self, transaction_id: int) -> Transaction | None:
+        """Retrieve a specific transaction by its ID."""
+        return self.transaction_repository.get_transaction_by_id(transaction_id)
 
-        if description:
-            return _(
-                "Personal expense '{}' of {} recorded successfully."
-            ).format(
-                description,
-                cents_to_dollars(amount_cents),
-            )
+    def create_transaction(self, transaction: Transaction) -> Transaction:
+        """Create a new transaction."""
+        return self.transaction_repository.create_transaction(transaction)
+
+    def update_transaction(self, transaction: Transaction) -> Transaction:
+        """Update an existing transaction."""
+        return self.transaction_repository.update_transaction(transaction)
+
+    def delete_transaction(self, transaction_id: int) -> None:
+        """Delete a transaction by its ID."""
+        return self.transaction_repository.delete_transaction(transaction_id)
+
+    def get_transactions_by_period_id(self, period_id: int) -> Sequence[Transaction]:
+        """Retrieve all transactions associated with a specific period."""
+        return self.transaction_repository.get_transactions_by_period_id(period_id)
+
+    def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[Transaction]:
+        """Retrieve all transactions where a specific user has an expense share."""
+        return self.transaction_repository.get_shared_transactions_by_user_id(user_id)
+
+    def calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
+        """Calculate how much each user owes for a transaction.
+
+        Args:
+            transaction_id: ID of the transaction to calculate shares for
+
+        Returns:
+            dict[int, int]: {user_id: amount_owed_in_cents}
+
+        Raises:
+            ValueError: If transaction not found or has invalid split configuration
+        """
+        transaction = self.get_transaction_by_id(transaction_id)
+        if not transaction:
+            raise ValueError(_("Transaction %s not found") % transaction_id)
+
+        # Edge case: no expense shares
+        if transaction.transaction_kind != TransactionKind.EXPENSE or not transaction.expense_shares:
+            return {}
+
+        shares: dict[int, int] = {}
+
+        # Calculate shares based on split kind
+        if transaction.split_kind == SplitKind.PERSONAL.value:
+            # Personal expense - only one person (should be the payer)
+            for s in transaction.expense_shares:
+                shares[s.user_id] = transaction.amount
+
+        elif transaction.split_kind == SplitKind.EQUAL.value:
+            # Equal split - divide equally among all participants
+            num_participants = len(transaction.expense_shares)
+            base_share = transaction.amount // num_participants
+            remainder = transaction.amount % num_participants
+
+            # Assign base shares to everyone
+            for s in transaction.expense_shares:
+                shares[s.user_id] = base_share
+
+            # Distribute remainder to first N users (sorted by user_id)
+            if remainder > 0:
+                sorted_user_ids = sorted(shares.keys())
+                for i in range(remainder):
+                    shares[sorted_user_ids[i]] += 1
+
+        elif transaction.split_kind == SplitKind.CUSTOM.value:
+            # Custom split - use specified amount or percentage
+            for s in transaction.expense_shares:
+                if s.share_amount is not None:
+                    shares[s.user_id] = s.share_amount
+                elif s.share_percentage is not None:
+                    amount_decimal = Decimal(transaction.amount) * Decimal(str(s.share_percentage)) / 100
+                    shares[s.user_id] = int(amount_decimal.quantize(Decimal("1"), rounding=ROUND_HALF_EVEN))
+                else:
+                    raise ValueError(
+                        _(
+                            "Transaction %(transaction_id)s has split_kind='custom' but "
+                            "ExpenseShare for user %(user_id)s has no share_amount or "
+                            "share_percentage specified"
+                        )
+                        % {"transaction_id": transaction_id, "user_id": s.user_id}
+                    )
+
+            # Validate and correct remainder for custom splits
+            total_shares = sum(shares.values())
+            remainder = transaction.amount - total_shares
+
+            if remainder != 0:
+                # Distribute remainder to first N users (sorted for determinism)
+                sorted_user_ids = sorted(shares.keys())
+                if remainder > 0:
+                    for i in range(remainder):
+                        shares[sorted_user_ids[i]] += 1
+                else:  # remainder < 0
+                    for i in range(abs(remainder)):
+                        shares[sorted_user_ids[i]] -= 1
         else:
-            return _("Personal expense of {} recorded successfully.").format(
-                cents_to_dollars(amount_cents),
+            raise ValueError(
+                _("Transaction %(transaction_id)s has invalid split_kind: '%(split_kind)s'")
+                % {"transaction_id": transaction_id, "split_kind": transaction.split_kind}
             )
 
-    # For shared/individual expenses, split among active members
-    active_members = database.get_active_members()
-    if not active_members:
-        return _("Error: No active members to split the expense among.")
+        # Final validation
+        total = sum(shares.values())
+        if total != transaction.amount:
+            raise RuntimeError(
+                _(
+                    "Share calculation error for transaction %(transaction_id)s: "
+                    "shares sum to %(total)s but transaction amount is %(amount)s"
+                )
+                % {
+                    "transaction_id": transaction_id,
+                    "total": total,
+                    "amount": transaction.amount,
+                }
+            )
 
-    num_active_members = len(active_members)
-    remainder = amount_cents % num_active_members
-
-    remainder_payer_name = _("N/A")
-    remainder_payer_id = None
-
-    if remainder > 0:  # Only assign remainder if there is one
-        # First, check if all members have paid a remainder in the current cycle
-        all_paid_remainder = True
-        for member in active_members:
-            if not member.paid_remainder_in_cycle:
-                all_paid_remainder = False
-                break
-
-        if all_paid_remainder:
-            database.reset_all_member_remainder_status()
-            # Re-fetch active members after reset to get updated status
-            active_members = database.get_active_members()
-
-        # Find the next member to pay the remainder
-        for member in active_members:
-            if not member.paid_remainder_in_cycle:
-                remainder_payer_id = member.id
-                remainder_payer_name = member.name
-                database.update_member_remainder_status(member.id, True)
-                break
-
-        if (
-            remainder_payer_id is None
-        ):  # Should not happen if logic is correct and active_members is not empty
-            return _("Internal Error: Could not determine remainder payer.")
-
-    # Record the expense transaction (not personal)
-    database.add_transaction(
-        transaction_type="expense",
-        amount=amount_cents,
-        description=description,
-        payer_id=payer_id_for_transaction,
-        category_id=category.id,
-        is_personal=False,
-    )
-
-    if description:
-        return _(
-            "Expense '{}' of {} recorded successfully. "
-            "Remainder of {} assigned to {}."
-        ).format(
-            description,
-            cents_to_dollars(amount_cents),
-            cents_to_dollars(remainder),
-            remainder_payer_name,
-        )
-    else:
-        return _(
-            "Expense of {} recorded successfully. "
-            "Remainder of {} assigned to {}."
-        ).format(
-            cents_to_dollars(amount_cents),
-            cents_to_dollars(remainder),
-            remainder_payer_name,
-        )
-
-
-def record_deposit(
-    description: str | None,
-    amount_str: str,
-    payer_name: str,
-) -> str:
-    """
-    Records a new deposit from a member.
-    - Converts amount to cents.
-    - Validates the payer.
-    - Records the deposit transaction in the database.
-    """
-    try:
-        amount_cents = dollars_to_cents(amount_str)
-    except ValueError as e:
-        return f"Error: {e}"
-
-    payer = database.get_member_by_name(payer_name)
-    if not payer:
-        return _("Error: Payer '{}' not found.").format(payer_name)
-
-    # Record the deposit transaction
-    database.add_transaction(
-        transaction_type="deposit",
-        amount=amount_cents,
-        description=description,
-        payer_id=payer.id,
-        category_id=None,
-    )
-
-    if description:
-        return _("Deposit '{}' of {} from {} recorded successfully.").format(
-            description,
-            cents_to_dollars(amount_cents),
-            payer_name,
-        )
-    else:
-        return _("Deposit of {} from {} recorded successfully.").format(
-            cents_to_dollars(amount_cents),
-            payer_name,
-        )
-
-
-def record_refund(
-    description: str | None,
-    amount_str: str,
-    recipient_name: str,
-) -> str:
-    """
-    Records a refund to a member (active or inactive).
-    - Converts amount to cents.
-    - Validates the recipient.
-    - Records the refund as a negative deposit transaction.
-    """
-    try:
-        amount_cents = dollars_to_cents(amount_str)
-    except ValueError as e:
-        return f"Error: {e}"
-
-    recipient = database.get_member_by_name(recipient_name)
-    if not recipient:
-        return _("Error: Member '{}' not found.").format(recipient_name)
-
-    # Record refund as negative deposit (reduces recipient's balance)
-    # Note: We store as positive amount, but mark it as refund in description
-    refund_base = _("Refund to {}").format(recipient_name)
-    refund_desc = description if description else refund_base
-    if not description or not description.startswith(_("Refund")):
-        refund_desc = (
-            _("Refund: {}").format(refund_desc) if description else refund_base
-        )
-
-    database.add_transaction(
-        transaction_type="deposit",
-        amount=-amount_cents,  # Negative amount for refund
-        description=refund_desc,
-        payer_id=recipient.id,  # Recipient gets the refund
-        category_id=None,
-    )
-
-    # Use original description for display, not refund_desc (which always has a value)
-    if description:
-        return _("Refund '{}' of {} to {} recorded successfully.").format(
-            description,
-            cents_to_dollars(amount_cents),
-            recipient_name,
-        )
-    else:
-        return _("Refund of {} to {} recorded successfully.").format(
-            cents_to_dollars(amount_cents),
-            recipient_name,
-        )
+        return shares

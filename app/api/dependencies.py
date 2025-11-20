@@ -3,14 +3,14 @@ FastAPI dependencies for dependency injection.
 Provides common dependencies like database sessions, authentication, etc.
 """
 
-from collections.abc import Generator
+from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
 from app.db.session import get_session
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Iterator[Session]:
     """
     Dependency that provides a database session.
     Automatically closes the session after the request.
