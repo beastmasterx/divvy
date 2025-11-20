@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from app.api.schemas import PeriodSettlementRequest, SettlementPlanResponse, TransactionRequest
 from app.core.i18n import _
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import BusinessRuleError, NotFoundError, ValidationError
 from app.models import SplitKind, TransactionKind
 from app.services import CategoryService, PeriodService, TransactionService, UserService
 
@@ -64,6 +64,8 @@ class SettlementService:
         period = self.period_service.get_period_by_id(period_id)
         if not period:
             raise NotFoundError(_("Period %s not found") % period_id)
+        if period.is_settled:
+            raise BusinessRuleError(_("Period %s is already settled") % period_id)
 
         # Get settlement category
         settlement_category = self.category_service.get_category_by_name("Settlement")
