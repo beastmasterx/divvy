@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session
 
 from app.core.i18n import _
 from app.exceptions import ValidationError
-from app.models.models import Transaction, TransactionKind
-from app.services.transaction import TransactionService
+from app.models import Transaction, TransactionKind
+from app.services import TransactionService
 
 
 class SettlementService:

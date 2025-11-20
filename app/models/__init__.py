@@ -2,6 +2,36 @@
 SQLAlchemy database models.
 """
 
-from .models import Base, Category, Member, Period, Transaction
+from .models import (
+    Base,
+    Category,
+    ExpenseShare,
+    Group,
+    GroupUser,
+    Period,
+    SplitKind,
+    Transaction,
+    TransactionKind,
+    User,
+)
 
-__all__ = ["Base", "Category", "Member", "Period", "Transaction"]
+default_categories = [
+    "Utilities (Water & Electricity & Gas)",
+    "Groceries",
+    "Daily Necessities",
+    "Rent",
+    "Other",
+]
+
+__all__ = [
+    "Base",
+    "Category",
+    "ExpenseShare",
+    "Group",
+    "GroupUser",
+    "Period",
+    "SplitKind",
+    "Transaction",
+    "TransactionKind",
+    "User",
+]

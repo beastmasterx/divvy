@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy.orm import Session
 
 from app.models.models import Period
-from app.repositories.period import PeriodRepository
+from app.repositories import PeriodRepository
 
 
 class PeriodService:

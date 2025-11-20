@@ -8,7 +8,7 @@ import logging
 
 from app.db.connection import get_engine
 from app.db.session import get_session
-from app.models import Base, Category
+from app.models import Base, Category, default_categories
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +25,11 @@ def initialize_database():
 
     # Pre-populate default categories
     with get_session() as session:
-        default_categories = [
-            "Utilities (Water & Electricity & Gas)",
-            "Groceries",
-            "Daily Necessities",
-            "Rent",
-            "Other",
-        ]
-
         for cat_name in default_categories:
             # Check if category already exists
             existing = session.query(Category).filter_by(name=cat_name).first()
             if not existing:
-                session.add(Category(name=cat_name))
+                session.add(Category(name=cat_name, is_default=True))
         session.commit()
 
     logger.info("Database initialized successfully.")

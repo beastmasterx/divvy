@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.i18n import _
 from app.exceptions import InternalServerError, NotFoundError, ValidationError
-from app.models.models import SplitKind, Transaction, TransactionKind
-from app.repositories.transaction import TransactionRepository
+from app.models import SplitKind, Transaction, TransactionKind
+from app.repositories import TransactionRepository
 
 
 class TransactionService:

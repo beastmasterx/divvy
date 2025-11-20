@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.models import Group, GroupUser, User
+from app.models import Group, GroupUser, User
 
 
 class UserRepository:

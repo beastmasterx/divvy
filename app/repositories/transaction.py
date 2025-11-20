@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.models import ExpenseShare, Transaction
+from app.models import ExpenseShare, Transaction
 
 
 class TransactionRepository:

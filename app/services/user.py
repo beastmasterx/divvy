@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
-from app.models.models import Group, User
-from app.repositories.user import UserRepository
+from app.models import Group, User
+from app.repositories import UserRepository
 
 
 class UserService:

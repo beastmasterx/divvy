@@ -89,11 +89,6 @@ class User(TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # DEPRECATED: Consider moving to a separate UserPeriodStatus or Settlement table.
-    # TODO: Clarify business logic - does this track per-period status? Consider refactoring to:
-    #       - UserPeriodStatus table with (user_id, period_id, paid_remainder)
-    #       - Or Settlement table to track payment status per period
-    paid_remainder_in_cycle: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     group_users: Mapped[list[GroupUser]] = relationship("GroupUser", back_populates="user")
@@ -184,6 +179,7 @@ class Category(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     transactions: Mapped[list[Transaction]] = relationship("Transaction", back_populates="category")

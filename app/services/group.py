@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.models.models import Group, Period, User
-from app.repositories.group import GroupRepository
+from app.repositories import GroupRepository
 from app.services.user import UserService
 
 
