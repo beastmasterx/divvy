@@ -14,7 +14,7 @@ class CategoryRepository:
 
     def get_all_categories(self) -> Sequence[Category]:
         """Retrieve all categories from the database."""
-        stmt = select(Category)
+        stmt = select(Category).order_by(Category.name)
         return self.session.execute(stmt).scalars().all()
 
     def get_category_by_id(self, category_id: int) -> Category | None:

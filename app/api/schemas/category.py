@@ -12,3 +12,4 @@ class CategoryResponse(BaseModel):
 
     id: int = Field(..., description="Category ID")
     name: str = Field(..., description="Category name")
+    is_default: bool = Field(..., description="Whether the category is a default category")
