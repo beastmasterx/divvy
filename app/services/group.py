@@ -12,9 +12,9 @@ from app.services.user import UserService
 class GroupService:
     """Service layer for group-related business logic and operations."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, user_service: UserService):
         self.group_repository = GroupRepository(session)
-        self.user_service = UserService(session)
+        self.user_service = user_service
 
     def get_all_groups(self) -> Sequence[Group]:
         """Retrieve all groups."""

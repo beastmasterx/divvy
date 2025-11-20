@@ -3,13 +3,13 @@ from sqlalchemy.orm import Session
 from app.core.i18n import _
 from app.exceptions import ValidationError
 from app.models import Transaction, TransactionKind
-from app.services import TransactionService
+from app.services.transaction import TransactionService
 
 
 class SettlementService:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, transaction_service: TransactionService):
         self.session = session
-        self.transaction_service = TransactionService(session)
+        self.transaction_service = transaction_service
 
     def get_all_balances(self, period_id: int) -> dict[int, int]:
         """Calculate balances for all users in a specific period.
