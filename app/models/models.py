@@ -80,7 +80,7 @@ class Group(AuditMixin, Base):
     owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     # Relationships
-    owner: Mapped[User] = relationship("User", foreign_keys="Group.owner_id", back_populates="groups")
+    owner: Mapped[User] = relationship("User", foreign_keys="Group.owner_id", back_populates="owned_groups")
     group_users: Mapped[list[GroupUser]] = relationship(
         "GroupUser", back_populates="group", cascade="all, delete-orphan"
     )
