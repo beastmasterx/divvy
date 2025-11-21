@@ -6,9 +6,9 @@ from fastapi import APIRouter
 
 from .auth import router as auth
 from .categories import router as categories
-from .group import router as groups
-from .period import router as periods
-from .transaction import router as transactions
+from .groups import router as groups
+from .periods import router as periods
+from .transactions import router as transactions
 
 # Create API v1 router
 api_router = APIRouter(prefix="/v1")
