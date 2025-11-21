@@ -22,6 +22,11 @@ class UserRepository:
         stmt = select(User).where(User.id == user_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def get_user_by_email(self, email: str) -> User | None:
+        """Retrieve a specific user by their email address."""
+        stmt = select(User).where(User.email == email)
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def create_user(self, user: User) -> User:
         """Create a new user and persist them to the database."""
         self.session.add(user)

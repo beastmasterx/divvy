@@ -38,12 +38,7 @@ def setup_logging() -> None:
 
     # Divvy log level (inherits root if not set)
     divvy_level_str = os.getenv("DIVVY_LOG_LEVEL")
-    if divvy_level_str:
-        divvy_log_level = log_levels.get(
-            divvy_level_str.upper(), root_log_level
-        )
-    else:
-        divvy_log_level = root_log_level
+    divvy_log_level = log_levels.get(divvy_level_str.upper(), root_log_level) if divvy_level_str else root_log_level
 
     # Configure root logger
     logging.basicConfig(
@@ -56,9 +51,7 @@ def setup_logging() -> None:
     for logger_name in ["divvy", "app"]:
         divvy_logger = logging.getLogger(logger_name)
         divvy_logger.setLevel(divvy_log_level)
-        divvy_logger.propagate = (
-            False  # Don't propagate to root logger to avoid duplicates
-        )
+        divvy_logger.propagate = False  # Don't propagate to root logger to avoid duplicates
 
         # Add handler for Divvy logger
         if not divvy_logger.handlers:
@@ -149,6 +142,51 @@ def load_env_files(project_root: Path | None = None) -> None:
         if env_file == base_env:
             logger.info("Loaded base config: .env")
         else:
-            logger.info(
-                f"Loaded environment-specific config: {env_file.relative_to(project_root)}"
-            )
+            logger.info(f"Loaded environment-specific config: {env_file.relative_to(project_root)}")
+
+
+# JWT Configuration
+# Note: JWT settings are loaded lazily via functions to ensure environment
+# variables are loaded first (via load_env_files())
+JWT_ALGORITHM = "HS256"
+
+
+def get_jwt_secret_key() -> str:
+    """
+    Get JWT secret key from environment variable.
+
+    This function is called lazily to ensure environment variables are loaded
+    before attempting to read the secret key.
+
+    Returns:
+        JWT secret key string
+
+    Raises:
+        ValueError: If DIVVY_JWT_SECRET_KEY is not set or is too short
+    """
+    secret_key = os.getenv("DIVVY_JWT_SECRET_KEY")
+    if not secret_key:
+        raise ValueError("DIVVY_JWT_SECRET_KEY environment variable is required")
+    if len(secret_key) < 32:
+        raise ValueError("DIVVY_JWT_SECRET_KEY must be at least 32 characters long")
+    return secret_key
+
+
+def get_jwt_access_token_expire_seconds() -> int:
+    """
+    Get JWT access token expiration time in seconds.
+
+    Returns:
+        Expiration time in seconds (default: 1800 seconds)
+    """
+    return int(os.getenv("DIVVY_JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")) * 60
+
+
+def get_jwt_refresh_token_expire_days() -> int:
+    """
+    Get JWT refresh token expiration time in days.
+
+    Returns:
+        Expiration time in days (default: 7)
+    """
+    return int(os.getenv("DIVVY_JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))

@@ -95,8 +95,10 @@ class User(TimestampMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
@@ -108,8 +110,39 @@ class User(TimestampMixin, Base):
     )
     expense_shares: Mapped[list[ExpenseShare]] = relationship("ExpenseShare", back_populates="user")
 
+    # Refresh token relationship
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+        "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}', name='{self.name}', is_active={self.is_active})>"
+
+
+class RefreshToken(TimestampMixin, Base):
+    """RefreshToken model for managing refresh tokens."""
+
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        Index("ix_refresh_token_lookup", "token_lookup"),
+        Index("ix_refresh_token_user_expires", "user_id", "expires_at"),
+        Index("ix_refresh_token_user_revoked", "user_id", "is_revoked"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_lookup: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    device_info: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+
+    # Relationships
+    user: Mapped[User] = relationship("User", back_populates="refresh_tokens")
+
+    def __repr__(self) -> str:
+        return f"<RefreshToken(id={self.id}, user_id={self.user_id}, is_revoked={self.is_revoked})>"
 
 
 class GroupUser(AuditMixin, Base):

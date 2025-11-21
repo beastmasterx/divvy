@@ -2,6 +2,7 @@
 Business logic services.
 """
 
+from .auth import AuthService
 from .category import CategoryService
 from .group import GroupService
 from .period import PeriodService
@@ -10,6 +11,7 @@ from .transaction import TransactionService
 from .user import UserService
 
 __all__ = [
+    "AuthService",
     "CategoryService",
     "GroupService",
     "PeriodService",
