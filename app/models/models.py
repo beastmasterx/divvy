@@ -77,13 +77,14 @@ class Group(AuditMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     # Relationships
+    owner: Mapped[User] = relationship("User", foreign_keys="Group.owner_id", back_populates="groups")
     group_users: Mapped[list[GroupUser]] = relationship(
         "GroupUser", back_populates="group", cascade="all, delete-orphan"
     )
     periods: Mapped[list[Period]] = relationship("Period", back_populates="group", cascade="all, delete-orphan")
-    transactions: Mapped[list[Transaction]] = relationship("Transaction", back_populates="group")
 
     def __repr__(self) -> str:
         return f"<Group(id={self.id}, name='{self.name}')>"
@@ -102,6 +103,7 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
+    owned_groups: Mapped[list[Group]] = relationship("Group", foreign_keys="Group.owner_id", back_populates="owner")
     group_users: Mapped[list[GroupUser]] = relationship("GroupUser", back_populates="user")
     paid_transactions: Mapped[list[Transaction]] = relationship(
         "Transaction",
@@ -235,14 +237,12 @@ class Category(TimestampMixin, Base):
 class Transaction(AuditMixin, Base):
     """Transaction model for expenses, deposits, and refunds.
 
-    Transactions belong to both a period and a group. Since periods belong to groups,
-    the group_id is typically derived from the period's group, but can be set explicitly.
+    Transactions belong to a period. The group can be accessed through the period's group relationship.
     """
 
     __tablename__ = "transactions"
     __table_args__ = (
         Index("ix_transaction_period_payer", "period_id", "payer_id"),
-        Index("ix_transaction_group_period", "group_id", "period_id"),
         Index("ix_transaction_period_created", "period_id", "created_at"),
     )
 
