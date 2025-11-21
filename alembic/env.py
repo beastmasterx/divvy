@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app import models  # pyright: ignore[reportUnusedImport] # noqa: F401
 from app.core.config import load_env_files
-from app.db.connection import get_database_url
+from app.db import get_database_url
 from app.models import Base
 
 # Load .env files before accessing environment variables

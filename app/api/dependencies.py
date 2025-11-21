@@ -9,7 +9,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.db.session import get_session
+from app.db import get_session
 from app.exceptions import UnauthorizedError
 from app.models import User
 from app.services import (
