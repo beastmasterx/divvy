@@ -104,13 +104,17 @@ class User(TimestampMixin, Base):
 
     # Relationships
     owned_groups: Mapped[list[Group]] = relationship("Group", foreign_keys="Group.owner_id", back_populates="owner")
-    group_users: Mapped[list[GroupUser]] = relationship("GroupUser", back_populates="user")
+    group_users: Mapped[list[GroupUser]] = relationship(
+        "GroupUser", foreign_keys="GroupUser.user_id", back_populates="user"
+    )
     paid_transactions: Mapped[list[Transaction]] = relationship(
         "Transaction",
         foreign_keys="Transaction.payer_id",
         back_populates="payer",
     )
-    expense_shares: Mapped[list[ExpenseShare]] = relationship("ExpenseShare", back_populates="user")
+    expense_shares: Mapped[list[ExpenseShare]] = relationship(
+        "ExpenseShare", foreign_keys="ExpenseShare.user_id", back_populates="user"
+    )
 
     # Refresh token relationship
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
@@ -157,7 +161,7 @@ class GroupUser(AuditMixin, Base):
 
     # Relationships
     group: Mapped[Group] = relationship("Group", back_populates="group_users")
-    user: Mapped[User] = relationship("User", back_populates="group_users")
+    user: Mapped[User] = relationship("User", foreign_keys="GroupUser.user_id", back_populates="group_users")
 
     def __repr__(self) -> str:
         return f"<GroupUser(group_id={self.group_id}, user_id={self.user_id})>"
@@ -178,7 +182,7 @@ class ExpenseShare(AuditMixin, Base):
 
     # Relationships
     transaction: Mapped[Transaction] = relationship("Transaction", back_populates="expense_shares")
-    user: Mapped[User] = relationship("User", back_populates="expense_shares")
+    user: Mapped[User] = relationship("User", foreign_keys="ExpenseShare.user_id", back_populates="expense_shares")
 
     def __repr__(self) -> str:
         return f"<ExpenseShare(transaction_id={self.transaction_id}, user_id={self.user_id})>"
