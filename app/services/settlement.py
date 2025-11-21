@@ -5,7 +5,10 @@ from app.api.schemas import PeriodSettlementRequest, SettlementPlanResponse, Tra
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError, ValidationError
 from app.models import SplitKind, TransactionKind
-from app.services import CategoryService, PeriodService, TransactionService, UserService
+from app.services.category import CategoryService
+from app.services.period import PeriodService
+from app.services.transaction import TransactionService
+from app.services.user import UserService
 
 
 class SettlementService:
