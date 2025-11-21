@@ -1,9 +1,9 @@
-from app.repositories.category import CategoryRepository
-from app.repositories.group import GroupRepository
-from app.repositories.period import PeriodRepository
-from app.repositories.refresh_token import RefreshTokenRepository
-from app.repositories.transaction import TransactionRepository
-from app.repositories.user import UserRepository
+from .category import CategoryRepository
+from .group import GroupRepository
+from .period import PeriodRepository
+from .refresh_token import RefreshTokenRepository
+from .transaction import TransactionRepository
+from .user import UserRepository
 
 __all__ = [
     "CategoryRepository",
