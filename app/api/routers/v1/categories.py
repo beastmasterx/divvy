@@ -14,7 +14,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 @router.get("/", response_model=list[CategoryResponse])
 def list_categories(
     category_service: CategoryService = Depends(get_category_service),
-):
+) -> list[CategoryResponse]:
     """
     List all categories.
 

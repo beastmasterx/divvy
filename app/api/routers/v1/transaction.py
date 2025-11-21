@@ -16,7 +16,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 @router.get("/", response_model=list[TransactionResponse])
 def list_transactions(
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> list[TransactionResponse]:
     """
     List all transactions.
     """
@@ -28,7 +28,7 @@ def list_transactions(
 def get_transaction(
     transaction_id: int,
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> TransactionResponse:
     """
     Get a specific transaction by its ID.
     """
@@ -47,7 +47,7 @@ def get_transaction(
 def create_transaction(
     request: TransactionRequest,
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> TransactionResponse:
     """
     Create a new transaction.
     """
@@ -60,7 +60,7 @@ def update_transaction(
     transaction_id: int,
     request: TransactionRequest,
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> TransactionResponse:
     """
     Update an existing transaction.
     """
@@ -72,7 +72,7 @@ def update_transaction(
 def delete_transaction(
     transaction_id: int,
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> None:
     """
     Delete a transaction by its ID.
     """
@@ -83,7 +83,7 @@ def delete_transaction(
 def get_transactions_by_period_id(
     period_id: int,
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> list[TransactionResponse]:
     """
     Get transactions by period ID.
     """
@@ -95,7 +95,7 @@ def get_transactions_by_period_id(
 def get_shared_transactions_by_user_id(
     user_id: int,
     transaction_service: TransactionService = Depends(get_transaction_service),
-):
+) -> list[TransactionResponse]:
     """
     Get shared transactions by user ID.
     """

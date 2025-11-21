@@ -16,7 +16,7 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 @router.get("/", response_model=list[GroupResponse])
 def list_groups(
     group_service: GroupService = Depends(get_group_service),
-):
+) -> list[GroupResponse]:
     """
     List all periods.
 
@@ -31,7 +31,7 @@ def list_groups(
 def get_group(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> GroupResponse:
     """
     Get a specific group by its ID.
     """
@@ -45,7 +45,7 @@ def get_group(
 def create_group(
     group: GroupRequest,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> GroupResponse:
     """
     Create a new group.
     """
@@ -58,7 +58,7 @@ def update_group(
     group_id: int,
     group: GroupRequest,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> GroupResponse:
     """
     Update a specific group by its ID.
     """
@@ -70,7 +70,7 @@ def update_group(
 def delete_group(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> None:
     """
     Delete a specific group by its ID.
     """
@@ -82,7 +82,7 @@ def add_user_to_group(
     group_id: int,
     user_id: int,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> None:
     """
     Add a user to a specific group.
     """
@@ -94,7 +94,7 @@ def remove_user_from_group(
     group_id: int,
     user_id: int,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> None:
     """
     Remove a user from a specific group.
     """
@@ -105,7 +105,7 @@ def remove_user_from_group(
 def get_periods(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> list[PeriodResponse]:
     """
     Get all periods for a specific group.
     """
@@ -117,7 +117,7 @@ def get_periods(
 def get_current_period(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
-):
+) -> PeriodResponse:
     """
     Get the current active period for a specific group.
     """
