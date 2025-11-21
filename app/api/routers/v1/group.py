@@ -66,6 +66,18 @@ def update_group(
     return GroupResponse.model_validate(updated_group)
 
 
+@router.put("/{group_id}/owner/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def update_group_owner(
+    group_id: int,
+    user_id: int,
+    group_service: GroupService = Depends(get_group_service),
+) -> None:
+    """
+    Update the owner of a specific group by its ID.
+    """
+    group_service.update_group_owner(group_id, user_id)
+
+
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group(
     group_id: int,

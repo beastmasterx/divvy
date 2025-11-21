@@ -14,16 +14,16 @@ class GroupService:
     """Service layer for group-related business logic and operations."""
 
     def __init__(self, session: Session, user_service: UserService):
-        self.group_repository = GroupRepository(session)
-        self.user_service = user_service
+        self._group_repository = GroupRepository(session)
+        self._user_service = user_service
 
     def get_all_groups(self) -> Sequence[Group]:
         """Retrieve all groups."""
-        return self.group_repository.get_all_groups()
+        return self._group_repository.get_all_groups()
 
     def get_group_by_id(self, group_id: int) -> Group | None:
         """Retrieve a specific group by its ID."""
-        return self.group_repository.get_group_by_id(group_id)
+        return self._group_repository.get_group_by_id(group_id)
 
     def create_group(self, group_request: GroupRequest) -> Group:
         """Create a new group.
@@ -36,7 +36,7 @@ class GroupService:
         """
         # Convert Pydantic schema to ORM model using specific fields
         group = Group(name=group_request.name)
-        return self.group_repository.create_group(group)
+        return self._group_repository.create_group(group)
 
     def update_group(self, group_id: int, group_request: GroupRequest) -> Group:
         """Update an existing group.
@@ -59,7 +59,28 @@ class GroupService:
         # Update fields from request
         group.name = group_request.name
 
-        return self.group_repository.update_group(group)
+        return self._group_repository.update_group(group)
+
+    def update_group_owner(self, group_id: int, user_id: int) -> Group:
+        """Update the owner of a specific group by its ID.
+
+        Args:
+            group_id: ID of the group to update
+            user_id: ID of the user to set as owner
+        """
+        group = self.get_group_by_id(group_id)
+        if not group:
+            raise NotFoundError(_("Group %s not found") % group_id)
+
+        user = self._user_service.get_user_by_id(user_id)
+        if not user or not user.is_active:
+            raise NotFoundError(_("User %s not found or inactive") % user_id)
+
+        if not self._group_repository.check_if_user_is_in_group(group_id, user_id):
+            raise NotFoundError(_("User %s is not a member of group %s") % (user.name, group.name))
+
+        group.owner_id = user_id
+        return self._group_repository.update_group(group)
 
     def delete_group(self, group_id: int) -> None:
         """Delete a group by its ID.
@@ -95,15 +116,15 @@ class GroupService:
             )
 
         # All checks passed - safe to delete group
-        return self.group_repository.delete_group(group_id)
+        return self._group_repository.delete_group(group_id)
 
     def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve all users associated with a specific group."""
-        return self.group_repository.get_users_by_group_id(group_id)
+        return self._group_repository.get_users_by_group_id(group_id)
 
     def get_active_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve only active users associated with a specific group."""
-        return self.group_repository.get_active_users_by_group_id(group_id)
+        return self._group_repository.get_active_users_by_group_id(group_id)
 
     def add_user_to_group(self, group_id: int, user_id: int) -> None:
         """Add a user to a group.
@@ -123,18 +144,18 @@ class GroupService:
 
         # Get group and user for better error messages (already validated, so not None)
         group = self.get_group_by_id(group_id)
-        user = self.user_service.get_user_by_id(user_id)
+        user = self._user_service.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
         # Check for duplicate membership
-        if self.group_repository.check_if_user_is_in_group(group_id, user_id):
+        if self._group_repository.check_if_user_is_in_group(group_id, user_id):
             raise ConflictError(
                 _("User '%(user_name)s' is already a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
             )
 
         # User can join anytime - no period validation needed
-        self.group_repository.add_user_to_group(group_id, user_id)
+        self._group_repository.add_user_to_group(group_id, user_id)
 
     def remove_user_from_group(self, group_id: int, user_id: int) -> None:
         """Remove a user from a group.
@@ -154,11 +175,11 @@ class GroupService:
 
         # Get group and user for better error messages (already validated, so not None)
         group = self.get_group_by_id(group_id)
-        user = self.user_service.get_user_by_id(user_id)
+        user = self._user_service.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
         # Check if user is actually in the group
-        if not self.group_repository.check_if_user_is_in_group(group_id, user_id):
+        if not self._group_repository.check_if_user_is_in_group(group_id, user_id):
             raise NotFoundError(
                 _("User '%(user_name)s' is not a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
@@ -183,15 +204,15 @@ class GroupService:
             )
 
         # All checks passed - safe to remove user
-        return self.group_repository.remove_user_from_group(group_id, user_id)
+        return self._group_repository.remove_user_from_group(group_id, user_id)
 
     def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
         """Retrieve all periods associated with a specific group."""
-        return self.group_repository.get_periods_by_group_id(group_id)
+        return self._group_repository.get_periods_by_group_id(group_id)
 
     def get_current_period_by_group_id(self, group_id: int) -> Period | None:
         """Retrieve the current unsettled period for a specific group."""
-        return self.group_repository.get_current_period_by_group_id(group_id)
+        return self._group_repository.get_current_period_by_group_id(group_id)
 
     def _validate_group_and_user(self, group_id: int, user_id: int) -> None:
         """Validate that a group and user exist.
@@ -207,6 +228,6 @@ class GroupService:
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
-        user = self.user_service.get_user_by_id(user_id)
+        user = self._user_service.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
