@@ -16,7 +16,7 @@ router = APIRouter(prefix="/periods", tags=["periods"])
 @router.get("/", response_model=list[PeriodResponse])
 def list_periods(
     period_service: PeriodService = Depends(get_period_service),
-):
+) -> list[PeriodResponse]:
     """
     List all periods.
     """
@@ -28,7 +28,7 @@ def list_periods(
 def get_period(
     period_id: int,
     period_service: PeriodService = Depends(get_period_service),
-):
+) -> PeriodResponse:
     """
     Get a specific period by its ID.
     """
@@ -42,7 +42,7 @@ def get_period(
 def create_period(
     period: PeriodRequest,
     period_service: PeriodService = Depends(get_period_service),
-):
+) -> PeriodResponse:
     """
     Create a new period.
     """
@@ -55,7 +55,7 @@ def update_period(
     period_id: int,
     period: PeriodRequest,
     period_service: PeriodService = Depends(get_period_service),
-):
+) -> PeriodResponse:
     """
     Update a specific period by its ID.
     """
@@ -67,7 +67,7 @@ def update_period(
 def delete_period(
     period_id: int,
     period_service: PeriodService = Depends(get_period_service),
-):
+) -> None:
     """
     Delete a specific period by its ID.
     """
@@ -94,7 +94,7 @@ def get_settlement_plan(
     period_id: int,
     period_service: PeriodService = Depends(get_period_service),
     settlement_service: SettlementService = Depends(get_settlement_service),
-):
+) -> list[SettlementPlanResponse]:
     """
     Get the settlement plan for a specific period.
     """
@@ -105,7 +105,7 @@ def get_settlement_plan(
 def apply_settlement_plan(
     period_id: int,
     settlement_service: SettlementService = Depends(get_settlement_service),
-):
+) -> None:
     """
     Apply the settlement plan and settle the period.
     """
