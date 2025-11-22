@@ -27,12 +27,12 @@ class GroupService:
         group = self._group_repository.get_group_by_id(group_id)
         return GroupResponse.model_validate(group) if group else None
 
-    def create_group(self, group_request: GroupRequest, owner_id: int | None = None) -> GroupResponse:
+    def create_group(self, group_request: GroupRequest, owner_id: int) -> GroupResponse:
         """Create a new group.
 
         Args:
             group_request: Pydantic schema containing group data
-            owner_id: ID of the user who will own the group. If None, must be set via update_group_owner later.
+            owner_id: ID of the user who will own the group.
 
         Returns:
             Created Group response DTO
@@ -40,10 +40,6 @@ class GroupService:
         Raises:
             ValidationError: If owner_id is not provided and group requires it
         """
-        # Convert Pydantic schema to ORM model using specific fields
-        if owner_id is None:
-            # For now, raise an error - in production this should come from authenticated user
-            raise ValueError("owner_id is required to create a group")
         group = Group(name=group_request.name, owner_id=owner_id)
         group = self._group_repository.create_group(group)
         return GroupResponse.model_validate(group)
@@ -72,12 +68,12 @@ class GroupService:
         updated_group = self._group_repository.update_group(group)
         return GroupResponse.model_validate(updated_group)
 
-    def update_group_owner(self, group_id: int, user_id: int) -> GroupResponse:
+    def update_group_owner(self, group_id: int, owner_id: int) -> GroupResponse:
         """Update the owner of a specific group by its ID.
 
         Args:
             group_id: ID of the group to update
-            user_id: ID of the user to set as owner
+            owner_id: ID of the user to set as owner
 
         Returns:
             Updated Group response DTO
@@ -87,14 +83,14 @@ class GroupService:
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
-        user = self._user_service.get_user_by_id(user_id)
+        user = self._user_service.get_user_by_id(owner_id)
         if not user or not user.is_active:
-            raise NotFoundError(_("User %s not found or inactive") % user_id)
+            raise NotFoundError(_("User %s not found or inactive") % owner_id)
 
-        if not self._group_repository.check_if_user_is_in_group(group_id, user_id):
+        if not self._group_repository.check_if_user_is_in_group(group_id, owner_id):
             raise NotFoundError(_("User %s is not a member of group %s") % (user.name, group.name))
 
-        group.owner_id = user_id
+        group.owner_id = owner_id
         updated_group = self._group_repository.update_group(group)
         return GroupResponse.model_validate(updated_group)
 

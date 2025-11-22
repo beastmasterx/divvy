@@ -69,5 +69,5 @@ class GroupRepository:
 
     def get_current_period_by_group_id(self, group_id: int) -> Period | None:
         """Retrieve the current unsettled period for a specific group."""
-        stmt = select(Period).where(Period.group_id == group_id, ~Period.is_closed)
+        stmt = select(Period).where(Period.group_id == group_id, Period.end_date.is_(None))
         return self.session.execute(stmt).scalar_one_or_none()

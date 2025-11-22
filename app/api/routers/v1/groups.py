@@ -6,13 +6,18 @@ from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_group_service
+from app.api.dependencies import get_current_user, get_group_service
 from app.api.schemas import GroupRequest, GroupResponse, PeriodResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
+from app.models import User
 from app.services import GroupService
 
-router = APIRouter(prefix="/groups", tags=["groups"])
+router = APIRouter(
+    prefix="/groups",
+    tags=["groups"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/", response_model=list[GroupResponse])
@@ -45,12 +50,13 @@ def get_group(
 @router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
 def create_group(
     group: GroupRequest,
+    current_user: User = Depends(get_current_user),
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
     Create a new group.
     """
-    return group_service.create_group(group)
+    return group_service.create_group(group, owner_id=current_user.id)
 
 
 @router.put("/{group_id}", response_model=GroupResponse)
