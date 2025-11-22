@@ -40,11 +40,10 @@ class PasswordResetRequest(BaseModel):
 class UserResponse(BaseModel):
     """Response schema for user information."""
 
+    model_config = {"from_attributes": True}
+
     id: int = Field(..., description="User ID")
     email: str = Field(..., description="User's email address")
     name: str = Field(..., description="User's full name")
     avatar: str | None = Field(None, description="URL to user's avatar image")
     is_active: bool = Field(default=True, description="Whether the user account is active")
-
-    class Config:
-        from_attributes = True

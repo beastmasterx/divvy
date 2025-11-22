@@ -25,17 +25,24 @@ class GroupService:
         """Retrieve a specific group by its ID."""
         return self._group_repository.get_group_by_id(group_id)
 
-    def create_group(self, group_request: GroupRequest) -> Group:
+    def create_group(self, group_request: GroupRequest, owner_id: int | None = None) -> Group:
         """Create a new group.
 
         Args:
             group_request: Pydantic schema containing group data
+            owner_id: ID of the user who will own the group. If None, must be set via update_group_owner later.
 
         Returns:
             Created Group ORM model
+
+        Raises:
+            ValidationError: If owner_id is not provided and group requires it
         """
         # Convert Pydantic schema to ORM model using specific fields
-        group = Group(name=group_request.name)
+        if owner_id is None:
+            # For now, raise an error - in production this should come from authenticated user
+            raise ValueError("owner_id is required to create a group")
+        group = Group(name=group_request.name, owner_id=owner_id)
         return self._group_repository.create_group(group)
 
     def update_group(self, group_id: int, group_request: GroupRequest) -> Group:

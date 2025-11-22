@@ -42,7 +42,7 @@ class GroupRepository:
 
     def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve all users associated with a specific group."""
-        stmt = select(User).join(GroupUser).where(GroupUser.group_id == group_id)
+        stmt = select(User).join(GroupUser, User.id == GroupUser.user_id).where(GroupUser.group_id == group_id)
         return self.session.execute(stmt).scalars().all()
 
     def check_if_user_is_in_group(self, group_id: int, user_id: int) -> bool:
@@ -52,7 +52,12 @@ class GroupRepository:
 
     def get_active_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve only active users associated with a specific group."""
-        stmt = select(User).join(GroupUser).where(GroupUser.group_id == group_id).where(User.is_active)
+        stmt = (
+            select(User)
+            .join(GroupUser, User.id == GroupUser.user_id)
+            .where(GroupUser.group_id == group_id)
+            .where(User.is_active)
+        )
         return self.session.execute(stmt).scalars().all()
 
     def add_user_to_group(self, group_id: int, user_id: int) -> None:

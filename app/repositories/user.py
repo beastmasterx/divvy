@@ -47,5 +47,5 @@ class UserRepository:
 
     def get_groups_by_user_id(self, user_id: int) -> Sequence[Group]:
         """Retrieve all groups that a specific user is a member of."""
-        stmt = select(Group).join(GroupUser).where(GroupUser.user_id == user_id)
+        stmt = select(Group).join(GroupUser, Group.id == GroupUser.group_id).where(GroupUser.user_id == user_id)
         return self.session.execute(stmt).scalars().all()
