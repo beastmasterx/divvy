@@ -167,7 +167,6 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("start_date", sa.DateTime(timezone=True), nullable=False),
         sa.Column("end_date", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_settled", sa.Boolean(), nullable=False),
         sa.Column("settled_date", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_by", sa.Integer(), nullable=True),
         sa.Column("updated_by", sa.Integer(), nullable=True),
@@ -188,7 +187,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_period_group_dates", "periods", ["group_id", "start_date", "end_date"], unique=False)
-    op.create_index("ix_period_group_settled", "periods", ["group_id", "is_settled"], unique=False)
     op.create_index(op.f("ix_periods_created_at"), "periods", ["created_at"], unique=False)
     op.create_index(op.f("ix_periods_created_by"), "periods", ["created_by"], unique=False)
     op.create_index(op.f("ix_periods_group_id"), "periods", ["group_id"], unique=False)

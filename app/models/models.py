@@ -194,10 +194,7 @@ class Period(AuditMixin, Base):
     """
 
     __tablename__ = "periods"
-    __table_args__ = (
-        Index("ix_period_group_settled", "group_id", "is_settled"),
-        Index("ix_period_group_dates", "group_id", "start_date", "end_date"),
-    )
+    __table_args__ = (Index("ix_period_group_dates", "group_id", "start_date", "end_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"), nullable=False, index=True)
@@ -206,12 +203,16 @@ class Period(AuditMixin, Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    is_settled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     settled_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     group: Mapped[Group] = relationship("Group", back_populates="periods")
     transactions: Mapped[list[Transaction]] = relationship("Transaction", back_populates="period")
+
+    @property
+    def is_settled(self) -> bool:
+        """Check if this period is settled."""
+        return self.settled_date is not None
 
     @property
     def is_active(self) -> bool:
