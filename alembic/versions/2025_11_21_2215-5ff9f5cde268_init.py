@@ -81,12 +81,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("owner_id", sa.Integer(), nullable=False),
-        sa.Column("created_by_id", sa.Integer(), nullable=True),
-        sa.Column("updated_by_id", sa.Integer(), nullable=True),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("updated_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
-            ["created_by_id"],
+            ["created_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -94,16 +94,16 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["updated_by_id"],
+            ["updated_by"],
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_groups_created_at"), "groups", ["created_at"], unique=False)
-    op.create_index(op.f("ix_groups_created_by_id"), "groups", ["created_by_id"], unique=False)
+    op.create_index(op.f("ix_groups_created_by"), "groups", ["created_by"], unique=False)
     op.create_index(op.f("ix_groups_owner_id"), "groups", ["owner_id"], unique=False)
     op.create_index(op.f("ix_groups_updated_at"), "groups", ["updated_at"], unique=False)
-    op.create_index(op.f("ix_groups_updated_by_id"), "groups", ["updated_by_id"], unique=False)
+    op.create_index(op.f("ix_groups_updated_by"), "groups", ["updated_by"], unique=False)
     op.create_table(
         "refresh_tokens",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -134,12 +134,12 @@ def upgrade() -> None:
         "group_users",
         sa.Column("group_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("created_by_id", sa.Integer(), nullable=True),
-        sa.Column("updated_by_id", sa.Integer(), nullable=True),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("updated_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
-            ["created_by_id"],
+            ["created_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -147,7 +147,7 @@ def upgrade() -> None:
             ["groups.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["updated_by_id"],
+            ["updated_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -157,9 +157,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("group_id", "user_id"),
     )
     op.create_index(op.f("ix_group_users_created_at"), "group_users", ["created_at"], unique=False)
-    op.create_index(op.f("ix_group_users_created_by_id"), "group_users", ["created_by_id"], unique=False)
+    op.create_index(op.f("ix_group_users_created_by"), "group_users", ["created_by"], unique=False)
     op.create_index(op.f("ix_group_users_updated_at"), "group_users", ["updated_at"], unique=False)
-    op.create_index(op.f("ix_group_users_updated_by_id"), "group_users", ["updated_by_id"], unique=False)
+    op.create_index(op.f("ix_group_users_updated_by"), "group_users", ["updated_by"], unique=False)
     op.create_table(
         "periods",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -169,12 +169,12 @@ def upgrade() -> None:
         sa.Column("end_date", sa.DateTime(timezone=True), nullable=True),
         sa.Column("is_settled", sa.Boolean(), nullable=False),
         sa.Column("settled_date", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_by_id", sa.Integer(), nullable=True),
-        sa.Column("updated_by_id", sa.Integer(), nullable=True),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("updated_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
-            ["created_by_id"],
+            ["created_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -182,7 +182,7 @@ def upgrade() -> None:
             ["groups.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["updated_by_id"],
+            ["updated_by"],
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -190,10 +190,10 @@ def upgrade() -> None:
     op.create_index("ix_period_group_dates", "periods", ["group_id", "start_date", "end_date"], unique=False)
     op.create_index("ix_period_group_settled", "periods", ["group_id", "is_settled"], unique=False)
     op.create_index(op.f("ix_periods_created_at"), "periods", ["created_at"], unique=False)
-    op.create_index(op.f("ix_periods_created_by_id"), "periods", ["created_by_id"], unique=False)
+    op.create_index(op.f("ix_periods_created_by"), "periods", ["created_by"], unique=False)
     op.create_index(op.f("ix_periods_group_id"), "periods", ["group_id"], unique=False)
     op.create_index(op.f("ix_periods_updated_at"), "periods", ["updated_at"], unique=False)
-    op.create_index(op.f("ix_periods_updated_by_id"), "periods", ["updated_by_id"], unique=False)
+    op.create_index(op.f("ix_periods_updated_by"), "periods", ["updated_by"], unique=False)
     op.create_table(
         "transactions",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -204,8 +204,8 @@ def upgrade() -> None:
         sa.Column("payer_id", sa.Integer(), nullable=False),
         sa.Column("category_id", sa.Integer(), nullable=False),
         sa.Column("period_id", sa.Integer(), nullable=False),
-        sa.Column("created_by_id", sa.Integer(), nullable=True),
-        sa.Column("updated_by_id", sa.Integer(), nullable=True),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("updated_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
@@ -213,7 +213,7 @@ def upgrade() -> None:
             ["categories.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["created_by_id"],
+            ["created_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -225,7 +225,7 @@ def upgrade() -> None:
             ["periods.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["updated_by_id"],
+            ["updated_by"],
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -234,23 +234,23 @@ def upgrade() -> None:
     op.create_index("ix_transaction_period_payer", "transactions", ["period_id", "payer_id"], unique=False)
     op.create_index(op.f("ix_transactions_category_id"), "transactions", ["category_id"], unique=False)
     op.create_index(op.f("ix_transactions_created_at"), "transactions", ["created_at"], unique=False)
-    op.create_index(op.f("ix_transactions_created_by_id"), "transactions", ["created_by_id"], unique=False)
+    op.create_index(op.f("ix_transactions_created_by"), "transactions", ["created_by"], unique=False)
     op.create_index(op.f("ix_transactions_payer_id"), "transactions", ["payer_id"], unique=False)
     op.create_index(op.f("ix_transactions_period_id"), "transactions", ["period_id"], unique=False)
     op.create_index(op.f("ix_transactions_updated_at"), "transactions", ["updated_at"], unique=False)
-    op.create_index(op.f("ix_transactions_updated_by_id"), "transactions", ["updated_by_id"], unique=False)
+    op.create_index(op.f("ix_transactions_updated_by"), "transactions", ["updated_by"], unique=False)
     op.create_table(
         "expense_shares",
         sa.Column("transaction_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("share_amount", sa.Integer(), nullable=True),
         sa.Column("share_percentage", sa.Float(), nullable=True),
-        sa.Column("created_by_id", sa.Integer(), nullable=True),
-        sa.Column("updated_by_id", sa.Integer(), nullable=True),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("updated_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
-            ["created_by_id"],
+            ["created_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -258,7 +258,7 @@ def upgrade() -> None:
             ["transactions.id"],
         ),
         sa.ForeignKeyConstraint(
-            ["updated_by_id"],
+            ["updated_by"],
             ["users.id"],
         ),
         sa.ForeignKeyConstraint(
@@ -268,10 +268,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("transaction_id", "user_id"),
     )
     op.create_index(op.f("ix_expense_shares_created_at"), "expense_shares", ["created_at"], unique=False)
-    op.create_index(op.f("ix_expense_shares_created_by_id"), "expense_shares", ["created_by_id"], unique=False)
+    op.create_index(op.f("ix_expense_shares_created_by"), "expense_shares", ["created_by"], unique=False)
     op.create_index(op.f("ix_expense_shares_transaction_id"), "expense_shares", ["transaction_id"], unique=False)
     op.create_index(op.f("ix_expense_shares_updated_at"), "expense_shares", ["updated_at"], unique=False)
-    op.create_index(op.f("ix_expense_shares_updated_by_id"), "expense_shares", ["updated_by_id"], unique=False)
+    op.create_index(op.f("ix_expense_shares_updated_by"), "expense_shares", ["updated_by"], unique=False)
     op.create_index(op.f("ix_expense_shares_user_id"), "expense_shares", ["user_id"], unique=False)
     # ### end Alembic commands ###
 
@@ -280,33 +280,33 @@ def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index(op.f("ix_expense_shares_user_id"), table_name="expense_shares")
-    op.drop_index(op.f("ix_expense_shares_updated_by_id"), table_name="expense_shares")
+    op.drop_index(op.f("ix_expense_shares_updated_by"), table_name="expense_shares")
     op.drop_index(op.f("ix_expense_shares_updated_at"), table_name="expense_shares")
     op.drop_index(op.f("ix_expense_shares_transaction_id"), table_name="expense_shares")
-    op.drop_index(op.f("ix_expense_shares_created_by_id"), table_name="expense_shares")
+    op.drop_index(op.f("ix_expense_shares_created_by"), table_name="expense_shares")
     op.drop_index(op.f("ix_expense_shares_created_at"), table_name="expense_shares")
     op.drop_table("expense_shares")
-    op.drop_index(op.f("ix_transactions_updated_by_id"), table_name="transactions")
+    op.drop_index(op.f("ix_transactions_updated_by"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_updated_at"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_period_id"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_payer_id"), table_name="transactions")
-    op.drop_index(op.f("ix_transactions_created_by_id"), table_name="transactions")
+    op.drop_index(op.f("ix_transactions_created_by"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_created_at"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_category_id"), table_name="transactions")
     op.drop_index("ix_transaction_period_payer", table_name="transactions")
     op.drop_index("ix_transaction_period_created", table_name="transactions")
     op.drop_table("transactions")
-    op.drop_index(op.f("ix_periods_updated_by_id"), table_name="periods")
+    op.drop_index(op.f("ix_periods_updated_by"), table_name="periods")
     op.drop_index(op.f("ix_periods_updated_at"), table_name="periods")
     op.drop_index(op.f("ix_periods_group_id"), table_name="periods")
-    op.drop_index(op.f("ix_periods_created_by_id"), table_name="periods")
+    op.drop_index(op.f("ix_periods_created_by"), table_name="periods")
     op.drop_index(op.f("ix_periods_created_at"), table_name="periods")
     op.drop_index("ix_period_group_settled", table_name="periods")
     op.drop_index("ix_period_group_dates", table_name="periods")
     op.drop_table("periods")
-    op.drop_index(op.f("ix_group_users_updated_by_id"), table_name="group_users")
+    op.drop_index(op.f("ix_group_users_updated_by"), table_name="group_users")
     op.drop_index(op.f("ix_group_users_updated_at"), table_name="group_users")
-    op.drop_index(op.f("ix_group_users_created_by_id"), table_name="group_users")
+    op.drop_index(op.f("ix_group_users_created_by"), table_name="group_users")
     op.drop_index(op.f("ix_group_users_created_at"), table_name="group_users")
     op.drop_table("group_users")
     op.drop_index(op.f("ix_refresh_tokens_user_id"), table_name="refresh_tokens")
@@ -319,10 +319,10 @@ def downgrade() -> None:
     op.drop_index("ix_refresh_token_user_expires", table_name="refresh_tokens")
     op.drop_index("ix_refresh_token_token", table_name="refresh_tokens")
     op.drop_table("refresh_tokens")
-    op.drop_index(op.f("ix_groups_updated_by_id"), table_name="groups")
+    op.drop_index(op.f("ix_groups_updated_by"), table_name="groups")
     op.drop_index(op.f("ix_groups_updated_at"), table_name="groups")
     op.drop_index(op.f("ix_groups_owner_id"), table_name="groups")
-    op.drop_index(op.f("ix_groups_created_by_id"), table_name="groups")
+    op.drop_index(op.f("ix_groups_created_by"), table_name="groups")
     op.drop_index(op.f("ix_groups_created_at"), table_name="groups")
     op.drop_table("groups")
     op.drop_index(op.f("ix_users_updated_at"), table_name="users")

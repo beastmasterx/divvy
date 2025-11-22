@@ -66,8 +66,8 @@ class TimestampMixin:
 class AuditMixin(TimestampMixin):
     """Mixin to add full audit trail (timestamps + user tracking) to models."""
 
-    created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    updated_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    updated_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
 
 
 class Group(AuditMixin, Base):
