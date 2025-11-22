@@ -6,10 +6,13 @@
     },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.rulers": [120],
+        "editor.rulers": [
+            120
+        ],
     },
     "python.analysis.autoImportCompletions": true,
     "python.terminal.activateEnvironment": true,
+    "python.testing.pytestEnabled": true,
     "[dart]": {
         "editor.formatOnType": true,
         "editor.rulers": [
