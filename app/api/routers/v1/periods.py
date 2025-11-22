@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_period_service, get_settlement_service
-from app.api.schemas import PeriodResponse, PeriodUpdateRequest, SettlementPlanResponse
+from app.api.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest, SettlementPlanResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.services import PeriodService, SettlementService
@@ -41,7 +41,7 @@ def get_period(
 
 @router.post("/", response_model=PeriodResponse, status_code=status.HTTP_201_CREATED)
 def create_period(
-    period: PeriodUpdateRequest,
+    period: PeriodCreateRequest,
     period_service: PeriodService = Depends(get_period_service),
 ) -> PeriodResponse:
     """
