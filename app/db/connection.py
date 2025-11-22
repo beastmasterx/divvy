@@ -20,8 +20,8 @@ def get_database_url() -> str:
 
     Supported formats:
     - SQLite: sqlite:///path/to/file.db
-    - PostgreSQL: postgresql://user:password@host:port/database
-    - MySQL: mysql://user:password@host:port/database
+    - PostgreSQL: postgresql+psycopg2://user:password@host:port/database
+    - MySQL: mysql+pymysql://user:password@host:port/database
     - MSSQL: mssql+pyodbc://user:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server
 
     Returns:

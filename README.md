@@ -167,7 +167,7 @@ Example `.env` file:
 
 ```bash
 # Database Configuration
-DIVVY_DATABASE_URL=postgresql://user:password@localhost:5432/divvy
+DIVVY_DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/divvy
 
 # Language/Internationalization
 DIVVY_LANG=en_US
@@ -221,7 +221,7 @@ DIVVY_DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/divvy_dev
 
 ```bash
 # Production database
-DIVVY_DATABASE_URL=postgresql://user:pass@prod-server:5432/divvy_prod
+DIVVY_DATABASE_URL=postgresql+psycopg2://user:pass@prod-server:5432/divvy_prod
 ```
 
 #### Using Environment Variables Directly
@@ -235,10 +235,10 @@ You can also set environment variables directly in your shell:
 export DIVVY_DATABASE_URL=sqlite:///data/expenses.db
 
 # PostgreSQL
-export DIVVY_DATABASE_URL=postgresql://user:password@localhost:5432/divvy
+export DIVVY_DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/divvy
 
 # MySQL
-export DIVVY_DATABASE_URL=mysql://user:password@localhost:3306/divvy
+export DIVVY_DATABASE_URL=mysql+pymysql://user:password@localhost:3306/divvy
 
 # MSSQL
 export DIVVY_DATABASE_URL=mssql+pyodbc://user:password@localhost:1433/divvy?driver=ODBC+Driver+17+for+SQL+Server
