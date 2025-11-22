@@ -52,10 +52,10 @@ class TimestampMixin:
     """Mixin to add automatic timestamp tracking to models."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), index=True
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
@@ -130,18 +130,17 @@ class RefreshToken(TimestampMixin, Base):
 
     __tablename__ = "refresh_tokens"
     __table_args__ = (
-        Index("ix_refresh_token_lookup", "token_lookup"),
+        Index("ix_refresh_token_token", "token"),
         Index("ix_refresh_token_user_expires", "user_id", "expires_at"),
         Index("ix_refresh_token_user_revoked", "user_id", "is_revoked"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    token_lookup: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     device_info: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     # Relationships
@@ -203,10 +202,12 @@ class Period(AuditMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
-    end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    start_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_settled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    settled_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    settled_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     group: Mapped[Group] = relationship("Group", back_populates="periods")

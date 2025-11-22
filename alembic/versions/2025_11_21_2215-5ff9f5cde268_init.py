@@ -7,12 +7,10 @@ Create Date: 2025-11-21 22:15:06.831450
 """
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
 
 import sqlalchemy as sa
 
 from alembic import op
-from app.models import default_categories
 
 # revision identifiers, used by Alembic.
 revision: str = "5ff9f5cde268"
@@ -29,8 +27,8 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("is_default", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_categories_created_at"), "categories", ["created_at"], unique=False)
@@ -38,6 +36,10 @@ def upgrade() -> None:
     op.create_index(op.f("ix_categories_updated_at"), "categories", ["updated_at"], unique=False)
 
     # Seed default categories
+    from datetime import UTC, datetime
+
+    from app.models import default_categories
+
     categories_table = sa.table(
         "categories",
         sa.column("name", sa.String),
@@ -67,8 +69,8 @@ def upgrade() -> None:
         sa.Column("avatar", sa.String(length=500), nullable=True),
         sa.Column("password", sa.String(length=255), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_users_created_at"), "users", ["created_at"], unique=False)
@@ -81,8 +83,8 @@ def upgrade() -> None:
         sa.Column("owner_id", sa.Integer(), nullable=False),
         sa.Column("created_by_id", sa.Integer(), nullable=True),
         sa.Column("updated_by_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
             ["users.id"],
@@ -105,28 +107,27 @@ def upgrade() -> None:
     op.create_table(
         "refresh_tokens",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("token_lookup", sa.String(length=64), nullable=False),
-        sa.Column("token_hash", sa.String(length=255), nullable=False),
+        sa.Column("token", sa.String(length=64), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("expires_at", sa.DateTime(), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("device_info", sa.String(length=255), nullable=True),
-        sa.Column("last_used_at", sa.DateTime(), nullable=True),
+        sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("is_revoked", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_refresh_token_lookup", "refresh_tokens", ["token_lookup"], unique=False)
+    op.create_index("ix_refresh_token_token", "refresh_tokens", ["token"], unique=False)
     op.create_index("ix_refresh_token_user_expires", "refresh_tokens", ["user_id", "expires_at"], unique=False)
     op.create_index("ix_refresh_token_user_revoked", "refresh_tokens", ["user_id", "is_revoked"], unique=False)
     op.create_index(op.f("ix_refresh_tokens_created_at"), "refresh_tokens", ["created_at"], unique=False)
     op.create_index(op.f("ix_refresh_tokens_expires_at"), "refresh_tokens", ["expires_at"], unique=False)
     op.create_index(op.f("ix_refresh_tokens_is_revoked"), "refresh_tokens", ["is_revoked"], unique=False)
-    op.create_index(op.f("ix_refresh_tokens_token_lookup"), "refresh_tokens", ["token_lookup"], unique=True)
+    op.create_index(op.f("ix_refresh_tokens_token"), "refresh_tokens", ["token"], unique=True)
     op.create_index(op.f("ix_refresh_tokens_updated_at"), "refresh_tokens", ["updated_at"], unique=False)
     op.create_index(op.f("ix_refresh_tokens_user_id"), "refresh_tokens", ["user_id"], unique=False)
     op.create_table(
@@ -135,8 +136,8 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("created_by_id", sa.Integer(), nullable=True),
         sa.Column("updated_by_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
             ["users.id"],
@@ -164,14 +165,14 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("group_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("start_date", sa.DateTime(), nullable=False),
-        sa.Column("end_date", sa.DateTime(), nullable=True),
+        sa.Column("start_date", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("end_date", sa.DateTime(timezone=True), nullable=True),
         sa.Column("is_settled", sa.Boolean(), nullable=False),
-        sa.Column("settled_date", sa.DateTime(), nullable=True),
+        sa.Column("settled_date", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_by_id", sa.Integer(), nullable=True),
         sa.Column("updated_by_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
             ["users.id"],
@@ -205,8 +206,8 @@ def upgrade() -> None:
         sa.Column("period_id", sa.Integer(), nullable=False),
         sa.Column("created_by_id", sa.Integer(), nullable=True),
         sa.Column("updated_by_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["category_id"],
             ["categories.id"],
@@ -246,8 +247,8 @@ def upgrade() -> None:
         sa.Column("share_percentage", sa.Float(), nullable=True),
         sa.Column("created_by_id", sa.Integer(), nullable=True),
         sa.Column("updated_by_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
             ["users.id"],
@@ -310,13 +311,13 @@ def downgrade() -> None:
     op.drop_table("group_users")
     op.drop_index(op.f("ix_refresh_tokens_user_id"), table_name="refresh_tokens")
     op.drop_index(op.f("ix_refresh_tokens_updated_at"), table_name="refresh_tokens")
-    op.drop_index(op.f("ix_refresh_tokens_token_lookup"), table_name="refresh_tokens")
+    op.drop_index(op.f("ix_refresh_tokens_token"), table_name="refresh_tokens")
     op.drop_index(op.f("ix_refresh_tokens_is_revoked"), table_name="refresh_tokens")
     op.drop_index(op.f("ix_refresh_tokens_expires_at"), table_name="refresh_tokens")
     op.drop_index(op.f("ix_refresh_tokens_created_at"), table_name="refresh_tokens")
     op.drop_index("ix_refresh_token_user_revoked", table_name="refresh_tokens")
     op.drop_index("ix_refresh_token_user_expires", table_name="refresh_tokens")
-    op.drop_index("ix_refresh_token_lookup", table_name="refresh_tokens")
+    op.drop_index("ix_refresh_token_token", table_name="refresh_tokens")
     op.drop_table("refresh_tokens")
     op.drop_index(op.f("ix_groups_updated_by_id"), table_name="groups")
     op.drop_index(op.f("ix_groups_updated_at"), table_name="groups")
