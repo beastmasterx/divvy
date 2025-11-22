@@ -9,9 +9,10 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.api.schemas import UserResponse
 from app.db import get_session
+from app.db.audit import set_current_user_id
 from app.exceptions import UnauthorizedError
-from app.models import User
 from app.services import (
     AuthService,
     CategoryService,
@@ -98,7 +99,7 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(_security),
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
-) -> User:
+) -> UserResponse:
     """
     Get current authenticated user from JWT token.
 
@@ -129,5 +130,9 @@ def get_current_user(
 
     if not user or not user.is_active:
         raise UnauthorizedError("User account not found or inactive")
+
+    # Set user ID in audit context for SQLAlchemy events
+    # This allows automatic setting of created_by and updated_by fields
+    set_current_user_id(user.id)
 
     return user

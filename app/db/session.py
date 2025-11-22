@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from . import audit  # noqa: F401 - Import side effect registers SQLAlchemy events
 from .connection import get_engine
 
 # Lazy session factory - only creates engine when first used
