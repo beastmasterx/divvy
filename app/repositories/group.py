@@ -50,16 +50,6 @@ class GroupRepository:
         stmt = select(GroupUser).where(GroupUser.group_id == group_id).where(GroupUser.user_id == user_id)
         return self.session.execute(stmt).scalar_one_or_none() is not None
 
-    def get_active_users_by_group_id(self, group_id: int) -> Sequence[User]:
-        """Retrieve only active users associated with a specific group."""
-        stmt = (
-            select(User)
-            .join(GroupUser, User.id == GroupUser.user_id)
-            .where(GroupUser.group_id == group_id)
-            .where(User.is_active)
-        )
-        return self.session.execute(stmt).scalars().all()
-
     def add_user_to_group(self, group_id: int, user_id: int) -> None:
         """Add a user to a group by creating a GroupUser relationship."""
         group_user = GroupUser(group_id=group_id, user_id=user_id)
@@ -79,5 +69,5 @@ class GroupRepository:
 
     def get_current_period_by_group_id(self, group_id: int) -> Period | None:
         """Retrieve the current unsettled period for a specific group."""
-        stmt = select(Period).where(Period.group_id == group_id, ~Period.is_settled)
+        stmt = select(Period).where(Period.group_id == group_id, ~Period.is_closed)
         return self.session.execute(stmt).scalar_one_or_none()

@@ -1,7 +1,6 @@
 from collections import defaultdict
-from datetime import UTC, datetime
 
-from app.api.schemas import PeriodSettlementRequest, SettlementPlanResponse, TransactionRequest
+from app.api.schemas import SettlementPlanResponse, TransactionRequest
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError, ValidationError
 from app.models import SplitKind, TransactionKind
@@ -67,8 +66,8 @@ class SettlementService:
         period = self.period_service.get_period_by_id(period_id)
         if not period:
             raise NotFoundError(_("Period %s not found") % period_id)
-        if period.is_settled:
-            raise BusinessRuleError(_("Period %s is already settled") % period_id)
+        if period.is_closed:
+            raise BusinessRuleError(_("Period %s is already closed") % period_id)
 
         # Get settlement category
         settlement_category = self.category_service.get_category_by_name("Settlement")
@@ -119,6 +118,4 @@ class SettlementService:
                 expense_shares=[],
             )
             self.transaction_service.create_transaction(request)
-        self.period_service.settle_period(
-            period_id, PeriodSettlementRequest(is_settled=True, settled_date=datetime.now(UTC))
-        )
+        self.period_service.close_period(period_id)

@@ -2,6 +2,8 @@
 API v1 router for Group endpoints.
 """
 
+from collections.abc import Sequence
+
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_group_service
@@ -16,15 +18,14 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 @router.get("/", response_model=list[GroupResponse])
 def list_groups(
     group_service: GroupService = Depends(get_group_service),
-) -> list[GroupResponse]:
+) -> Sequence[GroupResponse]:
     """
     List all periods.
 
     Returns:
         List of all periods, ordered by start_date descending
     """
-    groups = group_service.get_all_groups()
-    return [GroupResponse.model_validate(group) for group in groups]
+    return group_service.get_all_groups()
 
 
 @router.get("/{group_id}", response_model=GroupResponse)
@@ -38,7 +39,7 @@ def get_group(
     group = group_service.get_group_by_id(group_id)
     if not group:
         raise NotFoundError(_("Group %s not found") % group_id)
-    return GroupResponse.model_validate(group)
+    return group
 
 
 @router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
@@ -49,8 +50,7 @@ def create_group(
     """
     Create a new group.
     """
-    created_group = group_service.create_group(group)
-    return GroupResponse.model_validate(created_group)
+    return group_service.create_group(group)
 
 
 @router.put("/{group_id}", response_model=GroupResponse)
@@ -62,8 +62,7 @@ def update_group(
     """
     Update a specific group by its ID.
     """
-    updated_group = group_service.update_group(group_id, group)
-    return GroupResponse.model_validate(updated_group)
+    return group_service.update_group(group_id, group)
 
 
 @router.put("/{group_id}/owner/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

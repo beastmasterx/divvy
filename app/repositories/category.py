@@ -13,8 +13,8 @@ class CategoryRepository:
         self.session = session
 
     def get_all_categories(self) -> Sequence[Category]:
-        """Retrieve all categories from the database."""
-        stmt = select(Category).order_by(Category.name)
+        """Retrieve all categories ordered by ID from the database."""
+        stmt = select(Category).order_by(Category.id)
         return self.session.execute(stmt).scalars().all()
 
     def get_category_by_id(self, category_id: int) -> Category | None:

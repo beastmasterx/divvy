@@ -203,25 +203,18 @@ class Period(AuditMixin, Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    settled_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     group: Mapped[Group] = relationship("Group", back_populates="periods")
     transactions: Mapped[list[Transaction]] = relationship("Transaction", back_populates="period")
 
     @property
-    def is_settled(self) -> bool:
-        """Check if this period is settled."""
-        return self.settled_date is not None
-
-    @property
-    def is_active(self) -> bool:
-        """Check if this period is currently active (not ended or settled)."""
-        now = datetime.now(UTC)
-        return not self.is_settled and self.start_date <= now and (self.end_date is None or self.end_date >= now)
+    def is_closed(self) -> bool:
+        """Check if this period is closed."""
+        return self.end_date is not None
 
     def __repr__(self) -> str:
-        return f"<Period(id={self.id}, name='{self.name}', is_settled={self.is_settled})>"
+        return f"<Period(id={self.id}, name='{self.name}', start_date={self.start_date}, end_date={self.end_date})>"
 
 
 class Category(TimestampMixin, Base):
@@ -313,6 +306,11 @@ class Transaction(AuditMixin, Base):
     def category_name(self) -> str | None:
         """Get category name from relationship."""
         return self.category.name if self.category else None
+
+    @property
+    def period_name(self) -> str | None:
+        """Get period name from relationship."""
+        return self.period.name if self.period else None
 
     @property
     def shared_by_users(self) -> list[User]:

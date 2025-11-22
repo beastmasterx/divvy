@@ -8,7 +8,7 @@ from typing import Any
 from jose import JWTError
 from sqlalchemy.orm import Session
 
-from app.api.schemas import PasswordResetRequest, TokenResponse, UserRequest
+from app.api.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserResponse
 from app.core.config import (
     get_jwt_refresh_token_expire_days,
 )
@@ -22,8 +22,8 @@ from app.core.security import (
     verify_access_token,
 )
 from app.exceptions import NotFoundError, UnauthorizedError
-from app.models import RefreshToken, User
-from app.repositories import RefreshTokenRepository
+from app.models import RefreshToken
+from app.repositories import RefreshTokenRepository, UserRepository
 from app.services.user import UserService
 
 
@@ -44,6 +44,7 @@ class AuthService:
         """
         self._user_service = user_service
         self._refresh_token_repository = RefreshTokenRepository(session)
+        self._user_repository = UserRepository(session)
 
     def register(
         self,
@@ -110,13 +111,19 @@ class AuthService:
         Raises:
             UnauthorizedError: If email or password is incorrect or user is inactive
         """
-        user = self._user_service.get_user_by_email(email)
+        # Need ORM model for password verification (password not in DTO)
+        user_orm = self._user_repository.get_user_by_email(email)
 
-        if not user or not user.password or not check_password(password, user.password) or not user.is_active:
+        if (
+            not user_orm
+            or not user_orm.password
+            or not check_password(password, user_orm.password)
+            or not user_orm.is_active
+        ):
             raise UnauthorizedError("Invalid email or password or user is inactive")
 
-        access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token = self._generate_refresh_token(user_id=user.id, device_info=device_info)
+        access_token = create_access_token(data={"sub": str(user_orm.id), "email": user_orm.email})
+        refresh_token = self._generate_refresh_token(user_id=user_orm.id, device_info=device_info)
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -129,7 +136,7 @@ class AuthService:
         user_id: int,
         old_password: str,
         new_password: str,
-    ) -> User:
+    ) -> UserResponse:
         """
         Change a user's password with old password verification.
 
@@ -139,36 +146,36 @@ class AuthService:
             new_password: New password
 
         Returns:
-            Updated User model
+            Updated User response DTO
 
         Raises:
             NotFoundError: If user not found
             UnauthorizedError: If old password is incorrect
         """
-
-        user = self._user_service.get_user_by_id(user_id)
-        if not user:
+        # Need ORM model for password verification (password not in DTO)
+        user_orm = self._user_repository.get_user_by_id(user_id)
+        if not user_orm:
             raise NotFoundError(f"User {user_id} not found")
 
         # Verify old password
-        if not user.password:
+        if not user_orm.password:
             raise UnauthorizedError("User has no password set")
 
-        if not check_password(old_password, user.password):
+        if not check_password(old_password, user_orm.password):
             raise UnauthorizedError("Current password is incorrect")
 
         return self._user_service.reset_password(user_id, hash_password(new_password))
 
-    def reset_password(self, user_id: int, request: PasswordResetRequest) -> User:
+    def reset_password(self, user_id: int, request: PasswordResetRequest) -> UserResponse:
         """
         Reset a user's password (admin operation, no old password required).
 
         Args:
             user_id: ID of the user whose password to reset
-            new_password: New password
+            request: Password reset request containing new password
 
         Returns:
-            Updated User model
+            Updated User response DTO
 
         Raises:
             NotFoundError: If user not found

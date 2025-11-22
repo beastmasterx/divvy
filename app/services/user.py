@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ProfileRequest, UserRequest
+from app.api.schemas import ProfileRequest, UserRequest, UserResponse
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models import Group, User
@@ -15,23 +15,26 @@ class UserService:
     def __init__(self, session: Session):
         self._user_repository = UserRepository(session)
 
-    def get_all_users(self) -> Sequence[User]:
+    def get_all_users(self) -> Sequence[UserResponse]:
         """Retrieve all users."""
-        return self._user_repository.get_all_users()
+        users = self._user_repository.get_all_users()
+        return [UserResponse.model_validate(user) for user in users]
 
-    def get_user_by_id(self, user_id: int) -> User | None:
+    def get_user_by_id(self, user_id: int) -> UserResponse | None:
         """Retrieve a specific user by their ID."""
-        return self._user_repository.get_user_by_id(user_id)
+        user = self._user_repository.get_user_by_id(user_id)
+        return UserResponse.model_validate(user) if user else None
 
-    def get_user_by_email(self, email: str) -> User | None:
+    def get_user_by_email(self, email: str) -> UserResponse | None:
         """Retrieve a specific user by their email address."""
-        return self._user_repository.get_user_by_email(email)
+        user = self._user_repository.get_user_by_email(email)
+        return UserResponse.model_validate(user) if user else None
 
     def get_groups_by_user_id(self, user_id: int) -> Sequence[Group]:
         """Retrieve all groups that a specific user is a member of."""
         return self._user_repository.get_groups_by_user_id(user_id)
 
-    def create_user(self, request: UserRequest) -> User:
+    def create_user(self, request: UserRequest) -> UserResponse:
         """
         Create a new user.
 
@@ -39,18 +42,18 @@ class UserService:
             request: User request schema containing user data
 
         Returns:
-            Created User model
+            Created User response DTO
         """
         user = User(
             email=request.email,
             name=request.name,
             password=request.password,  # Note: password should be hashed before calling this
             is_active=request.is_active,
-            avatar=request.avatar,
         )
-        return self._user_repository.create_user(user)
+        user = self._user_repository.create_user(user)
+        return UserResponse.model_validate(user)
 
-    def reset_password(self, user_id: int, new_password: str) -> User:
+    def reset_password(self, user_id: int, new_hashed_password: str) -> UserResponse:
         """
         Reset a user's password.
 
@@ -59,16 +62,17 @@ class UserService:
             new_password: New password (should be hashed before calling this)
 
         Returns:
-            Updated User model
+            Updated User response DTO
         """
-        user = self.get_user_by_id(user_id)
+        user = self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 
-        user.password = new_password
-        return self._user_repository.update_user(user)
+        user.password = new_hashed_password
+        updated_user = self._user_repository.update_user(user)
+        return UserResponse.model_validate(updated_user)
 
-    def update_profile(self, user_id: int, request: ProfileRequest) -> User:
+    def update_profile(self, user_id: int, request: ProfileRequest) -> UserResponse:
         """
         Update an existing user's profile (non-password fields).
 
@@ -77,12 +81,12 @@ class UserService:
             request: Profile request schema containing updated user data
 
         Returns:
-            Updated User model
+            Updated User response DTO
 
         Raises:
             NotFoundError: If user not found
         """
-        user = self.get_user_by_id(user_id)
+        user = self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 
@@ -96,7 +100,8 @@ class UserService:
         if request.avatar is not None:
             user.avatar = request.avatar
 
-        return self._user_repository.update_user(user)
+        updated_user = self._user_repository.update_user(user)
+        return UserResponse.model_validate(updated_user)
 
     def delete_user(self, user_id: int) -> None:
         """Delete a user by their ID.
@@ -111,7 +116,7 @@ class UserService:
             NotFoundError: If user not found
             BusinessRuleError: If user is still a member of groups
         """
-        user = self.get_user_by_id(user_id)
+        user = self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 

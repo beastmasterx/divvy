@@ -3,9 +3,9 @@ Pydantic schemas (DTOs) for API requests and responses.
 """
 
 from .auth import LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse
-from .category import CategoryResponse
+from .category import CategoryRequest, CategoryResponse
 from .group import GroupRequest, GroupResponse
-from .period import PeriodRequest, PeriodResponse, PeriodSettlementRequest
+from .period import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest
 from .transaction import (
     ExpenseShareRequest,
     ExpenseShareResponse,
@@ -16,12 +16,13 @@ from .transaction import (
 from .user import PasswordChangeRequest, PasswordResetRequest, ProfileRequest, UserRequest, UserResponse
 
 __all__ = [
+    "CategoryRequest",
     "CategoryResponse",
     "GroupRequest",
     "GroupResponse",
-    "PeriodRequest",
+    "PeriodCreateRequest",
+    "PeriodUpdateRequest",
     "PeriodResponse",
-    "PeriodSettlementRequest",
     "TransactionRequest",
     "TransactionResponse",
     "SettlementPlanResponse",

@@ -2,6 +2,8 @@
 API v1 router for Category endpoints.
 """
 
+from collections.abc import Sequence
+
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_category_service
@@ -14,12 +16,11 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 @router.get("/", response_model=list[CategoryResponse])
 def list_categories(
     category_service: CategoryService = Depends(get_category_service),
-) -> list[CategoryResponse]:
+) -> Sequence[CategoryResponse]:
     """
     List all categories.
 
     Returns:
-        List of all categories, ordered by name
+        List of all categories, ordered by ID
     """
-    categories = category_service.get_all_categories()
-    return [CategoryResponse.model_validate(category) for category in categories]
+    return category_service.get_all_categories()

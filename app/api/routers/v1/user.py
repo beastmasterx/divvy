@@ -41,5 +41,4 @@ def update_user_profile(
     """
     Update current authenticated user's profile.
     """
-    updated_user: User = user_service.update_profile(user.id, request)
-    return UserResponse.model_validate(updated_user)
+    return user_service.update_profile(user.id, request)

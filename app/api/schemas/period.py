@@ -3,34 +3,36 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class PeriodRequest(BaseModel):
+class PeriodCreateRequest(BaseModel):
     """Schema for period request."""
 
+    group_id: int = Field(..., description="Group ID")
     name: str = Field(..., description="Period name")
-    start_date: datetime = Field(..., description="Period start date")
-    end_date: datetime = Field(..., description="Period end date")
+    start_date: datetime | None = Field(default=None, description="Period start date")
+
+
+class PeriodUpdateRequest(BaseModel):
+    """Schema for period update request."""
+
+    name: str | None = Field(default=None, description="Period name")
+    start_date: datetime | None = Field(default=None, description="Period start date")
 
 
 class PeriodResponse(BaseModel):
     """Schema for period response."""
 
     model_config = {"from_attributes": True}
+
     id: int = Field(..., description="Period ID")
+    group_id: int = Field(..., description="Group ID")
     name: str = Field(..., description="Period name")
     start_date: datetime = Field(..., description="Period start date")
-    end_date: datetime = Field(..., description="Period end date")
-    is_settled: bool = Field(..., description="Period settled status")
-    settled_date: datetime = Field(..., description="Period settled date")
+    end_date: datetime | None = Field(default=None, description="Period end date")
 
-    created_at: datetime = Field(..., description="Period created at")
-    updated_at: datetime = Field(..., description="Period updated at")
+    created_at: datetime | None = Field(default=None, description="Period created at")
+    updated_at: datetime | None = Field(default=None, description="Period updated at")
 
-    created_by: int = Field(..., description="Period created by")
-    updated_by: int = Field(..., description="Period updated by")
+    created_by: int | None = Field(default=None, description="Period created by")
+    updated_by: int | None = Field(default=None, description="Period updated by")
 
-
-class PeriodSettlementRequest(BaseModel):
-    """Schema for period settle request."""
-
-    is_settled: bool = Field(..., description="Period settled status")
-    settled_date: datetime = Field(..., description="Period settled date")
+    is_closed: bool = Field(..., description="Period closed status")

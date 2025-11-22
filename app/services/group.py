@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas import GroupRequest
+from app.api.schemas import GroupRequest, GroupResponse
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.models.models import Group, Period, User
@@ -17,15 +17,17 @@ class GroupService:
         self._group_repository = GroupRepository(session)
         self._user_service = user_service
 
-    def get_all_groups(self) -> Sequence[Group]:
+    def get_all_groups(self) -> Sequence[GroupResponse]:
         """Retrieve all groups."""
-        return self._group_repository.get_all_groups()
+        groups = self._group_repository.get_all_groups()
+        return [GroupResponse.model_validate(group) for group in groups]
 
-    def get_group_by_id(self, group_id: int) -> Group | None:
+    def get_group_by_id(self, group_id: int) -> GroupResponse | None:
         """Retrieve a specific group by its ID."""
-        return self._group_repository.get_group_by_id(group_id)
+        group = self._group_repository.get_group_by_id(group_id)
+        return GroupResponse.model_validate(group) if group else None
 
-    def create_group(self, group_request: GroupRequest, owner_id: int | None = None) -> Group:
+    def create_group(self, group_request: GroupRequest, owner_id: int | None = None) -> GroupResponse:
         """Create a new group.
 
         Args:
@@ -33,7 +35,7 @@ class GroupService:
             owner_id: ID of the user who will own the group. If None, must be set via update_group_owner later.
 
         Returns:
-            Created Group ORM model
+            Created Group response DTO
 
         Raises:
             ValidationError: If owner_id is not provided and group requires it
@@ -43,9 +45,10 @@ class GroupService:
             # For now, raise an error - in production this should come from authenticated user
             raise ValueError("owner_id is required to create a group")
         group = Group(name=group_request.name, owner_id=owner_id)
-        return self._group_repository.create_group(group)
+        group = self._group_repository.create_group(group)
+        return GroupResponse.model_validate(group)
 
-    def update_group(self, group_id: int, group_request: GroupRequest) -> Group:
+    def update_group(self, group_id: int, group_request: GroupRequest) -> GroupResponse:
         """Update an existing group.
 
         Args:
@@ -53,29 +56,34 @@ class GroupService:
             group_request: Pydantic schema containing updated group data
 
         Returns:
-            Updated Group ORM model
+            Updated Group response DTO
 
         Raises:
             NotFoundError: If group not found
         """
-        # Fetch existing group
-        group = self.get_group_by_id(group_id)
+        # Fetch existing group from repository (need ORM for modification)
+        group = self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
         # Update fields from request
         group.name = group_request.name
 
-        return self._group_repository.update_group(group)
+        updated_group = self._group_repository.update_group(group)
+        return GroupResponse.model_validate(updated_group)
 
-    def update_group_owner(self, group_id: int, user_id: int) -> Group:
+    def update_group_owner(self, group_id: int, user_id: int) -> GroupResponse:
         """Update the owner of a specific group by its ID.
 
         Args:
             group_id: ID of the group to update
             user_id: ID of the user to set as owner
+
+        Returns:
+            Updated Group response DTO
         """
-        group = self.get_group_by_id(group_id)
+        # Fetch from repository (need ORM for modification)
+        group = self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
@@ -87,7 +95,8 @@ class GroupService:
             raise NotFoundError(_("User %s is not a member of group %s") % (user.name, group.name))
 
         group.owner_id = user_id
-        return self._group_repository.update_group(group)
+        updated_group = self._group_repository.update_group(group)
+        return GroupResponse.model_validate(updated_group)
 
     def delete_group(self, group_id: int) -> None:
         """Delete a group by its ID.
@@ -102,7 +111,7 @@ class GroupService:
             NotFoundError: If group not found
             BusinessRuleError: If active period with transactions is not settled
         """
-        group = self.get_group_by_id(group_id)
+        group = self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
@@ -110,7 +119,7 @@ class GroupService:
         active_period = self.get_current_period_by_group_id(group_id)
 
         # Active period exists with transactions - must be settled first
-        if active_period and active_period.transactions and not active_period.is_settled:
+        if active_period and active_period.transactions and not active_period.is_closed:
             raise BusinessRuleError(
                 _(
                     "Cannot delete group '%(group_name)s': the active period '%(period_name)s' "
@@ -128,10 +137,6 @@ class GroupService:
     def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve all users associated with a specific group."""
         return self._group_repository.get_users_by_group_id(group_id)
-
-    def get_active_users_by_group_id(self, group_id: int) -> Sequence[User]:
-        """Retrieve only active users associated with a specific group."""
-        return self._group_repository.get_active_users_by_group_id(group_id)
 
     def add_user_to_group(self, group_id: int, user_id: int) -> None:
         """Add a user to a group.
@@ -196,7 +201,7 @@ class GroupService:
         active_period = self.get_current_period_by_group_id(group_id)
 
         # Active period exists with transactions - must be settled first
-        if active_period and active_period.transactions and not active_period.is_settled:
+        if active_period and active_period.transactions and not active_period.is_closed:
             raise BusinessRuleError(
                 _(
                     "Cannot remove user '%(user_name)s' from group '%(group_name)s': "
@@ -231,7 +236,7 @@ class GroupService:
         Raises:
             NotFoundError: If group or user not found
         """
-        group = self.get_group_by_id(group_id)
+        group = self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
