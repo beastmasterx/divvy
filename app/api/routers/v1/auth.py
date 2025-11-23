@@ -4,13 +4,26 @@ API v1 router for authentication endpoints.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request, status
+from fastapi import APIRouter, Depends, Form, Query, Request, status
 
-from app.api.dependencies import get_auth_service, get_current_user
-from app.api.schemas.auth import RegisterRequest, TokenResponse
+from app.api.dependencies import (
+    get_auth_service,
+    get_current_user,
+    get_current_user_optional,
+    get_identity_provider_service,
+)
+from app.api.schemas import UserResponse
+from app.api.schemas.auth import (
+    AccountLinkVerifyRequest,
+    OAuthAuthorizeResponse,
+    OAuthCallbackResponse,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.exceptions import ValidationError
 from app.models import User
 from app.services import AuthService
+from app.services.identity_provider import IdentityProviderService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -139,6 +152,136 @@ def logout_all(
         auth: Authentication service instance
     """
     auth.revoke_all_user_refresh_tokens(user.id)
+
+
+@router.get("/oauth/{provider}/authorize", response_model=OAuthAuthorizeResponse)
+def oauth_authorize(
+    provider: str,
+    state: Annotated[str | None, Query()] = None,
+    identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
+) -> OAuthAuthorizeResponse:
+    """
+    Initiate OAuth flow by redirecting to identity provider.
+
+    Returns the authorization URL that the client should redirect the user to.
+    The user will authenticate with the provider and be redirected back to the callback endpoint.
+
+    Args:
+        provider: Identity provider name (e.g., 'microsoft', 'google')
+        state: Optional state parameter for CSRF protection
+        identity_provider_service: Identity provider service instance
+
+    Returns:
+        OAuthAuthorizeResponse containing the authorization URL
+
+    Raises:
+        ValueError: If provider is not registered
+    """
+    authorization_url = identity_provider_service.get_authorization_url(provider, state)
+    return OAuthAuthorizeResponse(authorization_url=authorization_url)
+
+
+@router.get("/oauth/{provider}/callback", response_model=OAuthCallbackResponse | TokenResponse)
+async def oauth_callback(
+    provider: str,
+    code: Annotated[str, Query(..., description="Authorization code from OAuth provider")],
+    state: Annotated[str | None, Query()] = None,
+    http: Request = None,  # type: ignore[assignment]
+    identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
+) -> OAuthCallbackResponse | TokenResponse:
+    """
+    Handle OAuth callback from identity provider.
+
+    Exchanges the authorization code for tokens and either:
+    - Returns tokens if user is authenticated (new account or existing linked account)
+    - Returns account linking info if email already exists (requires password verification)
+
+    Args:
+        provider: Identity provider name (e.g., 'microsoft', 'google')
+        code: Authorization code from OAuth provider
+        state: Optional state parameter (should match the one sent in authorize)
+        http: HTTP request object for extracting device info
+        identity_provider_service: Identity provider service instance
+
+    Returns:
+        TokenResponse if authenticated, or OAuthCallbackResponse if linking required
+
+    Raises:
+        ValueError: If provider is not registered
+        UnauthorizedError: If OAuth flow fails
+    """
+    device_info = _get_device_info(http) if http else None
+    result = await identity_provider_service.handle_oauth_callback(provider, code, state, device_info)
+
+    # If result is a dict, it means linking is required
+    if isinstance(result, dict):
+        return OAuthCallbackResponse(**result)
+
+    # Otherwise, it's a TokenResponse
+    return result
+
+
+@router.post("/link/verify", status_code=status.HTTP_204_NO_CONTENT)
+def verify_account_link(
+    request: AccountLinkVerifyRequest,
+    current_user: UserResponse | None = Depends(get_current_user_optional),
+    identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
+) -> None:
+    """
+    Verify an account link request with password (without approving).
+
+    This endpoint allows the client to verify the password before showing
+    the approval UI. The actual linking happens in the approve endpoint.
+
+    If the user is already authenticated, password is not required.
+
+    Args:
+        request: Account link verification request with token and optional password
+        current_user: Current authenticated user (optional)
+        identity_provider_service: Identity provider service instance
+
+    Raises:
+        NotFoundError: If request not found
+        ValidationError: If request is expired or already processed, or if password is required but not provided
+        UnauthorizedError: If password is incorrect or authenticated user doesn't match request
+    """
+    authenticated_user_id = current_user.id if current_user else None
+    identity_provider_service.verify_account_link_request(
+        request.request_token, request.password, authenticated_user_id
+    )
+
+
+@router.post("/link/approve", response_model=TokenResponse)
+def approve_account_link(
+    request: AccountLinkVerifyRequest,
+    current_user: UserResponse | None = Depends(get_current_user_optional),
+    identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
+) -> TokenResponse:
+    """
+    Approve an account link request by verifying password or authenticated user and linking the identity.
+
+    This endpoint verifies the password (or authenticated user) and then links the external identity
+    to the existing user account. Returns tokens for the authenticated user.
+
+    If the user is already authenticated, password is not required.
+
+    Args:
+        request: Account link approval request with token and optional password
+        current_user: Current authenticated user (optional)
+        identity_provider_service: Identity provider service instance
+
+    Returns:
+        TokenResponse with access and refresh tokens
+
+    Raises:
+        NotFoundError: If request not found
+        ValidationError: If request is expired or already processed, or if password is required but not provided
+        UnauthorizedError: If password is incorrect or authenticated user doesn't match request
+    """
+    authenticated_user_id = current_user.id if current_user else None
+    return identity_provider_service.approve_account_link_request(
+        request.request_token, request.password, authenticated_user_id
+    )
 
 
 def _get_device_info(http: Request) -> str:

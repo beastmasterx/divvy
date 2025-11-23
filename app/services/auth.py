@@ -14,8 +14,8 @@ from app.core.config import (
 )
 from app.core.security import (
     check_password,
-    create_access_token,
-    create_refresh_token,
+    generate_access_token,
+    generate_refresh_token,
     get_access_token_expires_in,
     hash_password,
     hash_refresh_token,
@@ -86,7 +86,7 @@ class AuthService:
         user = self._user_service.create_user(user_request)
 
         # Generate tokens
-        access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+        access_token = generate_access_token(data={"sub": str(user.id), "email": user.email})
         refresh_token = self._generate_refresh_token(user_id=user.id, device_info=device_info)
 
         return TokenResponse(
@@ -122,14 +122,7 @@ class AuthService:
         ):
             raise UnauthorizedError("Invalid email or password or user is inactive")
 
-        access_token = create_access_token(data={"sub": str(user_orm.id), "email": user_orm.email})
-        refresh_token = self._generate_refresh_token(user_id=user_orm.id, device_info=device_info)
-        return TokenResponse(
-            access_token=access_token,
-            token_type="Bearer",
-            expires_in=get_access_token_expires_in(access_token),
-            refresh_token=refresh_token,
-        )
+        return self.generate_tokens(user_orm.id, device_info)
 
     def change_password(
         self,
@@ -215,7 +208,7 @@ class AuthService:
         Returns:
             Plain text refresh token (only returned once, immediately after generation)
         """
-        token, hash = create_refresh_token()
+        token, hash = generate_refresh_token()
         expires_at = datetime.now(UTC) + timedelta(days=get_jwt_refresh_token_expire_days())
 
         self._refresh_token_repository.create(
@@ -274,19 +267,37 @@ class AuthService:
             raise UnauthorizedError("User not found or inactive")
 
         self._refresh_token_repository.revoke_by_id(old_refresh_token.id)
-        new_refresh_token: str = self._generate_refresh_token(
-            user_id=old_refresh_token.user_id,
-            device_info=old_refresh_token.device_info,
-        )
+        return self.generate_tokens(old_refresh_token.user_id, old_refresh_token.device_info)
 
-        access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
-        expires_in = get_access_token_expires_in(access_token)
+    def generate_tokens(self, user_id: int, device_info: str | None = None) -> TokenResponse:
+        """
+        Generate access and refresh tokens for an existing user.
+
+        This is useful for OAuth flows where a user is already authenticated
+        via an external provider and we need to issue tokens.
+
+        Args:
+            user_id: ID of the user to generate tokens for
+            device_info: Optional device information (e.g., User-Agent string)
+
+        Returns:
+            TokenResponse containing access token and refresh token
+
+        Raises:
+            NotFoundError: If user not found or inactive
+        """
+        user = self._user_service.get_user_by_id(user_id)
+        if not user or not user.is_active:
+            raise NotFoundError("User not found or inactive")
+
+        access_token = generate_access_token(data={"sub": str(user.id), "email": user.email})
+        refresh_token = self._generate_refresh_token(user_id=user_id, device_info=device_info)
 
         return TokenResponse(
             access_token=access_token,
             token_type="Bearer",
-            expires_in=expires_in,
-            refresh_token=new_refresh_token,
+            expires_in=get_access_token_expires_in(access_token),
+            refresh_token=refresh_token,
         )
 
     def _verify_refresh_token(self, token: str) -> RefreshToken | None:

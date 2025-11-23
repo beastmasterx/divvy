@@ -60,9 +60,9 @@ def check_password(password: str, hash: str) -> bool:
     return _password_hash.verify(password_bytes, hash_bytes)
 
 
-def create_refresh_token() -> tuple[str, str]:
+def generate_refresh_token() -> tuple[str, str]:
     """
-    Create a cryptographically secure refresh token and its hash.
+    Generate a cryptographically secure refresh token and its hash.
 
     Generates a URL-safe random token suitable for use as a refresh token.
     Returns both the plain token (to be sent to the client) and its hash
@@ -133,9 +133,9 @@ def check_refresh_token(token: str, hash: str) -> bool:
     return hash_refresh_token(token) == hash
 
 
-def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
+def generate_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """
-    Create a JWT access token.
+    Generate a JWT access token.
 
     Args:
         data: Dictionary containing token payload (typically user_id and email)

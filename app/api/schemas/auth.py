@@ -42,3 +42,41 @@ class TokenResponse(BaseModel):
         default=None,
         description="The scope of the access token as a space-delimited string (OAuth 2.0 RFC 6749, optional)",
     )
+
+
+class OAuthAuthorizeResponse(BaseModel):
+    """Response schema for OAuth authorization URL."""
+
+    authorization_url: str = Field(..., description="URL to redirect user to for OAuth login")
+
+
+class OAuthCallbackResponse(BaseModel):
+    """Response schema for OAuth callback - may require account linking."""
+
+    requires_linking: bool = Field(..., description="Whether account linking is required")
+    request_token: str | None = Field(
+        default=None, description="Token for account linking request (if requires_linking is True)"
+    )
+    email: str | None = Field(
+        default=None, description="Email address for account linking (if requires_linking is True)"
+    )
+    message: str | None = Field(
+        default=None, description="Message explaining the account linking requirement (if requires_linking is True)"
+    )
+    access_token: str | None = Field(
+        default=None, description="Access token (if requires_linking is False and authentication succeeded)"
+    )
+    token_type: str | None = Field(default=None, description="Token type, typically 'Bearer'")
+    expires_in: int | None = Field(default=None, description="Access token expiration time in seconds")
+    refresh_token: str | None = Field(default=None, description="Refresh token for obtaining new access tokens")
+
+
+class AccountLinkVerifyRequest(BaseModel):
+    """Request schema for verifying an account link request with password."""
+
+    request_token: str = Field(..., description="Account link request token")
+    password: str | None = Field(
+        default=None,
+        min_length=1,
+        description="User's password for verification (required if not authenticated)",
+    )

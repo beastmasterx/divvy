@@ -190,3 +190,53 @@ def get_jwt_refresh_token_expire_days() -> int:
         Expiration time in days (default: 7)
     """
     return int(os.getenv("DIVVY_JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+
+
+# Identity Provider Configuration
+def get_microsoft_client_id() -> str:
+    """Get Microsoft Entra ID Client ID."""
+    client_id = os.getenv("MICROSOFT_CLIENT_ID")
+    if not client_id:
+        raise ValueError("MICROSOFT_CLIENT_ID environment variable is required")
+    return client_id
+
+
+def get_microsoft_client_secret() -> str:
+    """Get Microsoft Entra ID Client Secret."""
+    client_secret = os.getenv("MICROSOFT_CLIENT_SECRET")
+    if not client_secret:
+        raise ValueError("MICROSOFT_CLIENT_SECRET environment variable is required")
+    return client_secret
+
+
+def get_microsoft_tenant_id() -> str:
+    """Get Microsoft Entra ID Tenant ID (or 'common' for multi-tenant)."""
+    return os.getenv("MICROSOFT_TENANT_ID", "common")
+
+
+def get_microsoft_redirect_uri() -> str:
+    """Get OAuth redirect URI for Microsoft."""
+    base_url = os.getenv("DIVVY_BASE_URL", "http://localhost:8000")
+    return f"{base_url}/api/v1/auth/oauth/microsoft/callback"
+
+
+def get_google_client_id() -> str:
+    """Get Google OAuth2 Client ID."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    if not client_id:
+        raise ValueError("GOOGLE_CLIENT_ID environment variable is required")
+    return client_id
+
+
+def get_google_client_secret() -> str:
+    """Get Google OAuth2 Client Secret."""
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    if not client_secret:
+        raise ValueError("GOOGLE_CLIENT_SECRET environment variable is required")
+    return client_secret
+
+
+def get_google_redirect_uri() -> str:
+    """Get OAuth redirect URI for Google."""
+    base_url = os.getenv("DIVVY_BASE_URL", "http://localhost:8000")
+    return f"{base_url}/api/v1/auth/oauth/google/callback"

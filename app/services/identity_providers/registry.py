@@ -1,0 +1,68 @@
+"""
+Registry for identity provider implementations.
+"""
+
+from .base import IdentityProvider
+from .google import GoogleProvider
+from .microsoft import MicrosoftProvider
+
+
+class IdentityProviderRegistry:
+    """Registry for identity provider implementations."""
+
+    _providers: dict[str, IdentityProvider] = {}
+
+    @classmethod
+    def register(cls, provider: IdentityProvider) -> None:
+        """Register a provider instance.
+
+        Args:
+            provider: Provider instance to register
+        """
+        cls._providers[provider.name] = provider
+
+    @classmethod
+    def get_provider(cls, name: str) -> IdentityProvider:
+        """Get provider by name.
+
+        Args:
+            name: Provider name (e.g., 'microsoft', 'google')
+
+        Returns:
+            Provider instance
+
+        Raises:
+            ValueError: If provider is not registered
+        """
+        if name not in cls._providers:
+            raise ValueError(f"Unknown identity provider: {name}")
+        return cls._providers[name]
+
+    @classmethod
+    def list_providers(cls) -> list[str]:
+        """List all registered provider names.
+
+        Returns:
+            List of provider names
+        """
+        return list(cls._providers.keys())
+
+    @classmethod
+    def is_registered(cls, name: str) -> bool:
+        """Check if a provider is registered.
+
+        Args:
+            name: Provider name
+
+        Returns:
+            True if provider is registered, False otherwise
+        """
+        return name in cls._providers
+
+
+# Auto-register providers on module import
+_microsoft_provider = MicrosoftProvider()
+IdentityProviderRegistry.register(_microsoft_provider)
+
+_google_provider = GoogleProvider()
+IdentityProviderRegistry.register(_google_provider)

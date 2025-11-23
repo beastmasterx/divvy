@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.api.schemas.user import PasswordResetRequest
-from app.core.security import create_access_token, hash_password
+from app.core.security import generate_access_token, hash_password
 from app.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.services import AuthService, UserService
 from tests.fixtures.factories import create_test_user
@@ -240,7 +240,7 @@ class TestAuthService:
         db_session.add(user)
         db_session.commit()
 
-        token = create_access_token(
+        token = generate_access_token(
             data={"sub": str(user.id), "email": user.email}, expires_delta=timedelta(seconds=-1)
         )
         with pytest.raises(UnauthorizedError):
