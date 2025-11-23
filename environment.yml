@@ -12,7 +12,8 @@ dependencies:
   - email-validator>=2.3.0
   - python-multipart>=0.0.20
   - bcrypt>=5.0.0
-  - python-jose[cryptography]>=3.3.0
   - pip
   - pip:
     - -e ".[dev]"  # Installs dev tools from pyproject.toml
+    - python-jose[cryptography]>=3.3.0
+    - pwdlib[argon2]>=0.3.0
