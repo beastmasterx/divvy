@@ -4,9 +4,10 @@ Provides common dependencies like database sessions, authentication, etc.
 """
 
 from collections.abc import Iterator
+from typing import Annotated
 
 from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.api.schemas import UserResponse
@@ -92,11 +93,11 @@ def get_settlement_service(
 
 
 # Authentication dependencies
-_security = HTTPBearer()
+_oauth2_schema = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_security),
+    token: Annotated[str, Depends(_oauth2_schema)],
     auth_service: AuthService = Depends(get_auth_service),
     user_service: UserService = Depends(get_user_service),
 ) -> UserResponse:
@@ -106,8 +107,9 @@ def get_current_user(
     Extracts JWT token from Authorization header, verifies it, and returns the User object.
 
     Args:
-        credentials: HTTPBearer credentials containing the JWT token
+        token: JWT token
         auth_service: Authentication service instance
+        user_service: User service instance
 
     Returns:
         Authenticated User object
@@ -115,8 +117,6 @@ def get_current_user(
     Raises:
         HTTPException: If token is invalid, expired, or user not found/inactive
     """
-    token = credentials.credentials
-
     try:
         payload = auth_service.verify_token(token)
         user_id_str = payload.get("sub")

@@ -91,9 +91,9 @@ class AuthService:
 
         return TokenResponse(
             access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
+            token_type="Bearer",
             expires_in=get_access_token_expires_in(access_token),
+            refresh_token=refresh_token,
         )
 
     def authenticate(self, email: str, password: str, device_info: str | None = None) -> TokenResponse:
@@ -126,9 +126,9 @@ class AuthService:
         refresh_token = self._generate_refresh_token(user_id=user_orm.id, device_info=device_info)
         return TokenResponse(
             access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
+            token_type="Bearer",
             expires_in=get_access_token_expires_in(access_token),
+            refresh_token=refresh_token,
         )
 
     def change_password(
@@ -284,9 +284,9 @@ class AuthService:
 
         return TokenResponse(
             access_token=access_token,
-            refresh_token=new_refresh_token,
-            token_type="bearer",
+            token_type="Bearer",
             expires_in=expires_in,
+            refresh_token=new_refresh_token,
         )
 
     def _verify_refresh_token(self, token: str) -> RefreshToken | None:

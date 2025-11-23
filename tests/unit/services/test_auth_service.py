@@ -34,7 +34,7 @@ class TestAuthService:
 
         assert token_response.access_token is not None
         assert token_response.refresh_token is not None
-        assert token_response.token_type == "bearer"
+        assert token_response.token_type == "Bearer"
         assert token_response.expires_in > 0
 
         # Verify user was created
@@ -74,7 +74,7 @@ class TestAuthService:
 
         assert token_response.access_token is not None
         assert token_response.refresh_token is not None
-        assert token_response.token_type == "bearer"
+        assert token_response.token_type == "Bearer"
         assert token_response.expires_in > 0
 
     def test_authenticate_invalid_email(self, auth_service: AuthService) -> None:

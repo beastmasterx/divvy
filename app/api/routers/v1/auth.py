@@ -4,11 +4,11 @@ API v1 router for authentication endpoints.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, Form, Request, status
 
 from app.api.dependencies import get_auth_service, get_current_user
-from app.api.schemas.auth import LoginRequest, RefreshTokenRequest, RegisterRequest, TokenResponse
-from app.exceptions import UnauthorizedError
+from app.api.schemas.auth import RegisterRequest, TokenResponse
+from app.exceptions import ValidationError
 from app.models import User
 from app.services import AuthService
 
@@ -47,77 +47,81 @@ def register(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(
-    request: LoginRequest,
+@router.post("/token", response_model=TokenResponse)
+def token(
     http: Request,
+    grant_type: Annotated[str, Form()] = "password",
+    username: Annotated[str | None, Form()] = None,
+    password: Annotated[str | None, Form()] = None,
+    refresh_token: Annotated[str | None, Form()] = None,
     auth: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
-    Authenticate a user and return a JWT access token and refresh token.
+    OAuth2 token endpoint - issue and refresh access tokens (RFC 6749).
 
-    Validates the user's email and password, then returns tokens
-    if authentication succeeds.
+    Supports two grant types:
+    - password: Authenticate with username and password
+    - refresh_token: Exchange refresh token for new access token
 
     Args:
-        request: Login request containing email and password
         http: HTTP request object for extracting device info
+        grant_type: OAuth2 grant type ("password" or "refresh_token")
+        username: User email (required for password grant)
+        password: User password (required for password grant)
+        refresh_token: Refresh token (required for refresh_token grant)
         auth: Authentication service instance
 
     Returns:
         TokenResponse containing access token and refresh token
 
     Raises:
-        UnauthorizedError: If credentials are invalid
+        ValidationError: If grant_type is invalid or required parameters are missing
+        UnauthorizedError: If credentials are invalid or refresh token is invalid/expired
     """
     device_info = _get_device_info(http)
-    return auth.authenticate(request.email, request.password, device_info)
+
+    if grant_type == "password":
+        if not username or not password:
+            raise ValidationError("username and password are required for password grant")
+        return auth.authenticate(username, password, device_info)
+
+    elif grant_type == "refresh_token":
+        if not refresh_token:
+            raise ValidationError("refresh_token is required for refresh_token grant")
+        return auth.rotate_refresh_token(refresh_token)
+
+    else:
+        raise ValidationError(f"Unsupported grant_type: {grant_type}. Supported types: password, refresh_token")
 
 
-@router.post("/refresh", response_model=TokenResponse)
-def refresh_token(
-    request: RefreshTokenRequest,
-    auth: AuthService = Depends(get_auth_service),
-) -> TokenResponse:
-    """
-    Refresh an access token using a refresh token.
-
-    Validates the refresh token, rotates it (invalidates old, creates new),
-    and returns a new access token and refresh token.
-
-    Args:
-        request: Refresh token request containing the refresh token
-        auth: Authentication service instance
-
-    Returns:
-        TokenResponse containing new access token and refresh token
-
-    Raises:
-        UnauthorizedError: If refresh token is invalid, expired, or revoked
-    """
-    return auth.rotate_refresh_token(request.refresh_token)
-
-
-@router.post("/logout", response_model=None)
-def logout(
-    refresh_token: Annotated[str | None, Header(alias="X-Refresh-Token")] = None,
+@router.post("/revoke", response_model=None)
+def revoke_token(
+    token: Annotated[str, Form()],
+    token_type_hint: Annotated[str | None, Form()] = None,
     auth: AuthService = Depends(get_auth_service),
 ) -> None:
     """
-    Logout from a single device by revoking the refresh token.
+    OAuth2 token revocation endpoint (RFC 7009).
 
-    Requires X-Refresh-Token header with the refresh token to revoke.
+    Revokes a refresh token. Note: This implementation only supports revoking refresh tokens.
+    Access tokens are stateless JWTs and cannot be revoked/blacklisted in this system.
 
     Args:
-        refresh_token: Refresh token from X-Refresh-Token header
+        token: Refresh token to revoke (OAuth2 standard form parameter, required)
+        token_type_hint: Hint about the token type (accepted but only "refresh_token" is supported)
         auth: Authentication service instance
 
     Raises:
-        UnauthorizedError: If refresh token is invalid or missing
+        ValidationError: If token is not provided
+        UnauthorizedError: If token is invalid
+
+    Note:
+        Access tokens cannot be revoked in this implementation as they are stateless JWTs.
+        To invalidate access tokens, revoke the associated refresh token and wait for
+        the access token to expire naturally.
     """
-    if not refresh_token:
-        raise UnauthorizedError("X-Refresh-Token header is required")
-    auth.revoke_refresh_token(refresh_token)
+    # Only refresh tokens can be revoked in this implementation
+    auth.revoke_refresh_token(token)
 
 
 @router.post("/logout-all", response_model=None)
