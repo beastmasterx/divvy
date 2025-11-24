@@ -3,8 +3,6 @@ Registry for identity provider implementations.
 """
 
 from .base import IdentityProvider
-from .google import GoogleProvider
-from .microsoft import MicrosoftProvider
 
 
 class IdentityProviderRegistry:
@@ -61,8 +59,10 @@ class IdentityProviderRegistry:
 
 
 # Auto-register providers on module import
-_microsoft_provider = MicrosoftProvider()
-IdentityProviderRegistry.register(_microsoft_provider)
-
-_google_provider = GoogleProvider()
-IdentityProviderRegistry.register(_google_provider)
+# from .microsoft import MicrosoftProvider
+# _microsoft_provider = MicrosoftProvider()
+# IdentityProviderRegistry.register(_microsoft_provider)
+#
+# from .google import GoogleProvider
+# _google_provider = GoogleProvider()
+# IdentityProviderRegistry.register(_google_provider)
