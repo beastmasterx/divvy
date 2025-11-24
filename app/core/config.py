@@ -192,6 +192,20 @@ def get_jwt_refresh_token_expire_days() -> int:
     return int(os.getenv("DIVVY_JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
+# Application URL Configuration
+def get_frontend_url() -> str:
+    """
+    Get frontend application URL.
+
+    Used for OAuth redirect URIs and client-side routing.
+    This is where users are redirected after OAuth authentication.
+
+    Returns:
+        Frontend URL (default: http://localhost:3000)
+    """
+    return os.getenv("DIVVY_FRONTEND_URL", "http://localhost:3000")
+
+
 # Identity Provider Configuration
 def get_microsoft_client_id() -> str:
     """Get Microsoft Entra ID Client ID."""
@@ -215,9 +229,13 @@ def get_microsoft_tenant_id() -> str:
 
 
 def get_microsoft_redirect_uri() -> str:
-    """Get OAuth redirect URI for Microsoft."""
-    base_url = os.getenv("DIVVY_BASE_URL", "http://localhost:8000")
-    return f"{base_url}/api/v1/auth/oauth/microsoft/callback"
+    """Get OAuth redirect URI for Microsoft.
+
+    Returns the frontend route that handles OAuth callbacks.
+    The frontend will extract the code and call the backend API.
+    """
+    frontend_url = get_frontend_url()
+    return f"{frontend_url}/auth/callback/microsoft"
 
 
 def get_google_client_id() -> str:
@@ -237,6 +255,10 @@ def get_google_client_secret() -> str:
 
 
 def get_google_redirect_uri() -> str:
-    """Get OAuth redirect URI for Google."""
-    base_url = os.getenv("DIVVY_BASE_URL", "http://localhost:8000")
-    return f"{base_url}/api/v1/auth/oauth/google/callback"
+    """Get OAuth redirect URI for Google.
+
+    Returns the frontend route that handles OAuth callbacks.
+    The frontend will extract the code and call the backend API.
+    """
+    frontend_url = get_frontend_url()
+    return f"{frontend_url}/auth/callback/google"
