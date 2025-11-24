@@ -2,10 +2,12 @@
 Factory functions for creating test data.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.models import (
+    AccountLinkRequest,
+    AccountLinkRequestStatus,
     Category,
     Group,
     Period,
@@ -13,6 +15,7 @@ from app.models import (
     Transaction,
     TransactionKind,
     User,
+    UserIdentity,
 )
 
 
@@ -38,14 +41,7 @@ def create_test_user(
     Returns:
         User instance (not persisted to database)
     """
-    return User(
-        email=email,
-        name=name,
-        password=password or "hashed_password_placeholder",
-        is_active=is_active,
-        avatar=avatar,
-        **kwargs
-    )
+    return User(email=email, name=name, password=password, is_active=is_active, avatar=avatar, **kwargs)
 
 
 def create_test_group(name: str = "Test Group", owner_id: int = 1, **kwargs: Any) -> Group:
@@ -142,5 +138,75 @@ def create_test_transaction(
         category_id=category_id,
         period_id=period_id,
         description=description,
+        **kwargs
+    )
+
+
+def create_test_user_identity(
+    user_id: int = 1,
+    identity_provider: str = "microsoft",
+    external_id: str = "external_123",
+    external_email: str | None = "external@example.com",
+    external_username: str | None = "external_user",
+    **kwargs: Any
+) -> UserIdentity:
+    """
+    Factory for creating test user identities.
+
+    Args:
+        user_id: ID of the user this identity belongs to
+        identity_provider: Name of the identity provider (microsoft, google, facebook)
+        external_id: Provider's unique user ID
+        external_email: Email from provider (optional)
+        external_username: Username from provider (optional)
+        **kwargs: Additional UserIdentity model fields
+
+    Returns:
+        UserIdentity instance (not persisted to database)
+    """
+    return UserIdentity(
+        user_id=user_id,
+        identity_provider=identity_provider,
+        external_id=external_id,
+        external_email=external_email,
+        external_username=external_username,
+        **kwargs
+    )
+
+
+def create_test_account_link_request(
+    user_identity_id: int = 1,
+    request_token: str = "test_token_123",
+    status: str = AccountLinkRequestStatus.PENDING.value,
+    expires_at: datetime | None = None,
+    email_at: datetime | None = None,
+    verified_at: datetime | None = None,
+    **kwargs: Any
+) -> AccountLinkRequest:
+    """
+    Factory for creating test account link requests.
+
+    Args:
+        user_identity_id: ID of the user identity this request is for
+        request_token: Unique token for the request
+        status: Status of the request (pending, approved, denied, expired)
+        expires_at: When the request expires (defaults to 24 hours from now)
+        email_at: When the email was sent (optional)
+        verified_at: When the request was verified (optional)
+        **kwargs: Additional AccountLinkRequest model fields
+
+    Returns:
+        AccountLinkRequest instance (not persisted to database)
+    """
+    if expires_at is None:
+        expires_at = datetime.now(UTC) + timedelta(hours=24)
+
+    return AccountLinkRequest(
+        user_identity_id=user_identity_id,
+        request_token=request_token,
+        status=status,
+        expires_at=expires_at,
+        email_at=email_at,
+        verified_at=verified_at,
         **kwargs
     )
