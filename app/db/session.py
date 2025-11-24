@@ -3,6 +3,7 @@ Session management for SQLAlchemy.
 Provides async session context managers and session factory.
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -32,7 +33,7 @@ def _get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 @asynccontextmanager
-async def get_session():
+async def get_session() -> AsyncIterator[AsyncSession]:
     """
     Async context manager for database sessions.
 
