@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Period
 
@@ -9,33 +9,31 @@ from app.models import Period
 class PeriodRepository:
     """Repository for managing period entities, which represent time-based expense tracking intervals."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def get_all_periods(self) -> Sequence[Period]:
+    async def get_all_periods(self) -> Sequence[Period]:
         """Retrieve all periods from the database."""
         stmt = select(Period)
-        return self.session.execute(stmt).scalars().all()
+        return (await self.session.scalars(stmt)).all()
 
-    def get_period_by_id(self, period_id: int) -> Period | None:
+    async def get_period_by_id(self, id: int) -> Period | None:
         """Retrieve a specific period by its ID."""
-        stmt = select(Period).where(Period.id == period_id)
-        return self.session.execute(stmt).scalar_one_or_none()
+        return await self.session.get(Period, id)
 
-    def create_period(self, period: Period) -> Period:
+    async def create_period(self, period: Period) -> Period:
         """Create a new period and persist it to the database."""
         self.session.add(period)
-        self.session.commit()
+        await self.session.commit()
         return period
 
-    def update_period(self, period: Period) -> Period:
+    async def update_period(self, period: Period) -> Period:
         """Update an existing period and commit changes to the database."""
-        self.session.commit()
+        await self.session.commit()
         return period
 
-    def delete_period(self, period_id: int) -> None:
+    async def delete_period(self, period_id: int) -> None:
         """Delete a period by its ID if it exists."""
-        period = self.get_period_by_id(period_id)
-        if period:
-            self.session.delete(period)
-            self.session.commit()
+        stmt = delete(Period).where(Period.id == id)
+        await self.session.execute(stmt)
+        await self.session.commit()

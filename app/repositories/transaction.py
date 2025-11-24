@@ -1,7 +1,8 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.models import ExpenseShare, Transaction
 
@@ -9,73 +10,91 @@ from app.models import ExpenseShare, Transaction
 class TransactionRepository:
     """Repository for managing transaction entities and their associated expense shares."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def get_all_transactions(self) -> Sequence[Transaction]:
+    async def get_all_transactions(self) -> Sequence[Transaction]:
         """Retrieve all transactions from the database."""
-        stmt = (
-            select(Transaction)
-            .options(joinedload(Transaction.payer), joinedload(Transaction.category), joinedload(Transaction.period))
+        stmt = select(Transaction).options(
+            joinedload(Transaction.payer),
+            joinedload(Transaction.category),
+            joinedload(Transaction.period),
         )
-        return self.session.execute(stmt).unique().scalars().all()
+        return (await self.session.scalars(stmt)).all()
 
-    def get_transaction_by_id(self, transaction_id: int) -> Transaction | None:
+    async def get_transaction_by_id(self, transaction_id: int) -> Transaction | None:
         """Retrieve a specific transaction by its ID."""
         stmt = (
             select(Transaction)
             .where(Transaction.id == transaction_id)
-            .options(joinedload(Transaction.payer), joinedload(Transaction.category), joinedload(Transaction.period))
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+                joinedload(Transaction.period),
+            )
         )
-        return self.session.execute(stmt).scalar_one_or_none()
+        return (await self.session.scalars(stmt)).one_or_none()
 
-    def get_transactions_by_period_id(self, period_id: int) -> Sequence[Transaction]:
+    async def get_transactions_by_period_id(self, period_id: int) -> Sequence[Transaction]:
         """Retrieve all transactions associated with a specific period."""
         stmt = (
             select(Transaction)
             .where(Transaction.period_id == period_id)
-            .options(joinedload(Transaction.payer), joinedload(Transaction.category), joinedload(Transaction.period))
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+                joinedload(Transaction.period),
+            )
         )
-        return self.session.execute(stmt).unique().scalars().all()
+        return (await self.session.scalars(stmt)).all()
 
-    def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[Transaction]:
+    async def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[Transaction]:
         """Retrieve all transactions where a specific user has an expense share."""
         stmt = (
             select(Transaction)
             .join(ExpenseShare)
             .where(ExpenseShare.user_id == user_id)
-            .options(joinedload(Transaction.payer), joinedload(Transaction.category), joinedload(Transaction.period))
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+                joinedload(Transaction.period),
+            )
         )
-        return self.session.execute(stmt).unique().scalars().all()
+        return (await self.session.scalars(stmt)).all()
 
-    def create_transaction(self, transaction: Transaction) -> Transaction:
+    async def create_transaction(self, transaction: Transaction) -> Transaction:
         """Create a new transaction and persist it to the database."""
         self.session.add(transaction)
-        self.session.commit()
-        self.session.refresh(transaction)
+        await self.session.commit()
         # Eagerly load relationships for response serialization
         stmt = (
             select(Transaction)
             .where(Transaction.id == transaction.id)
-            .options(joinedload(Transaction.payer), joinedload(Transaction.category), joinedload(Transaction.period))
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+                joinedload(Transaction.period),
+            )
         )
-        return self.session.execute(stmt).scalar_one()
+        return (await self.session.scalars(stmt)).one()
 
-    def update_transaction(self, transaction: Transaction) -> Transaction:
+    async def update_transaction(self, transaction: Transaction) -> Transaction:
         """Update an existing transaction and commit changes to the database."""
-        self.session.commit()
-        self.session.refresh(transaction)
+        await self.session.commit()
         # Eagerly load relationships for response serialization
         stmt = (
             select(Transaction)
             .where(Transaction.id == transaction.id)
-            .options(joinedload(Transaction.payer), joinedload(Transaction.category), joinedload(Transaction.period))
+            .options(
+                joinedload(Transaction.payer),
+                joinedload(Transaction.category),
+                joinedload(Transaction.period),
+            )
         )
-        return self.session.execute(stmt).scalar_one()
+        return (await self.session.scalars(stmt)).one()
 
-    def delete_transaction(self, transaction_id: int) -> None:
+    async def delete_transaction(self, id: int) -> None:
         """Delete a transaction by its ID if it exists."""
-        transaction = self.get_transaction_by_id(transaction_id)
-        if transaction:
-            self.session.delete(transaction)
-            self.session.commit()
+        stmt = delete(Transaction).where(Transaction.id == id)
+        await self.session.execute(stmt)
+        await self.session.commit()

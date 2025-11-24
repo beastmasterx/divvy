@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import RefreshToken
 
@@ -11,10 +11,10 @@ from app.models import RefreshToken
 class RefreshTokenRepository:
     """Repository for managing refresh token entities."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def create(
+    async def create(
         self,
         hashed_token: str,
         user_id: int,
@@ -30,41 +30,41 @@ class RefreshTokenRepository:
             is_revoked=False,
         )
         self.session.add(refresh_token)
-        self.session.commit()
+        await self.session.commit()
         return refresh_token
 
-    def lookup(self, hashed_token: str) -> RefreshToken | None:
+    async def lookup(self, hashed_token: str) -> RefreshToken | None:
         """Retrieve a refresh token by its hashed token."""
         stmt = select(RefreshToken).where(RefreshToken.token == hashed_token)
-        return self.session.execute(stmt).scalar_one_or_none()
+        return (await self.session.scalars(stmt)).one_or_none()
 
-    def revoke_by_id(self, id: int) -> RefreshToken | None:
+    async def revoke_by_id(self, id: int) -> RefreshToken | None:
         """Revoke a refresh token by its ID and return the revoked token."""
-        refresh_token = self.session.get(RefreshToken, id)
+        refresh_token = await self.session.get(RefreshToken, id)
         if refresh_token:
             refresh_token.is_revoked = True
-            self.session.commit()
+            await self.session.commit()
         return refresh_token
 
-    def revoke(self, hashed_token: str) -> RefreshToken | None:
+    async def revoke(self, hashed_token: str) -> RefreshToken | None:
         """Revoke a refresh token by its token and return the revoked token."""
-        refresh_token = self.lookup(hashed_token)
+        refresh_token = await self.lookup(hashed_token)
         if refresh_token:
             refresh_token.is_revoked = True
-            self.session.commit()
+            await self.session.commit()
         return refresh_token
 
-    def revoke_all(self, user_id: int) -> None:
+    async def revoke_all(self, user_id: int) -> None:
         """Revoke all refresh tokens for a specific user."""
         stmt = select(RefreshToken).where(RefreshToken.user_id == user_id).where(~RefreshToken.is_revoked)
-        tokens = self.session.execute(stmt).scalars().all()
+        tokens = (await self.session.scalars(stmt)).all()
         for token in tokens:
             token.is_revoked = True
-        self.session.commit()
+        await self.session.commit()
 
-    def update_last_used(self, token_id: int, last_used_at: datetime) -> None:
+    async def update_last_used(self, token_id: int, last_used_at: datetime) -> None:
         """Update the last used timestamp for a refresh token."""
-        refresh_token = self.session.get(RefreshToken, token_id)
+        refresh_token = await self.session.get(RefreshToken, token_id)
         if refresh_token:
             refresh_token.last_used_at = last_used_at
-            self.session.commit()
+            await self.session.commit()
