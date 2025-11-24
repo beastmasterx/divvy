@@ -78,8 +78,6 @@ known-first-party = ["divvy"]
 "tests/*" = ["E501"]
 # Allow unused import in session.py (audit module must be imported for event listeners)
 "app/db/session.py" = ["F401"]
-# Allow unused import in session.py (audit module must be imported for event listeners)
-"app/db/session.py" = ["F401"]
 
 [tool.black]
 line-length = 120
