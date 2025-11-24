@@ -29,8 +29,8 @@ class TokenResponse(BaseModel):
     Field order matches OAuth2 standard: access_token, token_type, expires_in, refresh_token, scope.
     """
 
-    response_type: Literal["token"] | None = Field(
-        default=None,
+    response_type: Literal["token"] = Field(
+        default="token",
         description="Response type discriminator - only used in OAuth callback endpoint for discriminated union. Not part of OAuth2 RFC 6749 spec.",
     )
     access_token: str = Field(

@@ -287,14 +287,7 @@ async def oauth_callback(
         UnauthorizedError: If OAuth flow fails
     """
     device_info = _get_device_info(http) if http else None
-    result = await identity_provider_service.handle_oauth_callback(provider, code, state, device_info)
-
-    # For discriminated union, ensure response_type is set for TokenResponse
-    # (OAuth2 endpoints exclude this field for RFC 6749 compliance)
-    if isinstance(result, TokenResponse) and result.response_type is None:
-        result.response_type = "token"
-
-    return result
+    return await identity_provider_service.handle_oauth_callback(provider, code, state, device_info)
 
 
 @router.post("/link/{provider}/initiate", response_model=OAuthAuthorizeResponse)
