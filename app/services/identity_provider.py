@@ -5,14 +5,11 @@ Service for managing identity provider OAuth flows and account linking.
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas import TokenResponse, UserRequest
-from app.core.security import (
-    check_password,
-)
+from app.api.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
+from app.core.security import check_password
 from app.exceptions import NotFoundError, UnauthorizedError, ValidationError
 from app.models import AccountLinkRequest, AccountLinkRequestStatus, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
@@ -72,7 +69,7 @@ class IdentityProviderService:
         code: str,
         state: str | None = None,
         device_info: str | None = None,
-    ) -> TokenResponse | dict[str, Any]:
+    ) -> TokenResponse | LinkingRequiredResponse:
         """
         Handle OAuth callback: exchange code for tokens and create/link account.
 
@@ -93,7 +90,7 @@ class IdentityProviderService:
             device_info: Optional device information (e.g., User-Agent string)
 
         Returns:
-            TokenResponse if user is authenticated, or dict with link request info
+            TokenResponse if user is authenticated, or LinkingRequiredResponse if linking required
 
         Raises:
             ValueError: If provider is not registered
@@ -149,12 +146,13 @@ class IdentityProviderService:
             )
             # TODO: Send email notification (placeholder: log for now)
             logger.info(f"Account link request created: {link_request.request_token}")
-            return {
-                "requires_linking": True,
-                "request_token": link_request.request_token,
-                "email": email,
-                "message": "An account with this email already exists. Please verify your password to link this account.",
-            }
+            return LinkingRequiredResponse(
+                response_type="linking_required",
+                requires_linking=True,
+                request_token=link_request.request_token,
+                email=email,
+                message="An account with this email already exists. Please verify your password to link this account.",
+            )
 
         # Email doesn't exist - create new user and identity
         logger.info(f"Creating new user for provider {provider_name}, email: {email}")

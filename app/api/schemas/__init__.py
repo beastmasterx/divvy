@@ -4,6 +4,7 @@ Pydantic schemas (DTOs) for API requests and responses.
 
 from .auth import (
     AccountLinkVerifyRequest,
+    LinkingRequiredResponse,
     OAuthAuthorizeResponse,
     OAuthCallbackResponse,
     RefreshTokenRequest,
@@ -28,6 +29,7 @@ __all__ = [
     "CategoryResponse",
     "GroupRequest",
     "GroupResponse",
+    "LinkingRequiredResponse",
     "OAuthAuthorizeResponse",
     "OAuthCallbackResponse",
     "PeriodCreateRequest",

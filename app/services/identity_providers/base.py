@@ -5,7 +5,7 @@ Base abstraction for identity providers.
 from typing import Any, NamedTuple, Protocol
 
 
-class TokenResponse(NamedTuple):
+class IdentityProviderTokenResponse(NamedTuple):
     """OAuth2 token response from identity provider."""
 
     access_token: str
@@ -17,7 +17,7 @@ class TokenResponse(NamedTuple):
     raw_data: dict[str, Any] | None = None
 
 
-class UserInfo(NamedTuple):
+class IdentityProviderUserInfo(NamedTuple):
     """Standardized user information from identity provider."""
 
     external_id: str
@@ -45,7 +45,7 @@ class IdentityProvider(Protocol):
         """
         ...
 
-    async def exchange_code_for_tokens(self, code: str) -> TokenResponse:
+    async def exchange_code_for_tokens(self, code: str) -> IdentityProviderTokenResponse:
         """Exchange authorization code for access token and ID token.
 
         Args:
@@ -59,7 +59,7 @@ class IdentityProvider(Protocol):
         """
         ...
 
-    async def get_user_info(self, access_token: str) -> UserInfo:
+    async def get_user_info(self, access_token: str) -> IdentityProviderUserInfo:
         """Get and extract standardized user information from provider's API.
 
         Args:

@@ -5,6 +5,7 @@ API v1 router for authentication endpoints.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Query, Request, status
+from pydantic import Discriminator
 
 from app.api.dependencies import (
     get_auth_service,
@@ -15,8 +16,8 @@ from app.api.dependencies import (
 from app.api.schemas import UserResponse
 from app.api.schemas.auth import (
     AccountLinkVerifyRequest,
+    LinkingRequiredResponse,
     OAuthAuthorizeResponse,
-    OAuthCallbackResponse,
     RegisterRequest,
     TokenResponse,
 )
@@ -28,7 +29,12 @@ from app.services.identity_provider import IdentityProviderService
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
+)
 def register(
     request: RegisterRequest,
     http: Request,
@@ -60,7 +66,7 @@ def register(
     )
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post("/token", response_model=TokenResponse, response_model_exclude_none=True)
 def token(
     http: Request,
     grant_type: Annotated[str, Form()] = "password",
@@ -181,20 +187,30 @@ def oauth_authorize(
     return OAuthAuthorizeResponse(authorization_url=authorization_url)
 
 
-@router.get("/oauth/{provider}/callback", response_model=OAuthCallbackResponse | TokenResponse)
+@router.get(
+    "/oauth/{provider}/callback",
+    response_model=Annotated[
+        TokenResponse | LinkingRequiredResponse,
+        Discriminator("response_type"),
+    ],
+)
 async def oauth_callback(
     provider: str,
     code: Annotated[str, Query(..., description="Authorization code from OAuth provider")],
     state: Annotated[str | None, Query()] = None,
     http: Request = None,  # type: ignore[assignment]
     identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
-) -> OAuthCallbackResponse | TokenResponse:
+) -> TokenResponse | LinkingRequiredResponse:
     """
     Handle OAuth callback from identity provider.
 
     Exchanges the authorization code for tokens and either:
     - Returns tokens if user is authenticated (new account or existing linked account)
     - Returns account linking info if email already exists (requires password verification)
+
+    The response includes a `response_type` field that indicates which type of response:
+    - `"token"`: Authentication succeeded, contains access_token and refresh_token
+    - `"linking_required"`: Account linking required, contains request_token and email
 
     Args:
         provider: Identity provider name (e.g., 'microsoft', 'google')
@@ -204,7 +220,8 @@ async def oauth_callback(
         identity_provider_service: Identity provider service instance
 
     Returns:
-        TokenResponse if authenticated, or OAuthCallbackResponse if linking required
+        TokenResponse (response_type="token") if authenticated,
+        or LinkingRequiredResponse (response_type="linking_required") if linking required
 
     Raises:
         ValueError: If provider is not registered
@@ -213,11 +230,11 @@ async def oauth_callback(
     device_info = _get_device_info(http) if http else None
     result = await identity_provider_service.handle_oauth_callback(provider, code, state, device_info)
 
-    # If result is a dict, it means linking is required
-    if isinstance(result, dict):
-        return OAuthCallbackResponse(**result)
+    # For discriminated union, ensure response_type is set for TokenResponse
+    # (OAuth2 endpoints exclude this field for RFC 6749 compliance)
+    if isinstance(result, TokenResponse) and result.response_type is None:
+        result.response_type = "token"
 
-    # Otherwise, it's a TokenResponse
     return result
 
 
@@ -251,7 +268,7 @@ def verify_account_link(
     )
 
 
-@router.post("/link/approve", response_model=TokenResponse)
+@router.post("/link/approve", response_model=TokenResponse, response_model_exclude_none=True)
 def approve_account_link(
     request: AccountLinkVerifyRequest,
     current_user: UserResponse | None = Depends(get_current_user_optional),

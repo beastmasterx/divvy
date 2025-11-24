@@ -14,7 +14,7 @@ from app.core.config import (
 )
 from app.exceptions import UnauthorizedError
 from app.models import IdentityProvider as IdentityProviderEnum
-from app.services.identity_providers.base import TokenResponse, UserInfo
+from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class GoogleProvider:
 
         return f"{self.AUTHORIZATION_ENDPOINT}?{urlencode(params)}"
 
-    async def exchange_code_for_tokens(self, code: str) -> TokenResponse:
+    async def exchange_code_for_tokens(self, code: str) -> IdentityProviderTokenResponse:
         """Exchange authorization code for access token and ID token.
 
         Args:
@@ -92,7 +92,7 @@ class GoogleProvider:
             logger.error(f"Network error exchanging Google code: {e}")
             raise UnauthorizedError("Network error during token exchange") from e
 
-        return TokenResponse(
+        return IdentityProviderTokenResponse(
             access_token=raw_response.get("access_token", ""),
             token_type=raw_response.get("token_type", "Bearer"),
             expires_in=raw_response.get("expires_in"),
@@ -102,7 +102,7 @@ class GoogleProvider:
             raw_data=raw_response,
         )
 
-    async def get_user_info(self, access_token: str) -> UserInfo:
+    async def get_user_info(self, access_token: str) -> IdentityProviderUserInfo:
         """Get and extract standardized user information from Google UserInfo API.
 
         Args:
@@ -138,7 +138,7 @@ class GoogleProvider:
         if not email:
             raise UnauthorizedError("Could not extract email from Google response")
 
-        return UserInfo(
+        return IdentityProviderUserInfo(
             external_id=external_id,
             email=email,
             name=name,

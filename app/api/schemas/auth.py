@@ -2,6 +2,8 @@
 Pydantic schemas for authentication requests and responses.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -27,6 +29,10 @@ class TokenResponse(BaseModel):
     Field order matches OAuth2 standard: access_token, token_type, expires_in, refresh_token, scope.
     """
 
+    response_type: Literal["token"] | None = Field(
+        default=None,
+        description="Response type discriminator - only used in OAuth callback endpoint for discriminated union. Not part of OAuth2 RFC 6749 spec.",
+    )
     access_token: str = Field(
         ..., description="The access token issued by the authorization server (OAuth 2.0 RFC 6749)"
     )
@@ -50,25 +56,21 @@ class OAuthAuthorizeResponse(BaseModel):
     authorization_url: str = Field(..., description="URL to redirect user to for OAuth login")
 
 
-class OAuthCallbackResponse(BaseModel):
-    """Response schema for OAuth callback - may require account linking."""
+class LinkingRequiredResponse(BaseModel):
+    """Response schema for OAuth callback when account linking is required."""
 
-    requires_linking: bool = Field(..., description="Whether account linking is required")
-    request_token: str | None = Field(
-        default=None, description="Token for account linking request (if requires_linking is True)"
+    response_type: Literal["linking_required"] = Field(
+        default="linking_required",
+        description="Response type discriminator - indicates account linking is required",
     )
-    email: str | None = Field(
-        default=None, description="Email address for account linking (if requires_linking is True)"
-    )
-    message: str | None = Field(
-        default=None, description="Message explaining the account linking requirement (if requires_linking is True)"
-    )
-    access_token: str | None = Field(
-        default=None, description="Access token (if requires_linking is False and authentication succeeded)"
-    )
-    token_type: str | None = Field(default=None, description="Token type, typically 'Bearer'")
-    expires_in: int | None = Field(default=None, description="Access token expiration time in seconds")
-    refresh_token: str | None = Field(default=None, description="Refresh token for obtaining new access tokens")
+    requires_linking: bool = Field(default=True, description="Whether account linking is required")
+    request_token: str = Field(..., description="Token for account linking request")
+    email: str = Field(..., description="Email address for account linking")
+    message: str = Field(..., description="Message explaining the account linking requirement")
+
+
+# Keep OAuthCallbackResponse for backward compatibility, but it's now just an alias
+OAuthCallbackResponse = LinkingRequiredResponse
 
 
 class AccountLinkVerifyRequest(BaseModel):

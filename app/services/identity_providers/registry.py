@@ -57,6 +57,29 @@ class IdentityProviderRegistry:
         """
         return name in cls._providers
 
+    @classmethod
+    def unregister(cls, name: str) -> None:
+        """Unregister a provider by name.
+
+        Args:
+            name: Provider name to unregister
+
+        Note:
+            This method is primarily useful for testing. In production,
+            providers are typically registered once and remain registered.
+        """
+        cls._providers.pop(name, None)
+
+    @classmethod
+    def clear(cls) -> None:
+        """Clear all registered providers.
+
+        Note:
+            This method is primarily useful for testing. In production,
+            this should not be called as it will remove all registered providers.
+        """
+        cls._providers.clear()
+
 
 # Auto-register providers on module import
 # from .microsoft import MicrosoftProvider

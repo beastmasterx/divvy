@@ -15,7 +15,7 @@ from app.core.config import (
 )
 from app.exceptions import UnauthorizedError
 from app.models import IdentityProvider as IdentityProviderEnum
-from app.services.identity_providers.base import TokenResponse, UserInfo
+from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class MicrosoftProvider:
         endpoint = self.AUTHORIZATION_ENDPOINT.format(tenant=self._tenant_id)
         return f"{endpoint}?{urlencode(params)}"
 
-    async def exchange_code_for_tokens(self, code: str) -> TokenResponse:
+    async def exchange_code_for_tokens(self, code: str) -> IdentityProviderTokenResponse:
         """Exchange authorization code for access token and ID token.
 
         Args:
@@ -96,7 +96,7 @@ class MicrosoftProvider:
             logger.error(f"Network error exchanging Microsoft code: {e}")
             raise UnauthorizedError("Network error during token exchange") from e
 
-        return TokenResponse(
+        return IdentityProviderTokenResponse(
             access_token=raw_response.get("access_token", ""),
             token_type=raw_response.get("token_type", "Bearer"),
             expires_in=raw_response.get("expires_in"),
@@ -106,7 +106,7 @@ class MicrosoftProvider:
             raw_data=raw_response,
         )
 
-    async def get_user_info(self, access_token: str) -> UserInfo:
+    async def get_user_info(self, access_token: str) -> IdentityProviderUserInfo:
         """Get and extract standardized user information from Microsoft Graph API.
 
         Args:
@@ -142,7 +142,7 @@ class MicrosoftProvider:
         if not email:
             raise UnauthorizedError("Could not extract email from Microsoft response")
 
-        return UserInfo(
+        return IdentityProviderUserInfo(
             external_id=external_id,
             email=email,
             name=name,
