@@ -8,8 +8,10 @@
       "module": "uvicorn",
       "args": [
         "app.main:app",
-        "--host", "0.0.0.0",
-        "--port", "8000",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
         "--reload"
       ],
       "jinja": true,
@@ -32,8 +34,10 @@
       "module": "uvicorn",
       "args": [
         "app.main:app",
-        "--host", "0.0.0.0",
-        "--port", "8000"
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
       ],
       "jinja": true,
       "justMyCode": false,
@@ -50,42 +54,6 @@
       }
     },
     {
-      "name": "CLI: Python (Debug)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/cli-py/main.py",
-      "console": "integratedTerminal",
-      "justMyCode": false,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}"
-      },
-      "cwd": "${workspaceFolder}",
-      "presentation": {
-        "hidden": false,
-        "group": "CLI",
-        "order": 1
-      }
-    },
-    {
-      "name": "CLI: Python (Development)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/cli-py/main.py",
-      "console": "integratedTerminal",
-      "justMyCode": false,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}",
-        "DIVVY_ENV": "dev",
-        "DIVVY_LOG_LEVEL": "DEBUG"
-      },
-      "cwd": "${workspaceFolder}",
-      "presentation": {
-        "hidden": false,
-        "group": "CLI",
-        "order": 2
-      }
-    },
-    {
       "name": "CLI: Dart (Debug)",
       "type": "dart",
       "request": "launch",
@@ -95,7 +63,7 @@
       "presentation": {
         "hidden": false,
         "group": "CLI",
-        "order": 3
+        "order": 1
       }
     },
     {
@@ -111,24 +79,9 @@
       "presentation": {
         "hidden": false,
         "group": "CLI",
-        "order": 4
+        "order": 2
       }
     }
   ],
-  "compounds": [
-    {
-      "name": "Full Stack: API + CLI (Python)",
-      "configurations": [
-        "API: FastAPI (Debug)",
-        "CLI: Python (Debug)"
-      ],
-      "presentation": {
-        "hidden": false,
-        "group": "Compound",
-        "order": 1
-      },
-      "stopAll": true
-    }
-  ]
+  "compounds": []
 }
-
