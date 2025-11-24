@@ -5,6 +5,7 @@ from typing import Any
 
 from jose import jwt
 from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
 
 from .config import JWT_ALGORITHM, get_jwt_access_token_expire_seconds, get_jwt_secret_key
 
@@ -57,7 +58,10 @@ def check_password(password: str, hash: str) -> bool:
     """
     password_bytes = password.encode("utf-8")
     hash_bytes = hash.encode("utf-8")
-    return _password_hash.verify(password_bytes, hash_bytes)
+    try:
+        return _password_hash.verify(password_bytes, hash_bytes)
+    except UnknownHashError:
+        return False
 
 
 def generate_refresh_token() -> tuple[str, str]:

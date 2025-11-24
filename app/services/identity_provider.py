@@ -4,11 +4,12 @@ Service for managing identity provider OAuth flows and account linking.
 
 import logging
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
 from app.api.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
+from app.core.datetime import utc, utc_now
 from app.core.security import check_password
 from app.exceptions import NotFoundError, UnauthorizedError, ValidationError
 from app.models import AccountLinkRequest, AccountLinkRequestStatus, User, UserIdentity
@@ -193,7 +194,7 @@ class IdentityProviderService:
         if request.status != AccountLinkRequestStatus.PENDING.value:
             raise ValidationError(f"Account link request is {request.status}, cannot verify")
 
-        if request.expires_at < datetime.now(UTC):
+        if utc(request.expires_at) < utc_now():
             request.status = AccountLinkRequestStatus.EXPIRED.value
             self._account_link_request_repository.update_request(request)
             raise ValidationError("Account link request has expired")
@@ -248,7 +249,7 @@ class IdentityProviderService:
 
         # Update request status
         request.status = AccountLinkRequestStatus.APPROVED.value
-        request.verified_at = datetime.now(UTC)
+        request.verified_at = utc_now()
         self._account_link_request_repository.update_request(request)
 
         # Get user and return tokens
@@ -341,7 +342,7 @@ class IdentityProviderService:
 
         # Generate secure request token
         request_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now(UTC) + timedelta(hours=self.LINK_REQUEST_EXPIRATION_HOURS)
+        expires_at = utc_now() + timedelta(hours=self.LINK_REQUEST_EXPIRATION_HOURS)
 
         link_request = AccountLinkRequest(
             request_token=request_token,
