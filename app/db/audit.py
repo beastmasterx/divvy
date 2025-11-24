@@ -7,7 +7,7 @@ from contextvars import ContextVar
 from typing import Any
 
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.models.models import AuditMixin
 
@@ -40,49 +40,51 @@ def clear_current_user_id() -> None:
     _current_user_id.set(None)
 
 
-def _set_audit_fields(session: AsyncSession, current_user_id: int | None) -> None:
+def _set_audit_fields(session: Session, current_user_id: int | None) -> None:
     """
-    Helper function to set audit fields on async session instances.
+    Helper function to set audit fields on the underlying synchronous session.
 
     Args:
-        session: The SQLAlchemy async session
-        current_user_id: The current user ID from context
+        session: The underlying synchronous SQLAlchemy Session instance.
+        current_user_id: The current user ID from context.
     """
-    # Skip if no user context (e.g., system operations, migrations)
+    # Skip if no user context
     if current_user_id is None:
         return
 
     # Process new entities (INSERT operations)
+    # session.new is a set of state objects, the instance is accessible via .instance
     for instance in session.new:
-        if isinstance(instance, AuditMixin) and instance.created_by is None:
-            # Only set if not already set (allows manual override)
+        # Check if the object being added inherits from AuditMixin and has no created_by set
+        if isinstance(instance, AuditMixin) and getattr(instance, "created_by", None) is None:
             instance.created_by = current_user_id
-            # created_at is already handled by TimestampMixin default
 
     # Process modified entities (UPDATE operations)
+    # session.dirty is a set of state objects
     for instance in session.dirty:
+        # Check if the object being modified inherits from AuditMixin
         if isinstance(instance, AuditMixin):
-            # Always update updated_by on modification
+            # Always set updated_by on modification
             instance.updated_by = current_user_id
-            # updated_at is already handled by TimestampMixin onupdate
 
-    # Process deleted entities (DELETE operations)
-    for instance in session.deleted:
-        if isinstance(instance, AuditMixin):
-            pass
+    # session.deleted is a set of state objects. No audit field logic usually needed for DELETE.
+    # for instance in session.deleted:
+    #     if isinstance(instance, AuditMixin):
+    #         pass
 
 
-@event.listens_for(AsyncSession, "before_flush")
-def receive_before_flush(session: AsyncSession, flush_context: Any, instances: Any) -> None:
+@event.listens_for(Session, "before_flush")
+def receive_before_flush(session: Session, flush_context: Any, instances: Any) -> None:
     """
-    SQLAlchemy event listener that automatically sets audit fields on async sessions.
+    SQLAlchemy event listener that automatically sets audit fields.
 
-    This listener runs before SQLAlchemy flushes changes to the database.
-
-    Args:
-        session: The SQLAlchemy async session
-        flush_context: The flush context (unused, but required by SQLAlchemy event API)
-        instances: Instances being flushed (unused, we iterate session instead)
+    This listener runs on the underlying synchronous Session, which is called
+    by AsyncSession when an operation like commit/flush is awaited.
     """
+    # NOTE: This function MUST be synchronous. No 'await' calls allowed here.
+
+    # Assuming get_current_user_id() is a synchronous function that safely
+    # retrieves the ID from a synchronous context (e.g., threading.local or contextvars).
     current_user_id = get_current_user_id()
+
     _set_audit_fields(session, current_user_id)
