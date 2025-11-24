@@ -9,7 +9,12 @@ description = "Expense splitting CLI with multi-database support"
 requires-python = ">=3.14"
 readme = "README.md"
 license = "Apache-2.0"
-# Runtime dependencies are managed via environment.yml (conda)
+# Core runtime dependencies
+dependencies = [
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.19.0",  # Default async SQLite driver
+]
+# Runtime dependencies are also managed via environment.yml (conda)
 # Development tool dependencies are defined in [project.optional-dependencies.dev]
 
 [project.optional-dependencies]
@@ -22,17 +27,15 @@ dev = [
     "pyright>=1.1.330",
     "alembic>=1.13.0",
 ]
-postgresql = ["psycopg2-binary>=2.9.0"]
-mysql = [
-    "pymysql>=1.0.0",
-    "cryptography>=3.0.0",
-]
-mssql = ["pyodbc>=4.0.0"]
+# Async database drivers
+postgresql = ["asyncpg>=0.29.0"]
+mysql = ["aiomysql>=0.2.0"]
+sqlite = ["aiosqlite>=0.19.0"]
+# All async database drivers
 all-databases = [
-    "psycopg2-binary>=2.9.0",
-    "pymysql>=1.0.0",
-    "cryptography>=3.0.0",
-    "pyodbc>=4.0.0",
+    "asyncpg>=0.29.0",
+    "aiomysql>=0.2.0",
+    "aiosqlite>=0.19.0",
 ]
 
 [tool.ruff]
@@ -73,6 +76,10 @@ known-first-party = ["divvy"]
 [tool.ruff.lint.per-file-ignores]
 # Allow longer lines in tests
 "tests/*" = ["E501"]
+# Allow unused import in session.py (audit module must be imported for event listeners)
+"app/db/session.py" = ["F401"]
+# Allow unused import in session.py (audit module must be imported for event listeners)
+"app/db/session.py" = ["F401"]
 
 [tool.black]
 line-length = 120

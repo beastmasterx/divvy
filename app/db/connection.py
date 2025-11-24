@@ -1,12 +1,11 @@
 """
 Database connection factory supporting multiple database backends.
-Supports SQLite, PostgreSQL, MySQL, and MSSQL.
+Supports SQLite, PostgreSQL, MySQL, and MSSQL with async SQLAlchemy.
 """
 
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 # Determine the absolute path to the project root and the database file
 # From app/db/connection.py: go up 2 levels to reach project root
@@ -16,36 +15,36 @@ DB_FILE = os.path.join(PROJECT_ROOT, "data", "expenses.db")
 
 def get_database_url() -> str:
     """
-    Get database connection URL from environment variable or default to SQLite.
+    Get async database connection URL from environment variable or default to SQLite.
 
-    Supported formats:
-    - SQLite: sqlite:///path/to/file.db
-    - PostgreSQL: postgresql+psycopg2://user:password@host:port/database
-    - MySQL: mysql+pymysql://user:password@host:port/database
-    - MSSQL: mssql+pyodbc://user:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server
+    Expected async URL formats:
+    - SQLite: sqlite+aiosqlite:///path/to/file.db
+    - PostgreSQL: postgresql+asyncpg://user:password@host:port/database
+    - MySQL: mysql+aiomysql://user:password@host:port/database
+    - MSSQL: mssql+aioodbc://user:password@host:port/database?driver=...
 
     Returns:
-        Database connection URL string
+        Async database connection URL string
     """
     database_url = os.getenv("DIVVY_DATABASE_URL")
 
     if database_url:
         return database_url
 
-    # Default to SQLite
+    # Default to async SQLite
     os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
-    return f"sqlite:///{DB_FILE}"
+    return f"sqlite+aiosqlite:///{DB_FILE}"
 
 
-def _create_engine_from_url(url: str | None = None) -> Engine:
+def _create_engine_from_url(url: str | None = None) -> AsyncEngine:
     """
-    Create SQLAlchemy engine from database URL.
+    Create async SQLAlchemy engine from database URL.
 
     Args:
         url: Database URL. If None, uses get_database_url() to determine URL.
 
     Returns:
-        SQLAlchemy Engine instance
+        Async SQLAlchemy Engine instance
 
     Raises:
         ImportError: If required database driver is not installed
@@ -55,15 +54,15 @@ def _create_engine_from_url(url: str | None = None) -> Engine:
 
     print(url)
 
-    # Create engine with appropriate settings
+    # Create async engine with appropriate settings
     # For SQLite, use check_same_thread=False to allow connection sharing
     # For other databases, connection pooling is handled automatically
     connect_args = {}
-    if url.startswith("sqlite"):
+    if url.startswith("sqlite+aiosqlite"):
         connect_args = {"check_same_thread": False}
 
     try:
-        engine = create_engine(
+        engine = create_async_engine(
             url,
             connect_args=connect_args,
             echo=False,  # Set to True for SQL debugging
@@ -73,33 +72,37 @@ def _create_engine_from_url(url: str | None = None) -> Engine:
     except ImportError as e:
         # Provide helpful error messages for missing drivers
         error_msg = str(e).lower()
-        if "postgresql" in url.lower() or "psycopg" in error_msg:
+        if "postgresql" in url.lower() or "asyncpg" in error_msg:
             raise ImportError(
-                "PostgreSQL driver not installed.\n"
-                "Install with: pip install -e .[postgresql]\n"
-                "Or: pip install psycopg2-binary"
+                "PostgreSQL async driver not installed.\n"
+                "Install with: pip install asyncpg\n"
+                "Or: pip install -e .[postgresql-async]"
             ) from e
-        elif "mysql" in url.lower() or "pymysql" in error_msg:
+        elif "mysql" in url.lower() or "aiomysql" in error_msg:
             raise ImportError(
-                "MySQL driver not installed.\n" "Install with: pip install -e .[mysql]\n" "Or: pip install pymysql"
+                "MySQL async driver not installed.\n"
+                "Install with: pip install aiomysql\n"
+                "Or: pip install -e .[mysql-async]"
             ) from e
-        elif "mssql" in url.lower() or "pyodbc" in error_msg:
+        elif "sqlite" in url.lower() or "aiosqlite" in error_msg:
             raise ImportError(
-                "MSSQL driver not installed.\n" "Install with: pip install -e .[mssql]\n" "Or: pip install pyodbc"
+                "SQLite async driver not installed.\n"
+                "Install with: pip install aiosqlite\n"
+                "Or: pip install -e .[sqlite-async]"
             ) from e
         raise
 
 
-# Global engine instance (lazy initialization)
-_engine: Engine | None = None
+# Global async engine instance (lazy initialization)
+_engine: AsyncEngine | None = None
 
 
-def get_engine() -> Engine:
+def get_engine() -> AsyncEngine:
     """
-    Get or create the global database engine instance.
+    Get or create the global async database engine instance.
 
     Returns:
-        SQLAlchemy Engine instance
+        Async SQLAlchemy Engine instance
     """
     global _engine
     if _engine is None:
@@ -107,9 +110,13 @@ def get_engine() -> Engine:
     return _engine
 
 
-def reset_engine():
-    """Reset the global engine (useful for testing or switching databases)."""
+async def reset_engine():
+    """
+    Reset the global async engine (useful for testing or switching databases).
+
+    Note: This is now async because AsyncEngine.dispose() is async.
+    """
     global _engine
     if _engine is not None:
-        _engine.dispose()
+        await _engine.dispose()
     _engine = None

@@ -10,14 +10,12 @@ Key features:
 """
 
 import tempfile
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from app.db.connection import reset_engine
 from app.models import Base
@@ -33,9 +31,9 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(scope="function")
-def test_db_engine() -> Iterator[Engine]:
+async def test_db_engine() -> AsyncIterator[AsyncEngine]:
     """
-    Create a temporary file-based SQLite database engine with Alembic migrations applied.
+    Create a temporary file-based SQLite async database engine with Alembic migrations applied.
 
     Each test gets a fresh database with the current schema from migrations.
     Uses a temporary file that is automatically cleaned up after the test.
@@ -45,9 +43,9 @@ def test_db_engine() -> Iterator[Engine]:
         db_path = temp_db.name
 
     try:
-        # Create SQLite engine pointing to temporary file
-        engine = create_engine(
-            f"sqlite:///{db_path}",
+        # Create async SQLite engine pointing to temporary file
+        engine = create_async_engine(
+            f"sqlite+aiosqlite:///{db_path}",
             connect_args={"check_same_thread": False},
             echo=False,  # Set to True for SQL debugging
         )
@@ -55,12 +53,13 @@ def test_db_engine() -> Iterator[Engine]:
         # Create all tables using Base.metadata
         # This is faster for unit tests and ensures schema matches models
         # For integration tests that need to test migrations, use Alembic
-        Base.metadata.create_all(bind=engine)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
         yield engine
 
         # Cleanup
-        engine.dispose()
+        await engine.dispose()
     finally:
         # Remove temporary database file
         Path(db_path).unlink(missing_ok=True)
@@ -90,21 +89,23 @@ def test_env_vars(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def mock_database_engine(
-    test_db_engine: Engine,
-) -> Iterator[None]:
+async def mock_database_engine(
+    test_db_engine: AsyncEngine,
+) -> AsyncIterator[None]:
     """
     Mock the database engine to use the test in-memory database.
     This fixture runs automatically for all tests.
     """
-    # Reset any existing engine
-    reset_engine()
+    # Reset any existing engine (async)
+    await reset_engine()
 
-    # Create new session factory with test engine
-    test_session_local = sessionmaker(
+    # Create new async session factory with test engine
+    test_session_local = async_sessionmaker(
         bind=test_db_engine,
+        class_=AsyncSession,
         autocommit=False,
         autoflush=False,
+        expire_on_commit=False,
     )
 
     # Patch database connection functions
@@ -119,24 +120,30 @@ def mock_database_engine(
         yield
 
     # Reset after test
-    reset_engine()
+    await reset_engine()
 
 
 @pytest.fixture
-def db_session(test_db_engine: Engine) -> Iterator[Session]:
+async def db_session(test_db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     """
-    Provide a database session for tests.
+    Provide an async database session for tests.
     Automatically rolls back after each test.
 
     Note: This session uses the test_db_engine directly to ensure
     it sees the migrated schema.
     """
-    # Create session factory bound to the test engine
-    session_local = sessionmaker(bind=test_db_engine, autocommit=False, autoflush=False)
+    # Create async session factory bound to the test engine
+    session_local = async_sessionmaker(
+        bind=test_db_engine,
+        class_=AsyncSession,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
     session = session_local()
 
     try:
         yield session
-        session.rollback()
+        await session.rollback()
     finally:
-        session.close()
+        await session.close()

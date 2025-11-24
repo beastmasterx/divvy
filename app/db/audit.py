@@ -1,12 +1,13 @@
 """
 SQLAlchemy event listeners for automatic audit field management.
+Supports async sessions only.
 """
 
 from contextvars import ContextVar
 from typing import Any
 
 from sqlalchemy import event
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import AuditMixin
 
@@ -39,22 +40,15 @@ def clear_current_user_id() -> None:
     _current_user_id.set(None)
 
 
-@event.listens_for(Session, "before_flush")
-def receive_before_flush(session: Session, flush_context: Any, instances: Any) -> None:
+def _set_audit_fields(session: AsyncSession, current_user_id: int | None) -> None:
     """
-    SQLAlchemy event listener that automatically sets audit fields.
-
-    This listener runs before SQLAlchemy flushes changes to the database.
+    Helper function to set audit fields on async session instances.
 
     Args:
-        session: The SQLAlchemy session
-        flush_context: The flush context (unused, but required by SQLAlchemy event API)
-        instances: Instances being flushed (unused, we iterate session instead)
+        session: The SQLAlchemy async session
+        current_user_id: The current user ID from context
     """
-    current_user_id = get_current_user_id()
-
     # Skip if no user context (e.g., system operations, migrations)
-    # This allows operations without audit tracking when needed
     if current_user_id is None:
         return
 
@@ -76,3 +70,19 @@ def receive_before_flush(session: Session, flush_context: Any, instances: Any) -
     for instance in session.deleted:
         if isinstance(instance, AuditMixin):
             pass
+
+
+@event.listens_for(AsyncSession, "before_flush")
+def receive_before_flush(session: AsyncSession, flush_context: Any, instances: Any) -> None:
+    """
+    SQLAlchemy event listener that automatically sets audit fields on async sessions.
+
+    This listener runs before SQLAlchemy flushes changes to the database.
+
+    Args:
+        session: The SQLAlchemy async session
+        flush_context: The flush context (unused, but required by SQLAlchemy event API)
+        instances: Instances being flushed (unused, we iterate session instead)
+    """
+    current_user_id = get_current_user_id()
+    _set_audit_fields(session, current_user_id)
