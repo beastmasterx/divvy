@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import ProfileRequest, UserRequest, UserResponse
 from app.core.i18n import _
@@ -12,29 +12,29 @@ from app.repositories import UserRepository
 class UserService:
     """Service layer for user-related business logic and operations."""
 
-    def __init__(self, session: Session):
+    async def __init__(self, session: AsyncSession):
         self._user_repository = UserRepository(session)
 
-    def get_all_users(self) -> Sequence[UserResponse]:
+    async def get_all_users(self) -> Sequence[UserResponse]:
         """Retrieve all users."""
-        users = self._user_repository.get_all_users()
+        users = await self._user_repository.get_all_users()
         return [UserResponse.model_validate(user) for user in users]
 
-    def get_user_by_id(self, user_id: int) -> UserResponse | None:
+    async def get_user_by_id(self, user_id: int) -> UserResponse | None:
         """Retrieve a specific user by their ID."""
-        user = self._user_repository.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         return UserResponse.model_validate(user) if user else None
 
-    def get_user_by_email(self, email: str) -> UserResponse | None:
+    async def get_user_by_email(self, email: str) -> UserResponse | None:
         """Retrieve a specific user by their email address."""
-        user = self._user_repository.get_user_by_email(email)
+        user = await self._user_repository.get_user_by_email(email)
         return UserResponse.model_validate(user) if user else None
 
-    def get_groups_by_user_id(self, user_id: int) -> Sequence[Group]:
+    async def get_groups_by_user_id(self, user_id: int) -> Sequence[Group]:
         """Retrieve all groups that a specific user is a member of."""
-        return self._user_repository.get_groups_by_user_id(user_id)
+        return await self._user_repository.get_groups_by_user_id(user_id)
 
-    def create_user(self, request: UserRequest) -> UserResponse:
+    async def create_user(self, request: UserRequest) -> UserResponse:
         """
         Create a new user.
 
@@ -50,10 +50,10 @@ class UserService:
             password=request.password,  # Note: password should be hashed before calling this
             is_active=request.is_active,
         )
-        user = self._user_repository.create_user(user)
+        user = await self._user_repository.create_user(user)
         return UserResponse.model_validate(user)
 
-    def reset_password(self, user_id: int, new_hashed_password: str) -> UserResponse:
+    async def reset_password(self, user_id: int, new_hashed_password: str) -> UserResponse:
         """
         Reset a user's password.
 
@@ -64,15 +64,15 @@ class UserService:
         Returns:
             Updated User response DTO
         """
-        user = self._user_repository.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 
         user.password = new_hashed_password
-        updated_user = self._user_repository.update_user(user)
+        updated_user = await self._user_repository.update_user(user)
         return UserResponse.model_validate(updated_user)
 
-    def update_profile(self, user_id: int, request: ProfileRequest) -> UserResponse:
+    async def update_profile(self, user_id: int, request: ProfileRequest) -> UserResponse:
         """
         Update an existing user's profile (non-password fields).
 
@@ -86,7 +86,7 @@ class UserService:
         Raises:
             NotFoundError: If user not found
         """
-        user = self._user_repository.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 
@@ -100,10 +100,10 @@ class UserService:
         if request.avatar is not None:
             user.avatar = request.avatar
 
-        updated_user = self._user_repository.update_user(user)
+        updated_user = await self._user_repository.update_user(user)
         return UserResponse.model_validate(updated_user)
 
-    def delete_user(self, user_id: int) -> None:
+    async def delete_user(self, user_id: int) -> None:
         """Delete a user by their ID.
 
         User must leave all groups before deletion. This ensures all periods
@@ -116,11 +116,11 @@ class UserService:
             NotFoundError: If user not found
             BusinessRuleError: If user is still a member of groups
         """
-        user = self._user_repository.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 
-        groups = self.get_groups_by_user_id(user_id)
+        groups = await self.get_groups_by_user_id(user_id)
 
         if groups:
             group_names = [g.name for g in groups]
@@ -135,4 +135,4 @@ class UserService:
                 }
             )
 
-        return self._user_repository.delete_user(user_id)
+        return await self._user_repository.delete_user(user_id)

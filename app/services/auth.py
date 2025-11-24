@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserResponse
 from app.core.config import (
@@ -30,11 +30,7 @@ from app.services.user import UserService
 class AuthService:
     """Service layer for authentication-related operations."""
 
-    def __init__(
-        self,
-        session: Session,
-        user_service: UserService,
-    ):
+    def __init__(self, session: AsyncSession, user_service: UserService):
         """
         Initialize AuthService with dependencies.
 
@@ -46,7 +42,7 @@ class AuthService:
         self._refresh_token_repository = RefreshTokenRepository(session)
         self._user_repository = UserRepository(session)
 
-    def register(
+    async def register(
         self,
         email: str,
         name: str,
@@ -71,7 +67,7 @@ class AuthService:
         from app.exceptions import ConflictError
 
         # Check if user exists
-        existing_user = self._user_service.get_user_by_email(email)
+        existing_user = await self._user_service.get_user_by_email(email)
         if existing_user:
             raise ConflictError("Email already registered")
 
@@ -83,11 +79,11 @@ class AuthService:
             is_active=True,
             avatar=None,
         )
-        user = self._user_service.create_user(user_request)
+        user = await self._user_service.create_user(user_request)
 
         # Generate tokens
         access_token = generate_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token = self._generate_refresh_token(user_id=user.id, device_info=device_info)
+        refresh_token = await self._generate_refresh_token(user_id=user.id, device_info=device_info)
 
         return TokenResponse(
             access_token=access_token,
@@ -96,7 +92,7 @@ class AuthService:
             refresh_token=refresh_token,
         )
 
-    def authenticate(self, email: str, password: str, device_info: str | None = None) -> TokenResponse:
+    async def authenticate(self, email: str, password: str, device_info: str | None = None) -> TokenResponse:
         """
         Authenticate a user by email and password.
 
@@ -112,19 +108,14 @@ class AuthService:
             UnauthorizedError: If email or password is incorrect or user is inactive
         """
         # Need ORM model for password verification (password not in DTO)
-        user_orm = self._user_repository.get_user_by_email(email)
+        user = await self._user_repository.get_user_by_email(email)
 
-        if (
-            not user_orm
-            or not user_orm.password
-            or not check_password(password, user_orm.password)
-            or not user_orm.is_active
-        ):
+        if not user or not user.password or not check_password(password, user.password) or not user.is_active:
             raise UnauthorizedError("Invalid email or password or user is inactive")
 
-        return self.generate_tokens(user_orm.id, device_info)
+        return await self.generate_tokens(user.id, device_info)
 
-    def change_password(
+    async def change_password(
         self,
         user_id: int,
         old_password: str,
@@ -146,20 +137,20 @@ class AuthService:
             UnauthorizedError: If old password is incorrect
         """
         # Need ORM model for password verification (password not in DTO)
-        user_orm = self._user_repository.get_user_by_id(user_id)
-        if not user_orm:
+        user = await self._user_repository.get_user_by_id(user_id)
+        if not user:
             raise NotFoundError(f"User {user_id} not found")
 
         # Verify old password
-        if not user_orm.password:
+        if not user.password:
             raise UnauthorizedError("User has no password set")
 
-        if not check_password(old_password, user_orm.password):
+        if not check_password(old_password, user.password):
             raise UnauthorizedError("Current password is incorrect")
 
-        return self._user_service.reset_password(user_id, hash_password(new_password))
+        return await self._user_service.reset_password(user_id, hash_password(new_password))
 
-    def reset_password(self, user_id: int, request: PasswordResetRequest) -> UserResponse:
+    async def reset_password(self, user_id: int, request: PasswordResetRequest) -> UserResponse:
         """
         Reset a user's password (admin operation, no old password required).
 
@@ -173,13 +164,13 @@ class AuthService:
         Raises:
             NotFoundError: If user not found
         """
-        user = self._user_service.get_user_by_id(user_id)
+        user = await self._user_service.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(f"User {user_id} not found")
 
-        return self._user_service.reset_password(user_id, hash_password(request.new_password))
+        return await self._user_service.reset_password(user_id, hash_password(request.new_password))
 
-    def verify_token(self, token: str) -> dict[str, Any]:
+    async def verify_token(self, token: str) -> dict[str, Any]:
         """
         Verify and decode a JWT token.
 
@@ -197,7 +188,7 @@ class AuthService:
         except JWTError as e:
             raise UnauthorizedError(f"Invalid authentication token: {str(e)}") from e
 
-    def _generate_refresh_token(self, user_id: int, device_info: str | None = None) -> str:
+    async def _generate_refresh_token(self, user_id: int, device_info: str | None = None) -> str:
         """
         Generate a new refresh token for a user.
 
@@ -211,7 +202,7 @@ class AuthService:
         token, hash = generate_refresh_token()
         expires_at = datetime.now(UTC) + timedelta(days=get_jwt_refresh_token_expire_days())
 
-        self._refresh_token_repository.create(
+        await self._refresh_token_repository.create(
             hashed_token=hash,
             user_id=user_id,
             expires_at=expires_at,
@@ -220,7 +211,7 @@ class AuthService:
 
         return token
 
-    def revoke_refresh_token(self, token: str) -> RefreshToken | None:
+    async def revoke_refresh_token(self, token: str) -> RefreshToken | None:
         """
         Revoke a refresh token by marking it as revoked.
 
@@ -231,18 +222,18 @@ class AuthService:
             Revoked RefreshToken object if successful, None otherwise
         """
         hashed_refresh_token = hash_refresh_token(token)
-        return self._refresh_token_repository.revoke(hashed_refresh_token)
+        return await self._refresh_token_repository.revoke(hashed_refresh_token)
 
-    def revoke_all_user_refresh_tokens(self, user_id: int) -> None:
+    async def revoke_all_user_refresh_tokens(self, user_id: int) -> None:
         """
         Revoke all refresh tokens for a user (logout all devices).
 
         Args:
             user_id: ID of the user whose tokens should be revoked
         """
-        self._refresh_token_repository.revoke_all(user_id)
+        await self._refresh_token_repository.revoke_all(user_id)
 
-    def rotate_refresh_token(self, token: str) -> TokenResponse:
+    async def rotate_refresh_token(self, token: str) -> TokenResponse:
         """
         Rotate a refresh token: invalidate the old one and create a new one.
 
@@ -258,18 +249,18 @@ class AuthService:
         Raises:
             UnauthorizedError: If old token is invalid, expired, revoked, or user is not active
         """
-        old_refresh_token = self._verify_refresh_token(token)
+        old_refresh_token = await self._verify_refresh_token(token)
         if not old_refresh_token:
             raise UnauthorizedError("Invalid or expired refresh token")
 
-        user = self._user_service.get_user_by_id(old_refresh_token.user_id)
+        user = await self._user_service.get_user_by_id(old_refresh_token.user_id)
         if not user or not user.is_active:
             raise UnauthorizedError("User not found or inactive")
 
-        self._refresh_token_repository.revoke_by_id(old_refresh_token.id)
-        return self.generate_tokens(old_refresh_token.user_id, old_refresh_token.device_info)
+        await self._refresh_token_repository.revoke_by_id(old_refresh_token.id)
+        return await self.generate_tokens(old_refresh_token.user_id, old_refresh_token.device_info)
 
-    def generate_tokens(self, user_id: int, device_info: str | None = None) -> TokenResponse:
+    async def generate_tokens(self, user_id: int, device_info: str | None = None) -> TokenResponse:
         """
         Generate access and refresh tokens for an existing user.
 
@@ -286,12 +277,12 @@ class AuthService:
         Raises:
             NotFoundError: If user not found or inactive
         """
-        user = self._user_service.get_user_by_id(user_id)
+        user = await self._user_service.get_user_by_id(user_id)
         if not user or not user.is_active:
             raise NotFoundError("User not found or inactive")
 
         access_token = generate_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token = self._generate_refresh_token(user_id=user_id, device_info=device_info)
+        refresh_token = await self._generate_refresh_token(user_id=user_id, device_info=device_info)
 
         return TokenResponse(
             access_token=access_token,
@@ -300,7 +291,7 @@ class AuthService:
             refresh_token=refresh_token,
         )
 
-    def _verify_refresh_token(self, token: str) -> RefreshToken | None:
+    async def _verify_refresh_token(self, token: str) -> RefreshToken | None:
         """
         Verify a refresh token is valid, not revoked, and not expired.
 
@@ -311,7 +302,7 @@ class AuthService:
             Valid RefreshToken object if successful, None otherwise
         """
         hashed_refresh_token = hash_refresh_token(token)
-        refresh_token = self._refresh_token_repository.lookup(hashed_refresh_token)
+        refresh_token = await self._refresh_token_repository.lookup(hashed_refresh_token)
         if not refresh_token or refresh_token.is_revoked:
             return None
 

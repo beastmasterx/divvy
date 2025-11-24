@@ -6,7 +6,7 @@ import logging
 import secrets
 from datetime import timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
 from app.core.datetime import utc, utc_now
@@ -30,7 +30,7 @@ class IdentityProviderService:
 
     def __init__(
         self,
-        session: Session,
+        session: AsyncSession,
         user_service: UserService,
         auth_service: AuthService,
     ):
@@ -184,22 +184,22 @@ class IdentityProviderService:
         name = user_info.name
 
         # Check if identity already exists
-        existing_identity = self._user_identity_repository.get_identity_by_provider_and_external_id(
+        existing_identity = await self._user_identity_repository.get_identity_by_provider_and_external_id(
             provider_name, external_id
         )
 
         if existing_identity:
             # Identity exists, user is already linked - return tokens
-            user = self._user_repository.get_user_by_id(existing_identity.user_id)
+            user = await self._user_repository.get_user_by_id(existing_identity.user_id)
             if not user or not user.is_active:
                 raise UnauthorizedError("User account not found or inactive")
 
-            return self._auth_service.generate_tokens(user.id, device_info)
+            return await self._auth_service.generate_tokens(user.id, device_info)
 
         # Identity doesn't exist - check if this is an authenticated link operation
         if state_payload and state_payload.operation == "link" and state_payload.user_id:
             # Authenticated user initiated link - directly link the account
-            user = self._user_repository.get_user_by_id(state_payload.user_id)
+            user = await self._user_repository.get_user_by_id(state_payload.user_id)
             if not user or not user.is_active:
                 raise UnauthorizedError("User account not found or inactive")
 
@@ -220,7 +220,7 @@ class IdentityProviderService:
 
             # Create and link the identity
             logger.info(f"Authenticated link: linking provider {provider_name} identity to user {user.id}")
-            self._create_user_identity(
+            await self._create_user_identity(
                 user_id=user.id,
                 provider_name=provider_name,
                 external_id=external_id,
@@ -228,15 +228,15 @@ class IdentityProviderService:
                 external_username=name,
             )
 
-            return self._auth_service.generate_tokens(user.id, device_info)
+            return await self._auth_service.generate_tokens(user.id, device_info)
 
         # Not an authenticated link - check if email exists
-        existing_user = self._user_repository.get_user_by_email(email) if email else None
+        existing_user = await self._user_repository.get_user_by_email(email) if email else None
 
         if existing_user:
             # Email exists - create account link request (requires password verification)
             logger.info(f"Email {email} exists, creating account link request for provider {provider_name}")
-            link_request = self._create_account_link_request(
+            link_request = await self._create_account_link_request(
                 provider_name=provider_name,
                 external_id=external_id,
                 external_email=email,
@@ -255,8 +255,8 @@ class IdentityProviderService:
 
         # Email doesn't exist - create new user and identity
         logger.info(f"Creating new user for provider {provider_name}, email: {email}")
-        user = self._create_user_from_provider(email, name)
-        self._create_user_identity(
+        user = await self._create_user_from_provider(email, name)
+        await self._create_user_identity(
             user_id=user.id,
             provider_name=provider_name,
             external_id=external_id,
@@ -264,9 +264,9 @@ class IdentityProviderService:
             external_username=name,
         )
 
-        return self._auth_service.generate_tokens(user.id, device_info)
+        return await self._auth_service.generate_tokens(user.id, device_info)
 
-    def approve_account_link_request(
+    async def approve_account_link_request(
         self, request_token: str, password: str | None = None, user_id: int | None = None
     ) -> TokenResponse:
         """
@@ -285,7 +285,7 @@ class IdentityProviderService:
             ValidationError: If request is expired or already processed, or if neither password nor authenticated_user_id provided
             UnauthorizedError: If password is incorrect or authenticated user doesn't match request
         """
-        request = self._verify_account_link_request(request_token, password, user_id)
+        request = await self._verify_account_link_request(request_token, password, user_id)
 
         # Link the identity to the user
         identity = request.user_identity
@@ -294,17 +294,17 @@ class IdentityProviderService:
         # Update request status
         request.status = AccountLinkRequestStatus.APPROVED.value
         request.verified_at = utc_now()
-        self._account_link_request_repository.update_request(request)
+        await self._account_link_request_repository.update_request(request)
 
         # Get user and return tokens
-        user = self._user_repository.get_user_by_id(identity.user_id)
+        user = await self._user_repository.get_user_by_id(identity.user_id)
         if not user or not user.is_active:
             raise UnauthorizedError("User account not found or inactive")
 
         logger.info(f"Account link approved: identity {identity.id} linked to user {user.id}")
-        return self._auth_service.generate_tokens(user.id, None)
+        return await self._auth_service.generate_tokens(user.id, None)
 
-    def _verify_account_link_request(
+    async def _verify_account_link_request(
         self, request_token: str, password: str | None = None, user_id: int | None = None
     ) -> AccountLinkRequest:
         """
@@ -323,7 +323,7 @@ class IdentityProviderService:
             ValidationError: If request is expired or already processed, or if neither password nor authenticated_user_id provided
             UnauthorizedError: If password is incorrect or authenticated user doesn't match request
         """
-        request = self._account_link_request_repository.get_request_by_token(request_token)
+        request = await self._account_link_request_repository.get_request_by_token(request_token)
         if not request:
             raise NotFoundError("Account link request not found")
 
@@ -332,10 +332,10 @@ class IdentityProviderService:
 
         if utc(request.expires_at) < utc_now():
             request.status = AccountLinkRequestStatus.EXPIRED.value
-            self._account_link_request_repository.update_request(request)
+            await self._account_link_request_repository.update_request(request)
             raise ValidationError("Account link request has expired")
 
-        user = self._user_repository.get_user_by_id(request.user_identity.user_id)
+        user = await self._user_repository.get_user_by_id(request.user_identity.user_id)
         if not user:
             raise NotFoundError("User associated with link request not found")
 
@@ -358,7 +358,7 @@ class IdentityProviderService:
 
         return request
 
-    def _create_user_from_provider(self, email: str, name: str | None) -> User:
+    async def _create_user_from_provider(self, email: str, name: str | None) -> User:
         """Create a new user from provider information.
 
         Args:
@@ -375,11 +375,11 @@ class IdentityProviderService:
             is_active=True,
             avatar=None,
         )
-        user_response = self._user_service.create_user(user_request)
+        user_response = await self._user_service.create_user(user_request)
         # Get ORM object for relationships
-        return self._user_repository.get_user_by_id(user_response.id)  # type: ignore[return-value]
+        return await self._user_repository.get_user_by_id(user_response.id)  # type: ignore[return-value]
 
-    def _create_user_identity(
+    async def _create_user_identity(
         self,
         user_id: int,
         provider_name: str,
@@ -406,9 +406,9 @@ class IdentityProviderService:
             external_email=external_email,
             external_username=external_username,
         )
-        return self._user_identity_repository.create_identity(identity)
+        return await self._user_identity_repository.create_identity(identity)
 
-    def _create_account_link_request(
+    async def _create_account_link_request(
         self,
         provider_name: str,
         external_id: str,
@@ -436,7 +436,7 @@ class IdentityProviderService:
             external_email=external_email,
             external_username=external_username,
         )
-        identity = self._user_identity_repository.create_identity(identity)
+        identity = await self._user_identity_repository.create_identity(identity)
 
         # Generate secure request token
         request_token = secrets.token_urlsafe(32)
@@ -448,4 +448,4 @@ class IdentityProviderService:
             status=AccountLinkRequestStatus.PENDING.value,
             expires_at=expires_at,
         )
-        return self._account_link_request_repository.create_request(link_request)
+        return await self._account_link_request_repository.create_request(link_request)

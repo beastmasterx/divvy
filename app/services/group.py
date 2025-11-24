@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import GroupRequest, GroupResponse
 from app.core.i18n import _
@@ -13,21 +13,21 @@ from app.services.user import UserService
 class GroupService:
     """Service layer for group-related business logic and operations."""
 
-    def __init__(self, session: Session, user_service: UserService):
+    def __init__(self, session: AsyncSession, user_service: UserService):
         self._group_repository = GroupRepository(session)
         self._user_service = user_service
 
-    def get_all_groups(self) -> Sequence[GroupResponse]:
+    async def get_all_groups(self) -> Sequence[GroupResponse]:
         """Retrieve all groups."""
-        groups = self._group_repository.get_all_groups()
+        groups = await self._group_repository.get_all_groups()
         return [GroupResponse.model_validate(group) for group in groups]
 
-    def get_group_by_id(self, group_id: int) -> GroupResponse | None:
+    async def get_group_by_id(self, group_id: int) -> GroupResponse | None:
         """Retrieve a specific group by its ID."""
-        group = self._group_repository.get_group_by_id(group_id)
+        group = await self._group_repository.get_group_by_id(group_id)
         return GroupResponse.model_validate(group) if group else None
 
-    def create_group(self, group_request: GroupRequest, owner_id: int) -> GroupResponse:
+    async def create_group(self, group_request: GroupRequest, owner_id: int) -> GroupResponse:
         """Create a new group.
 
         Args:
@@ -41,10 +41,10 @@ class GroupService:
             ValidationError: If owner_id is not provided and group requires it
         """
         group = Group(name=group_request.name, owner_id=owner_id)
-        group = self._group_repository.create_group(group)
+        group = await self._group_repository.create_group(group)
         return GroupResponse.model_validate(group)
 
-    def update_group(self, group_id: int, group_request: GroupRequest) -> GroupResponse:
+    async def update_group(self, group_id: int, group_request: GroupRequest) -> GroupResponse:
         """Update an existing group.
 
         Args:
@@ -58,17 +58,17 @@ class GroupService:
             NotFoundError: If group not found
         """
         # Fetch existing group from repository (need ORM for modification)
-        group = self._group_repository.get_group_by_id(group_id)
+        group = await self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
         # Update fields from request
         group.name = group_request.name
 
-        updated_group = self._group_repository.update_group(group)
+        updated_group = await self._group_repository.update_group(group)
         return GroupResponse.model_validate(updated_group)
 
-    def update_group_owner(self, group_id: int, owner_id: int) -> GroupResponse:
+    async def update_group_owner(self, group_id: int, owner_id: int) -> GroupResponse:
         """Update the owner of a specific group by its ID.
 
         Args:
@@ -79,22 +79,22 @@ class GroupService:
             Updated Group response DTO
         """
         # Fetch from repository (need ORM for modification)
-        group = self._group_repository.get_group_by_id(group_id)
+        group = await self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
-        user = self._user_service.get_user_by_id(owner_id)
+        user = await self._user_service.get_user_by_id(owner_id)
         if not user or not user.is_active:
             raise NotFoundError(_("User %s not found or inactive") % owner_id)
 
-        if not self._group_repository.check_if_user_is_in_group(group_id, owner_id):
+        if not await self._group_repository.check_if_user_is_in_group(group_id, owner_id):
             raise NotFoundError(_("User %s is not a member of group %s") % (user.name, group.name))
 
         group.owner_id = owner_id
-        updated_group = self._group_repository.update_group(group)
+        updated_group = await self._group_repository.update_group(group)
         return GroupResponse.model_validate(updated_group)
 
-    def delete_group(self, group_id: int) -> None:
+    async def delete_group(self, group_id: int) -> None:
         """Delete a group by its ID.
 
         Group can only be deleted if the active period (if any) with transactions
@@ -107,12 +107,12 @@ class GroupService:
             NotFoundError: If group not found
             BusinessRuleError: If active period with transactions is not settled
         """
-        group = self._group_repository.get_group_by_id(group_id)
+        group = await self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
         # Check for active period with transactions
-        active_period = self.get_current_period_by_group_id(group_id)
+        active_period = await self.get_current_period_by_group_id(group_id)
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_closed:
@@ -128,13 +128,13 @@ class GroupService:
             )
 
         # All checks passed - safe to delete group
-        return self._group_repository.delete_group(group_id)
+        return await self._group_repository.delete_group(group_id)
 
-    def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
+    async def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve all users associated with a specific group."""
-        return self._group_repository.get_users_by_group_id(group_id)
+        return await self._group_repository.get_users_by_group_id(group_id)
 
-    def add_user_to_group(self, group_id: int, user_id: int) -> None:
+    async def add_user_to_group(self, group_id: int, user_id: int) -> None:
         """Add a user to a group.
 
         Users can join a group at any time. They will participate in future
@@ -148,24 +148,24 @@ class GroupService:
             NotFoundError: If group/user not found
             ConflictError: If user already in group
         """
-        self._validate_group_and_user(group_id, user_id)
+        await self._validate_group_and_user(group_id, user_id)
 
         # Get group and user for better error messages (already validated, so not None)
-        group = self.get_group_by_id(group_id)
-        user = self._user_service.get_user_by_id(user_id)
+        group = await self.get_group_by_id(group_id)
+        user = await self._user_service.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
         # Check for duplicate membership
-        if self._group_repository.check_if_user_is_in_group(group_id, user_id):
+        if await self._group_repository.check_if_user_is_in_group(group_id, user_id):
             raise ConflictError(
                 _("User '%(user_name)s' is already a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
             )
 
         # User can join anytime - no period validation needed
-        self._group_repository.add_user_to_group(group_id, user_id)
+        await self._group_repository.add_user_to_group(group_id, user_id)
 
-    def remove_user_from_group(self, group_id: int, user_id: int) -> None:
+    async def remove_user_from_group(self, group_id: int, user_id: int) -> None:
         """Remove a user from a group.
 
         User can only leave if the active period (if any) with transactions
@@ -179,22 +179,22 @@ class GroupService:
             NotFoundError: If group/user not found, or user not in group
             BusinessRuleError: If active period with transactions is not settled
         """
-        self._validate_group_and_user(group_id, user_id)
+        await self._validate_group_and_user(group_id, user_id)
 
         # Get group and user for better error messages (already validated, so not None)
-        group = self.get_group_by_id(group_id)
-        user = self._user_service.get_user_by_id(user_id)
+        group = await self.get_group_by_id(group_id)
+        user = await self._user_service.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
         # Check if user is actually in the group
-        if not self._group_repository.check_if_user_is_in_group(group_id, user_id):
+        if not await self._group_repository.check_if_user_is_in_group(group_id, user_id):
             raise NotFoundError(
                 _("User '%(user_name)s' is not a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
             )
 
         # Check for active period with transactions
-        active_period = self.get_current_period_by_group_id(group_id)
+        active_period = await self.get_current_period_by_group_id(group_id)
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_closed:
@@ -212,17 +212,17 @@ class GroupService:
             )
 
         # All checks passed - safe to remove user
-        return self._group_repository.remove_user_from_group(group_id, user_id)
+        return await self._group_repository.remove_user_from_group(group_id, user_id)
 
-    def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
+    async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
         """Retrieve all periods associated with a specific group."""
-        return self._group_repository.get_periods_by_group_id(group_id)
+        return await self._group_repository.get_periods_by_group_id(group_id)
 
-    def get_current_period_by_group_id(self, group_id: int) -> Period | None:
+    async def get_current_period_by_group_id(self, group_id: int) -> Period | None:
         """Retrieve the current unsettled period for a specific group."""
-        return self._group_repository.get_current_period_by_group_id(group_id)
+        return await self._group_repository.get_current_period_by_group_id(group_id)
 
-    def _validate_group_and_user(self, group_id: int, user_id: int) -> None:
+    async def _validate_group_and_user(self, group_id: int, user_id: int) -> None:
         """Validate that a group and user exist.
 
         Args:
@@ -232,10 +232,10 @@ class GroupService:
         Raises:
             NotFoundError: If group or user not found
         """
-        group = self._group_repository.get_group_by_id(group_id)
+        group = await self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
-        user = self._user_service.get_user_by_id(user_id)
+        user = await self._user_service.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)

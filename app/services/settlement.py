@@ -23,7 +23,7 @@ class SettlementService:
         self.category_service = category_service
         self.user_service = user_service
 
-    def get_all_balances(self, period_id: int) -> dict[int, int]:
+    async def get_all_balances(self, period_id: int) -> dict[int, int]:
         """Calculate balances for all users in a specific period.
 
         Returns:
@@ -32,14 +32,14 @@ class SettlementService:
                 Negative = user owes money
         """
         balances: dict[int, int] = defaultdict(int)
-        transactions = self.transaction_service.get_transactions_by_period_id(period_id)
+        transactions = await self.transaction_service.get_transactions_by_period_id(period_id)
         for transaction in transactions:
             if transaction.transaction_kind == TransactionKind.EXPENSE:
                 # Credit the payer for paying the full amount
                 balances[transaction.payer_id] += transaction.amount
 
                 # Debit each participant for their share
-                shares = self.transaction_service.calculate_shares_for_transaction(transaction.id)
+                shares = await self.transaction_service.calculate_shares_for_transaction(transaction.id)
                 for user_id, amount in shares.items():
                     balances[user_id] -= amount
             elif transaction.transaction_kind == TransactionKind.DEPOSIT:
@@ -53,7 +53,7 @@ class SettlementService:
                 )
         return dict(balances)
 
-    def get_settlement_plan(self, period_id: int) -> list[SettlementPlanResponse]:
+    async def get_settlement_plan(self, period_id: int) -> list[SettlementPlanResponse]:
         """Get settlement plan for a specific period.
 
         Returns:
@@ -63,22 +63,22 @@ class SettlementService:
             NotFoundError: If period or settlement category is not found
         """
         # Get period to ensure it exists and for context
-        period = self.period_service.get_period_by_id(period_id)
+        period = await self.period_service.get_period_by_id(period_id)
         if not period:
             raise NotFoundError(_("Period %s not found") % period_id)
         if period.is_closed:
             raise BusinessRuleError(_("Period %s is already closed") % period_id)
 
         # Get settlement category
-        settlement_category = self.category_service.get_category_by_name("Settlement")
+        settlement_category = await self.category_service.get_category_by_name("Settlement")
         if not settlement_category:
             raise NotFoundError(_("Settlement category not found"))
 
         plan: list[SettlementPlanResponse] = []
-        balances = self.get_all_balances(period_id)
+        balances = await self.get_all_balances(period_id)
 
         for user_id, balance in balances.items():
-            user = self.user_service.get_user_by_id(user_id)
+            user = await self.user_service.get_user_by_id(user_id)
             if not user:
                 raise NotFoundError(_("User %s not found") % user_id)
             transaction = SettlementPlanResponse(
@@ -103,9 +103,17 @@ class SettlementService:
                 plan.append(transaction)
         return plan
 
-    def apply_settlement_plan(self, period_id: int) -> None:
+    async def apply_settlement_plan(self, period_id: int) -> None:
         """Apply the settlement plan to the period."""
-        plan = self.get_settlement_plan(period_id)
+
+        # TODO: Refactor: This entire block must be wrapped in a transaction
+        # boundary (try/except/rollback/commit) to ensure atomicity across
+        # multiple service calls (create_transaction, close_period).
+        # All underlying services must be refactored to remove internal commits.
+
+        # TODO: Business Logic: Verify that all dependent services (TransactionService,
+        # PeriodService) are now transactionless (i.e., they DO NOT call commit() internally).
+        plan = await self.get_settlement_plan(period_id)
         for t in plan:
             request = TransactionRequest(
                 transaction_kind=t.transaction_kind,
@@ -117,5 +125,5 @@ class SettlementService:
                 description=t.description,
                 expense_shares=[],
             )
-            self.transaction_service.create_transaction(request)
-        self.period_service.close_period(period_id)
+            await self.transaction_service.create_transaction(request)
+        await self.period_service.close_period(period_id)

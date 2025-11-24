@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from decimal import ROUND_HALF_EVEN, Decimal
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import TransactionRequest, TransactionResponse
 from app.core.i18n import _
@@ -13,20 +13,20 @@ from app.repositories import TransactionRepository
 class TransactionService:
     """Service layer for transaction-related business logic and operations."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.transaction_repository = TransactionRepository(session)
 
-    def get_all_transactions(self) -> Sequence[TransactionResponse]:
+    async def get_all_transactions(self) -> Sequence[TransactionResponse]:
         """Retrieve all transactions."""
-        transactions = self.transaction_repository.get_all_transactions()
+        transactions = await self.transaction_repository.get_all_transactions()
         return [TransactionResponse.model_validate(transaction) for transaction in transactions]
 
-    def get_transaction_by_id(self, transaction_id: int) -> TransactionResponse | None:
+    async def get_transaction_by_id(self, transaction_id: int) -> TransactionResponse | None:
         """Retrieve a specific transaction by its ID."""
-        transaction = self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
         return TransactionResponse.model_validate(transaction) if transaction else None
 
-    def create_transaction(self, request: TransactionRequest) -> TransactionResponse:
+    async def create_transaction(self, request: TransactionRequest) -> TransactionResponse:
         """Create a new transaction.
 
         Args:
@@ -65,10 +65,10 @@ class TransactionService:
             split_kind=request.split_kind,
             expense_shares=expense_shares,
         )
-        transaction = self.transaction_repository.create_transaction(transaction)
+        transaction = await self.transaction_repository.create_transaction(transaction)
         return TransactionResponse.model_validate(transaction)
 
-    def update_transaction(self, transaction_id: int, request: TransactionRequest) -> TransactionResponse:
+    async def update_transaction(self, transaction_id: int, request: TransactionRequest) -> TransactionResponse:
         """Update an existing transaction.
 
         Args:
@@ -83,7 +83,7 @@ class TransactionService:
             ValidationError: If transaction validation fails
         """
         # Fetch from repository (need ORM for modification)
-        transaction = self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
         if not transaction:
             raise NotFoundError(_("Transaction %s not found") % transaction_id)
 
@@ -114,24 +114,24 @@ class TransactionService:
         transaction.split_kind = request.split_kind
         transaction.expense_shares = expense_shares
 
-        updated_transaction = self.transaction_repository.update_transaction(transaction)
+        updated_transaction = await self.transaction_repository.update_transaction(transaction)
         return TransactionResponse.model_validate(updated_transaction)
 
-    def delete_transaction(self, transaction_id: int) -> None:
+    async def delete_transaction(self, transaction_id: int) -> None:
         """Delete a transaction by its ID."""
-        return self.transaction_repository.delete_transaction(transaction_id)
+        return await self.transaction_repository.delete_transaction(transaction_id)
 
-    def get_transactions_by_period_id(self, period_id: int) -> Sequence[TransactionResponse]:
+    async def get_transactions_by_period_id(self, period_id: int) -> Sequence[TransactionResponse]:
         """Retrieve all transactions associated with a specific period."""
-        transactions = self.transaction_repository.get_transactions_by_period_id(period_id)
+        transactions = await self.transaction_repository.get_transactions_by_period_id(period_id)
         return [TransactionResponse.model_validate(transaction) for transaction in transactions]
 
-    def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[TransactionResponse]:
+    async def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[TransactionResponse]:
         """Retrieve all transactions where a specific user has an expense share."""
-        transactions = self.transaction_repository.get_shared_transactions_by_user_id(user_id)
+        transactions = await self.transaction_repository.get_shared_transactions_by_user_id(user_id)
         return [TransactionResponse.model_validate(transaction) for transaction in transactions]
 
-    def calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
+    async def calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
         """Calculate how much each user owes for a transaction.
 
         Args:
@@ -146,7 +146,7 @@ class TransactionService:
             InternalServerError: If share calculation fails
         """
         # Fetch from repository (need ORM for relationship access)
-        transaction = self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
         if not transaction:
             raise NotFoundError(_("Transaction %s not found") % transaction_id)
 
