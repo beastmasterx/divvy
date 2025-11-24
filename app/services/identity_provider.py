@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
 from app.core.datetime import utc, utc_now
-from app.core.security import check_password
+from app.core.security import check_password, is_signed_state_token, verify_state_token
+from app.core.security.oauth import StateTokenPayload
 from app.exceptions import NotFoundError, UnauthorizedError, ValidationError
 from app.models import AccountLinkRequest, AccountLinkRequestStatus, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
@@ -64,6 +65,29 @@ class IdentityProviderService:
         provider = IdentityProviderRegistry.get_provider(provider_name)
         return provider.get_authorization_url(state)
 
+    def get_link_authorization_url(self, provider_name: str, user_id: int) -> str:
+        """
+        Get OAuth authorization URL for authenticated account linking.
+
+        Creates a signed state token with the user's ID and operation context,
+        then returns the authorization URL for redirecting to the provider.
+
+        Args:
+            provider_name: Name of the identity provider (e.g., 'microsoft', 'google')
+            user_id: ID of the authenticated user requesting the link
+
+        Returns:
+            Authorization URL with signed state token for account linking
+
+        Raises:
+            ValueError: If provider is not registered
+        """
+        from app.core.security import create_state_token
+
+        # Create signed state token for authenticated account linking
+        state_token = create_state_token(operation="link", user_id=user_id)
+        return self.get_authorization_url(provider_name, state_token)
+
     async def handle_oauth_callback(
         self,
         provider_name: str,
@@ -75,38 +99,78 @@ class IdentityProviderService:
         Handle OAuth callback: exchange code for tokens and create/link account.
 
         Flow:
-        1. Exchange authorization code for access token
-        2. Get user info from provider
-        3. Check if identity already exists (by provider + external_id)
+        1. Validate state parameter (if provided) - see State Parameter Handling below
+        2. Exchange authorization code for access token
+        3. Get user info from provider
+        4. Check if identity already exists (by provider + external_id)
            - If exists: return tokens for existing user
-        4. If identity doesn't exist:
-           - Check if email exists in our system
-           - If email exists: create account link request (return link request info)
-           - If email doesn't exist: create new user + identity (return tokens)
+        5. If identity doesn't exist:
+           - If state indicates authenticated link operation: directly link account
+           - Otherwise, check if email exists in our system
+             - If email exists: create account link request (return link request info)
+             - If email doesn't exist: create new user + identity (return tokens)
+
+        State Parameter Handling:
+        ========================
+        The state parameter can be one of two types:
+
+        1. Frontend-Generated State (Login Flow):
+           - Created by frontend: random string (e.g., crypto.randomUUID())
+           - Purpose: CSRF protection for login flows
+           - Verification: Frontend verifies state_sent === state_received
+           - Backend behavior: Passes through without verification
+           - Example: "550e8400-e29b-41d4-a716-446655440000"
+
+        2. Backend-Generated Signed State Token (Link Flow):
+           - Created by backend: signed JWT token via create_state_token()
+           - Purpose: Encodes operation context (link/login) and user identification
+           - Verification: Backend verifies signature, expiration, and extracts context
+           - Backend behavior: Verifies token and uses payload.operation and payload.user_id
+           - Format: JWT with 3 parts separated by dots (header.payload.signature)
+           - Example: "eyJhbGciOiJIUzI1NiJ9.eyJvcGVyYXRpb24iOiJsaW5rIiwidXNlcl9pZCI6MTIzfQ.signature"
+
+        State Token Payload Structure (for signed tokens):
+        - operation: "link" or "login"
+        - user_id: User ID (only present for "link" operation)
+        - nonce: Cryptographically secure nonce for one-time use tracking
+        - exp: Token expiration timestamp
+        - iat: Token issued at timestamp
 
         Args:
             provider_name: Name of the identity provider
             code: Authorization code from OAuth callback
-            state: Optional state parameter from OAuth callback (for CSRF protection)
+            state: Optional state parameter from OAuth callback
+                - Frontend-generated random string (login flow): passed through
+                - Backend-generated signed JWT token (link flow): verified and used for context
             device_info: Optional device information (e.g., User-Agent string)
 
         Returns:
             TokenResponse if user is authenticated, or LinkingRequiredResponse if linking required
 
         Raises:
-            ValueError: If provider is not registered
+            ValueError: If provider is not registered, or if signed state token is invalid/expired
             UnauthorizedError: If OAuth flow fails
-            ValidationError: If state validation fails (when state is provided)
+            ValidationError: If signed state token validation fails
         """
         provider = IdentityProviderRegistry.get_provider(provider_name)
 
-        # TODO: Implement state validation for CSRF protection
-        # For now, state is accepted but not validated. In production, you should:
-        # 1. Generate a signed state token in get_authorization_url() when state is provided
-        # 2. Validate the state token signature and expiration in handle_oauth_callback()
-        # 3. Reject the callback if state validation fails
+        # State parameter handling
+        state_payload: StateTokenPayload | None = None
         if state:
-            logger.debug(f"OAuth state parameter received: {state} (validation not yet implemented)")
+            # Check if state is a backend-generated signed JWT token
+            if is_signed_state_token(state):
+                # Backend-generated signed token - verify it
+                try:
+                    state_payload = verify_state_token(state)
+                    logger.debug(
+                        f"Verified signed state token: operation={state_payload.operation}, "
+                        f"user_id={state_payload.user_id}"
+                    )
+                except ValueError as e:
+                    raise ValidationError(f"Invalid or expired state token: {e}") from e
+            else:
+                # Frontend-generated random string - pass through (frontend will verify)
+                logger.debug(f"Frontend-generated state received: {state} (frontend will verify)")
 
         # Exchange code for tokens
         tokens = await provider.exchange_code_for_tokens(code)
@@ -132,11 +196,45 @@ class IdentityProviderService:
 
             return self._auth_service.generate_tokens(user.id, device_info)
 
-        # Identity doesn't exist - check if email exists
+        # Identity doesn't exist - check if this is an authenticated link operation
+        if state_payload and state_payload.operation == "link" and state_payload.user_id:
+            # Authenticated user initiated link - directly link the account
+            user = self._user_repository.get_user_by_id(state_payload.user_id)
+            if not user or not user.is_active:
+                raise UnauthorizedError("User account not found or inactive")
+
+            # Verify user_id matches (security check)
+            if user.id != state_payload.user_id:
+                raise ValidationError(
+                    f"User ID mismatch: state token user_id={state_payload.user_id}, " f"retrieved user_id={user.id}"
+                )
+
+            # Verify the email matches (security check - warn but allow if different)
+            # Provider email might differ from account email (e.g., different email on Microsoft account)
+            if email and user.email != email:
+                logger.warning(
+                    f"Email mismatch during authenticated link: "
+                    f"user_id={state_payload.user_id}, account_email={user.email}, provider_email={email}"
+                )
+                # Still allow linking but log the mismatch (provider email might differ)
+
+            # Create and link the identity
+            logger.info(f"Authenticated link: linking provider {provider_name} identity to user {user.id}")
+            self._create_user_identity(
+                user_id=user.id,
+                provider_name=provider_name,
+                external_id=external_id,
+                external_email=email,
+                external_username=name,
+            )
+
+            return self._auth_service.generate_tokens(user.id, device_info)
+
+        # Not an authenticated link - check if email exists
         existing_user = self._user_repository.get_user_by_email(email) if email else None
 
         if existing_user:
-            # Email exists - create account link request
+            # Email exists - create account link request (requires password verification)
             logger.info(f"Email {email} exists, creating account link request for provider {provider_name}")
             link_request = self._create_account_link_request(
                 provider_name=provider_name,
@@ -168,7 +266,45 @@ class IdentityProviderService:
 
         return self._auth_service.generate_tokens(user.id, device_info)
 
-    def verify_account_link_request(
+    def approve_account_link_request(
+        self, request_token: str, password: str | None = None, user_id: int | None = None
+    ) -> TokenResponse:
+        """
+        Approve an account link request by verifying password or authenticated user and linking the identity.
+
+        Args:
+            request_token: Account link request token
+            password: User's password for verification (required if not authenticated)
+            user_id: ID of authenticated user (if user is logged in)
+
+        Returns:
+            TokenResponse with access and refresh tokens
+
+        Raises:
+            NotFoundError: If request not found
+            ValidationError: If request is expired or already processed, or if neither password nor authenticated_user_id provided
+            UnauthorizedError: If password is incorrect or authenticated user doesn't match request
+        """
+        request = self._verify_account_link_request(request_token, password, user_id)
+
+        # Link the identity to the user
+        identity = request.user_identity
+        identity.user_id = request.user_identity.user_id  # Already linked, but ensure consistency
+
+        # Update request status
+        request.status = AccountLinkRequestStatus.APPROVED.value
+        request.verified_at = utc_now()
+        self._account_link_request_repository.update_request(request)
+
+        # Get user and return tokens
+        user = self._user_repository.get_user_by_id(identity.user_id)
+        if not user or not user.is_active:
+            raise UnauthorizedError("User account not found or inactive")
+
+        logger.info(f"Account link approved: identity {identity.id} linked to user {user.id}")
+        return self._auth_service.generate_tokens(user.id, None)
+
+    def _verify_account_link_request(
         self, request_token: str, password: str | None = None, user_id: int | None = None
     ) -> AccountLinkRequest:
         """
@@ -221,44 +357,6 @@ class IdentityProviderService:
             raise UnauthorizedError("Incorrect password")
 
         return request
-
-    def approve_account_link_request(
-        self, request_token: str, password: str | None = None, user_id: int | None = None
-    ) -> TokenResponse:
-        """
-        Approve an account link request by verifying password or authenticated user and linking the identity.
-
-        Args:
-            request_token: Account link request token
-            password: User's password for verification (required if not authenticated)
-            user_id: ID of authenticated user (if user is logged in)
-
-        Returns:
-            TokenResponse with access and refresh tokens
-
-        Raises:
-            NotFoundError: If request not found
-            ValidationError: If request is expired or already processed, or if neither password nor authenticated_user_id provided
-            UnauthorizedError: If password is incorrect or authenticated user doesn't match request
-        """
-        request = self.verify_account_link_request(request_token, password, user_id)
-
-        # Link the identity to the user
-        identity = request.user_identity
-        identity.user_id = request.user_identity.user_id  # Already linked, but ensure consistency
-
-        # Update request status
-        request.status = AccountLinkRequestStatus.APPROVED.value
-        request.verified_at = utc_now()
-        self._account_link_request_repository.update_request(request)
-
-        # Get user and return tokens
-        user = self._user_repository.get_user_by_id(identity.user_id)
-        if not user or not user.is_active:
-            raise UnauthorizedError("User account not found or inactive")
-
-        logger.info(f"Account link approved: identity {identity.id} linked to user {user.id}")
-        return self._auth_service.generate_tokens(user.id, None)
 
     def _create_user_from_provider(self, email: str, name: str | None) -> User:
         """Create a new user from provider information.

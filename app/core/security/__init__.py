@@ -6,6 +6,7 @@ Security utilities for passwords and tokens.
 from .oauth import (
     StateTokenPayload,
     create_state_token,
+    is_signed_state_token,
     verify_state_token,
 )
 
@@ -37,5 +38,6 @@ __all__ = [
     # OAuth state tokens
     "StateTokenPayload",
     "create_state_token",
+    "is_signed_state_token",
     "verify_state_token",
 ]

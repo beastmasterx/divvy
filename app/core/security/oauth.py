@@ -163,3 +163,27 @@ def verify_state_token(token: str) -> StateTokenPayload:
         raise ValueError(f"Invalid state token: {e}") from e
     except (KeyError, TypeError, ValueError) as e:
         raise ValueError(f"Invalid state token payload: {e}") from e
+
+
+def is_signed_state_token(state: str) -> bool:
+    """
+    Check if a state string is a signed JWT token.
+
+    JWT tokens have 3 parts separated by dots: header.payload.signature
+    This function checks if the state string matches that pattern.
+
+    Args:
+        state: State string to check
+
+    Returns:
+        True if state appears to be a JWT token, False otherwise
+
+    Example:
+        >>> is_signed_state_token("eyJhbGciOiJIUzI1NiJ9.eyJvcGVyYXRpb24iOiJsaW5rIn0.signature")
+        True
+        >>> is_signed_state_token("550e8400-e29b-41d4-a716-446655440000")
+        False
+    """
+    # JWT tokens have 3 parts separated by dots: header.payload.signature
+    parts = state.split(".")
+    return len(parts) == 3

@@ -5,6 +5,7 @@ API v1 router for authentication endpoints.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Query, Request, status
+from fastapi.responses import RedirectResponse
 from pydantic import Discriminator
 
 from app.api.dependencies import (
@@ -160,31 +161,89 @@ def logout_all(
     auth.revoke_all_user_refresh_tokens(user.id)
 
 
-@router.get("/oauth/{provider}/authorize", response_model=OAuthAuthorizeResponse)
+@router.get("/oauth/{provider}/authorize")
 def oauth_authorize(
     provider: str,
     state: Annotated[str | None, Query()] = None,
     identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
-) -> OAuthAuthorizeResponse:
+) -> RedirectResponse:
     """
     Initiate OAuth flow by redirecting to identity provider.
 
-    Returns the authorization URL that the client should redirect the user to.
-    The user will authenticate with the provider and be redirected back to the callback endpoint.
+    This endpoint starts the OAuth2 Authorization Code flow. It redirects the user
+    to the identity provider's authorization page where they authenticate, then the
+    provider redirects back to our callback endpoint.
+
+    OAuth Flow Overview:
+    ===================
+    1. Client calls this endpoint (GET /oauth/{provider}/authorize)
+       - Optional: Include `state` parameter for CSRF protection
+       - State can be:
+         * Frontend-generated random string (login flow): Frontend verifies on return
+         * Backend-generated signed JWT token (link flow): Backend verifies on callback
+
+    2. Backend redirects user to provider's authorization page (HTTP 302)
+       - User authenticates with provider (Microsoft, Google, etc.)
+       - Provider redirects back to: {frontend_url}/auth/callback/{provider}
+
+    3. Frontend receives callback at /auth/callback/{provider}
+       - Extracts `code` and `state` from query parameters
+       - Calls backend: GET /oauth/{provider}/callback?code=...&state=...
+
+    4. Backend handles callback (oauth_callback endpoint):
+       - Exchanges authorization code for access token
+       - Gets user info from provider
+       - Determines flow based on state and existing accounts:
+         a) Identity exists → Return tokens (user already linked)
+         b) Signed state token with operation="link" → Directly link account (authenticated user)
+         c) Email exists → Create link request (requires password verification)
+         d) New user → Create account and identity, return tokens
+
+    5. Client receives response:
+       - TokenResponse: Authentication successful, contains access_token and refresh_token
+       - LinkingRequiredResponse: Account linking required, contains request_token for approval
+
+    State Parameter:
+    ===============
+    The state parameter serves different purposes depending on the flow:
+
+    Login Flow (Frontend-Generated State):
+    - Frontend generates random string (e.g., crypto.randomUUID())
+    - Frontend stores state and verifies it matches on callback
+    - Backend passes state through without verification
+    - Purpose: CSRF protection
+
+    Link Flow (Backend-Generated Signed State Token):
+    - Backend creates signed JWT via create_state_token(operation="link", user_id=...)
+    - Backend verifies token signature and expiration on callback
+    - Token contains: operation="link", user_id, nonce, exp, iat
+    - Purpose: Stateless context for authenticated account linking
 
     Args:
         provider: Identity provider name (e.g., 'microsoft', 'google')
         state: Optional state parameter for CSRF protection
+            - Frontend-generated: Random string (frontend verifies)
+            - Backend-generated: Signed JWT token (backend verifies)
         identity_provider_service: Identity provider service instance
 
     Returns:
-        OAuthAuthorizeResponse containing the authorization URL
+        HTTP 302 redirect to OAuth provider authorization URL
 
     Raises:
         ValueError: If provider is not registered
+
+    Example:
+        # Login flow (frontend generates state)
+        GET /oauth/microsoft/authorize?state=550e8400-e29b-41d4-a716-446655440000
+        → Redirects to Microsoft login page
+
+        # Link flow (backend generates signed state token)
+        POST /link/microsoft/initiate (with auth token)
+        → Returns authorization_url with signed state token
+        → Frontend redirects to that URL
     """
     authorization_url = identity_provider_service.get_authorization_url(provider, state)
-    return OAuthAuthorizeResponse(authorization_url=authorization_url)
+    return RedirectResponse(url=authorization_url)
 
 
 @router.get(
@@ -238,34 +297,36 @@ async def oauth_callback(
     return result
 
 
-@router.post("/link/verify", status_code=status.HTTP_204_NO_CONTENT)
-def verify_account_link(
-    request: AccountLinkVerifyRequest,
-    current_user: UserResponse | None = Depends(get_current_user_optional),
+@router.post("/link/{provider}/initiate", response_model=OAuthAuthorizeResponse)
+def initiate_account_link(
+    provider: str,
+    current_user: User = Depends(get_current_user),
     identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
-) -> None:
+) -> OAuthAuthorizeResponse:
     """
-    Verify an account link request with password (without approving).
+    Initiate account linking for an authenticated user.
 
-    This endpoint allows the client to verify the password before showing
-    the approval UI. The actual linking happens in the approve endpoint.
+    Creates a signed state token with the user's ID and operation context,
+    then returns the OAuth authorization URL that the client should redirect to.
+    The state token ensures that when the OAuth callback returns, we know:
+    - This is a link operation (not a login)
+    - Which user is requesting the link
 
-    If the user is already authenticated, password is not required.
+    Requires Authorization header with valid access token.
 
     Args:
-        request: Account link verification request with token and optional password
-        current_user: Current authenticated user (optional)
+        provider: Identity provider name (e.g., 'microsoft', 'google')
+        current_user: Current authenticated user from access token
         identity_provider_service: Identity provider service instance
 
+    Returns:
+        OAuthAuthorizeResponse containing the authorization URL with signed state token
+
     Raises:
-        NotFoundError: If request not found
-        ValidationError: If request is expired or already processed, or if password is required but not provided
-        UnauthorizedError: If password is incorrect or authenticated user doesn't match request
+        ValueError: If provider is not registered
     """
-    authenticated_user_id = current_user.id if current_user else None
-    identity_provider_service.verify_account_link_request(
-        request.request_token, request.password, authenticated_user_id
-    )
+    authorization_url = identity_provider_service.get_link_authorization_url(provider, current_user.id)
+    return OAuthAuthorizeResponse(authorization_url=authorization_url)
 
 
 @router.post("/link/approve", response_model=TokenResponse, response_model_exclude_none=True)
