@@ -2,6 +2,8 @@
 Unit tests for SettlementService.
 """
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -167,7 +169,7 @@ class TestSettlementService:
         db_session.add(group)
         db_session.commit()
 
-        period = create_test_period(group_id=group.id, name="Closed Period")
+        period = create_test_period(group_id=group.id, name="Closed Period", end_date=datetime.now(UTC))
         db_session.add(period)
         db_session.commit()
 

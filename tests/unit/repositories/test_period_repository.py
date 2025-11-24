@@ -64,7 +64,7 @@ class TestPeriodRepository:
         """Test creating a new period."""
         repo = PeriodRepository(db_session)
 
-        period = create_test_period(group_id=1, name="New Period", is_settled=False)
+        period = create_test_period(group_id=1, name="New Period")
         created = repo.create_period(period)
 
         assert created.id is not None
@@ -82,13 +82,12 @@ class TestPeriodRepository:
         repo = PeriodRepository(db_session)
 
         # Create a period
-        period = create_test_period(group_id=1, name="Original Name", is_settled=False)
+        period = create_test_period(group_id=1, name="Original Name")
         db_session.add(period)
         db_session.commit()
 
         # Update it
         period.name = "Updated Name"
-        period.is_closed = True
         period.end_date = datetime.now(UTC)
         updated = repo.update_period(period)
 
