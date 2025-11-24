@@ -14,7 +14,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 
 @router.get("/", response_model=list[CategoryResponse])
-def list_categories(
+async def list_categories(
     category_service: CategoryService = Depends(get_category_service),
 ) -> Sequence[CategoryResponse]:
     """
@@ -23,4 +23,4 @@ def list_categories(
     Returns:
         List of all categories, ordered by ID
     """
-    return category_service.get_all_categories()
+    return await category_service.get_all_categories()

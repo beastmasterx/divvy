@@ -36,7 +36,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
-def register(
+async def register(
     request: RegisterRequest,
     http: Request,
     auth: AuthService = Depends(get_auth_service),
@@ -59,7 +59,7 @@ def register(
         ConflictError: If email already exists (raised by auth_service)
     """
     device_info = _get_device_info(http)
-    return auth.register(
+    return await auth.register(
         email=request.email,
         name=request.name,
         password=request.password,
@@ -68,7 +68,7 @@ def register(
 
 
 @router.post("/token", response_model=TokenResponse, response_model_exclude_none=True)
-def token(
+async def token(
     http: Request,
     grant_type: Annotated[str, Form()] = "password",
     username: Annotated[str | None, Form()] = None,
@@ -103,19 +103,19 @@ def token(
     if grant_type == "password":
         if not username or not password:
             raise ValidationError("username and password are required for password grant")
-        return auth.authenticate(username, password, device_info)
+        return await auth.authenticate(username, password, device_info)
 
     elif grant_type == "refresh_token":
         if not refresh_token:
             raise ValidationError("refresh_token is required for refresh_token grant")
-        return auth.rotate_refresh_token(refresh_token)
+        return await auth.rotate_refresh_token(refresh_token)
 
     else:
         raise ValidationError(f"Unsupported grant_type: {grant_type}. Supported types: password, refresh_token")
 
 
 @router.post("/revoke", response_model=None)
-def revoke_token(
+async def revoke_token(
     token: Annotated[str, Form()],
     token_type_hint: Annotated[str | None, Form()] = None,
     auth: AuthService = Depends(get_auth_service),
@@ -141,11 +141,11 @@ def revoke_token(
         the access token to expire naturally.
     """
     # Only refresh tokens can be revoked in this implementation
-    auth.revoke_refresh_token(token)
+    await auth.revoke_refresh_token(token)
 
 
 @router.post("/logout-all", response_model=None)
-def logout_all(
+async def logout_all(
     user: User = Depends(get_current_user),
     auth: AuthService = Depends(get_auth_service),
 ) -> None:
@@ -158,7 +158,7 @@ def logout_all(
         user: Current authenticated user from access token
         auth: Authentication service instance
     """
-    auth.revoke_all_user_refresh_tokens(user.id)
+    await auth.revoke_all_user_refresh_tokens(user.id)
 
 
 @router.get("/oauth/{provider}/authorize")
@@ -323,7 +323,7 @@ def initiate_account_link(
 
 
 @router.post("/link/approve", response_model=TokenResponse, response_model_exclude_none=True)
-def approve_account_link(
+async def approve_account_link(
     request: AccountLinkVerifyRequest,
     current_user: UserResponse | None = Depends(get_current_user_optional),
     identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
@@ -350,7 +350,7 @@ def approve_account_link(
         UnauthorizedError: If password is incorrect or authenticated user doesn't match request
     """
     authenticated_user_id = current_user.id if current_user else None
-    return identity_provider_service.approve_account_link_request(
+    return await identity_provider_service.approve_account_link_request(
         request.request_token, request.password, authenticated_user_id
     )
 

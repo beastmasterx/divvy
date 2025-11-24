@@ -9,7 +9,7 @@ router = APIRouter(prefix="/user", tags=["user"])
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(
+async def get_current_user_info(
     user: User = Depends(get_current_user),
 ) -> UserResponse:
     """
@@ -33,7 +33,7 @@ def get_current_user_info(
 
 
 @router.put("/me", response_model=UserResponse)
-def update_user_profile(
+async def update_user_profile(
     request: ProfileRequest,
     user: User = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service),
@@ -41,4 +41,4 @@ def update_user_profile(
     """
     Update current authenticated user's profile.
     """
-    return user_service.update_profile(user.id, request)
+    return await user_service.update_profile(user.id, request)

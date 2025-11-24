@@ -21,7 +21,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[GroupResponse])
-def list_groups(
+async def list_groups(
     group_service: GroupService = Depends(get_group_service),
 ) -> Sequence[GroupResponse]:
     """
@@ -30,25 +30,25 @@ def list_groups(
     Returns:
         List of all periods, ordered by start_date descending
     """
-    return group_service.get_all_groups()
+    return await group_service.get_all_groups()
 
 
 @router.get("/{group_id}", response_model=GroupResponse)
-def get_group(
+async def get_group(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
     Get a specific group by its ID.
     """
-    group = group_service.get_group_by_id(group_id)
+    group = await group_service.get_group_by_id(group_id)
     if not group:
         raise NotFoundError(_("Group %s not found") % group_id)
     return group
 
 
 @router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
-def create_group(
+async def create_group(
     group: GroupRequest,
     current_user: User = Depends(get_current_user),
     group_service: GroupService = Depends(get_group_service),
@@ -56,11 +56,11 @@ def create_group(
     """
     Create a new group.
     """
-    return group_service.create_group(group, owner_id=current_user.id)
+    return await group_service.create_group(group, owner_id=current_user.id)
 
 
 @router.put("/{group_id}", response_model=GroupResponse)
-def update_group(
+async def update_group(
     group_id: int,
     group: GroupRequest,
     group_service: GroupService = Depends(get_group_service),
@@ -68,11 +68,11 @@ def update_group(
     """
     Update a specific group by its ID.
     """
-    return group_service.update_group(group_id, group)
+    return await group_service.update_group(group_id, group)
 
 
 @router.put("/{group_id}/owner/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def update_group_owner(
+async def update_group_owner(
     group_id: int,
     user_id: int,
     group_service: GroupService = Depends(get_group_service),
@@ -80,22 +80,22 @@ def update_group_owner(
     """
     Update the owner of a specific group by its ID.
     """
-    group_service.update_group_owner(group_id, user_id)
+    await group_service.update_group_owner(group_id, user_id)
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_group(
+async def delete_group(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
 ) -> None:
     """
     Delete a specific group by its ID.
     """
-    group_service.delete_group(group_id)
+    await group_service.delete_group(group_id)
 
 
 @router.post("/{group_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def add_user_to_group(
+async def add_user_to_group(
     group_id: int,
     user_id: int,
     group_service: GroupService = Depends(get_group_service),
@@ -103,11 +103,11 @@ def add_user_to_group(
     """
     Add a user to a specific group.
     """
-    group_service.add_user_to_group(group_id, user_id)
+    await group_service.add_user_to_group(group_id, user_id)
 
 
 @router.delete("/{group_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_user_from_group(
+async def remove_user_from_group(
     group_id: int,
     user_id: int,
     group_service: GroupService = Depends(get_group_service),
@@ -115,30 +115,30 @@ def remove_user_from_group(
     """
     Remove a user from a specific group.
     """
-    group_service.remove_user_from_group(group_id, user_id)
+    await group_service.remove_user_from_group(group_id, user_id)
 
 
 @router.get("/{group_id}/periods", response_model=list[PeriodResponse])
-def get_periods(
+async def get_periods(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
 ) -> list[PeriodResponse]:
     """
     Get all periods for a specific group.
     """
-    periods = group_service.get_periods_by_group_id(group_id)
+    periods = await group_service.get_periods_by_group_id(group_id)
     return [PeriodResponse.model_validate(period) for period in periods]
 
 
 @router.get("/{group_id}/periods/current", response_model=PeriodResponse)
-def get_current_period(
+async def get_current_period(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
 ) -> PeriodResponse:
     """
     Get the current active period for a specific group.
     """
-    period = group_service.get_current_period_by_group_id(group_id)
+    period = await group_service.get_current_period_by_group_id(group_id)
     if not period:
         raise NotFoundError(_("No current active period found for group %s") % group_id)
     return PeriodResponse.model_validate(period)
