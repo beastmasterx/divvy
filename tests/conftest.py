@@ -6,6 +6,7 @@ Key features:
 - Temporary file-based SQLite database for tests
 - Automatic schema setup/teardown
 - Test data factories
+- Test-specific environment variables (no external .env files)
 """
 
 import tempfile
@@ -18,22 +19,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.config import load_env_files
 from app.db.connection import reset_engine
 from app.models import Base
-
-# Load environment variables
-_load_env_called = False
 
 
 def pytest_configure(config: pytest.Config) -> None:
     """Pytest hook called at test session start."""
-    global _load_env_called
-    if not _load_env_called:
-        project_root = Path(__file__).parent.parent
-        load_env_files(project_root=project_root)
-        _load_env_called = True
-
     # Register custom markers
     config.addinivalue_line("markers", "unit: Unit tests")
     config.addinivalue_line("markers", "integration: Integration tests")
@@ -73,6 +64,29 @@ def test_db_engine() -> Iterator[Engine]:
     finally:
         # Remove temporary database file
         Path(db_path).unlink(missing_ok=True)
+
+
+@pytest.fixture(autouse=True)
+def test_env_vars(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """
+    Set test-specific environment variables.
+
+    Tests should not depend on external .env files for isolation and reproducibility.
+    This fixture automatically sets required environment variables for all tests.
+    """
+    # JWT Configuration (required - must be at least 32 characters)
+    monkeypatch.setenv("DIVVY_JWT_SECRET_KEY", "2SZCrD1OkZ9mmzpXeCwITRiLiIblMFa96l4-jyArzRE")
+
+    # Application URLs (with safe test defaults)
+    monkeypatch.setenv("DIVVY_FRONTEND_URL", "http://localhost:3000")
+
+    # Logging (suppress verbose logging in tests)
+    monkeypatch.setenv("LOG_LEVEL", "WARNING")
+    monkeypatch.setenv("DIVVY_LOG_LEVEL", "WARNING")
+
+    yield
+
+    # Cleanup: restore original environment (monkeypatch handles this automatically)
 
 
 @pytest.fixture(autouse=True)
