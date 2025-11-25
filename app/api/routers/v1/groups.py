@@ -6,12 +6,12 @@ from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_current_user, get_group_service
+from app.api.dependencies import get_current_user, get_group_service, get_period_service
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import User
 from app.schemas import GroupRequest, GroupResponse, PeriodResponse
-from app.services import GroupService
+from app.services import GroupService, PeriodService
 
 router = APIRouter(
     prefix="/groups",
@@ -121,24 +121,24 @@ async def remove_user_from_group(
 @router.get("/{group_id}/periods", response_model=list[PeriodResponse])
 async def get_periods(
     group_id: int,
-    group_service: GroupService = Depends(get_group_service),
+    period_service: PeriodService = Depends(get_period_service),
 ) -> list[PeriodResponse]:
     """
     Get all periods for a specific group.
     """
-    periods = await group_service.get_periods_by_group_id(group_id)
+    periods = await period_service.get_periods_by_group_id(group_id)
     return [PeriodResponse.model_validate(period) for period in periods]
 
 
 @router.get("/{group_id}/periods/current", response_model=PeriodResponse)
 async def get_current_period(
     group_id: int,
-    group_service: GroupService = Depends(get_group_service),
+    period_service: PeriodService = Depends(get_period_service),
 ) -> PeriodResponse:
     """
     Get the current active period for a specific group.
     """
-    period = await group_service.get_current_period_by_group_id(group_id)
+    period = await period_service.get_current_period_by_group_id(group_id)
     if not period:
         raise NotFoundError(_("No current active period found for group %s") % group_id)
     return PeriodResponse.model_validate(period)

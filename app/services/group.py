@@ -4,18 +4,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from app.models import Group, Period, User
-from app.repositories import GroupRepository
+from app.models import Group, GroupRole
+from app.repositories import GroupRepository, UserRepository
 from app.schemas import GroupRequest, GroupResponse
-from app.services.user import UserService
+from app.services.authorization import AuthorizationService
+from app.services.period import PeriodService
 
 
 class GroupService:
     """Service layer for group-related business logic and operations."""
 
-    def __init__(self, session: AsyncSession, user_service: UserService):
+    def __init__(
+        self,
+        session: AsyncSession,
+        authorization_service: AuthorizationService,
+        period_service: PeriodService,
+    ):
         self._group_repository = GroupRepository(session)
-        self._user_service = user_service
+        self._user_repository = UserRepository(session)
+        self._authorization_service = authorization_service
+        self._period_service = period_service
 
     async def get_all_groups(self) -> Sequence[GroupResponse]:
         """Retrieve all groups."""
@@ -27,8 +35,26 @@ class GroupService:
         group = await self._group_repository.get_group_by_id(group_id)
         return GroupResponse.model_validate(group) if group else None
 
+    async def get_groups_by_user_id(self, user_id: int) -> Sequence[GroupResponse]:
+        """Retrieve all groups that a specific user is a member of."""
+        groups = await self._group_repository.get_groups_by_user_id(user_id)
+        return [GroupResponse.model_validate(group) for group in groups]
+
+    async def get_group_owner(self, group_id: int) -> int | None:
+        """Get the owner user_id for a group.
+
+        Args:
+            group_id: ID of the group
+
+        Returns:
+            User ID of the owner, or None if no owner exists
+        """
+        return await self._group_repository.get_group_owner(group_id)
+
     async def create_group(self, group_request: GroupRequest, owner_id: int) -> GroupResponse:
         """Create a new group.
+
+        Creates the group and assigns the owner role via GroupRoleBinding.
 
         Args:
             group_request: Pydantic schema containing group data
@@ -40,8 +66,17 @@ class GroupService:
         Raises:
             ValidationError: If owner_id is not provided and group requires it
         """
-        group = Group(name=group_request.name, owner_id=owner_id)
+        # Create group without owner_id (will be removed from model)
+        group = Group(name=group_request.name)
         group = await self._group_repository.create_group(group)
+
+        # Assign owner role via GroupRoleBinding
+        await self._authorization_service.assign_group_role(
+            user_id=owner_id,
+            group_id=group.id,
+            role=GroupRole.OWNER,
+        )
+
         return GroupResponse.model_validate(group)
 
     async def update_group(self, group_id: int, group_request: GroupRequest) -> GroupResponse:
@@ -71,6 +106,8 @@ class GroupService:
     async def update_group_owner(self, group_id: int, owner_id: int) -> GroupResponse:
         """Update the owner of a specific group by its ID.
 
+        Transfers ownership by updating GroupRoleBinding roles.
+
         Args:
             group_id: ID of the group to update
             owner_id: ID of the user to set as owner
@@ -78,21 +115,33 @@ class GroupService:
         Returns:
             Updated Group response DTO
         """
-        # Fetch from repository (need ORM for modification)
+        # Fetch from repository
         group = await self._group_repository.get_group_by_id(group_id)
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
-        user = await self._user_service.get_user_by_id(owner_id)
-        if not user or not user.is_active:
-            raise NotFoundError(_("User %s not found or inactive") % owner_id)
-
+        # Check if user is a member
         if not await self._group_repository.check_if_user_is_in_group(group_id, owner_id):
-            raise NotFoundError(_("User %s is not a member of group %s") % (user.name, group.name))
+            raise NotFoundError(_("User %s is not a member of group %s") % (owner_id, group.name))
 
-        group.owner_id = owner_id
-        updated_group = await self._group_repository.update_group(group)
-        return GroupResponse.model_validate(updated_group)
+        # Get current owner
+        current_owner_id = await self._group_repository.get_group_owner(group_id)
+
+        # Transfer ownership: demote old owner to member, promote new user to owner
+        if current_owner_id and current_owner_id != owner_id:
+            await self._authorization_service.assign_group_role(
+                user_id=current_owner_id,
+                group_id=group_id,
+                role=GroupRole.MEMBER,
+            )
+
+        await self._authorization_service.assign_group_role(
+            user_id=owner_id,
+            group_id=group_id,
+            role=GroupRole.OWNER,
+        )
+
+        return GroupResponse.model_validate(group)
 
     async def delete_group(self, id: int) -> None:
         """Delete a group by its ID.
@@ -112,7 +161,7 @@ class GroupService:
             raise NotFoundError(_("Group %s not found") % id)
 
         # Check for active period with transactions
-        active_period = await self.get_current_period_by_group_id(id)
+        active_period = await self._period_service.get_current_period_by_group_id(id)
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_closed:
@@ -129,10 +178,6 @@ class GroupService:
 
         # All checks passed - safe to delete group
         await self._group_repository.delete_group(id)
-
-    async def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
-        """Retrieve all users associated with a specific group."""
-        return await self._group_repository.get_users_by_group_id(group_id)
 
     async def add_user_to_group(self, group_id: int, user_id: int) -> None:
         """Add a user to a group.
@@ -152,7 +197,7 @@ class GroupService:
 
         # Get group and user for better error messages (already validated, so not None)
         group = await self.get_group_by_id(group_id)
-        user = await self._user_service.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
         # Check for duplicate membership
@@ -163,7 +208,12 @@ class GroupService:
             )
 
         # User can join anytime - no period validation needed
-        await self._group_repository.add_user_to_group(group_id, user_id)
+        # Add user with default member role via GroupRoleBinding
+        await self._authorization_service.assign_group_role(
+            user_id=user_id,
+            group_id=group_id,
+            role=GroupRole.MEMBER,
+        )
 
     async def remove_user_from_group(self, group_id: int, user_id: int) -> None:
         """Remove a user from a group.
@@ -183,7 +233,7 @@ class GroupService:
 
         # Get group and user for better error messages (already validated, so not None)
         group = await self.get_group_by_id(group_id)
-        user = await self._user_service.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
         # Check if user is actually in the group
@@ -194,7 +244,7 @@ class GroupService:
             )
 
         # Check for active period with transactions
-        active_period = await self.get_current_period_by_group_id(group_id)
+        active_period = await self._period_service.get_current_period_by_group_id(group_id)
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_closed:
@@ -212,15 +262,8 @@ class GroupService:
             )
 
         # All checks passed - safe to remove user
-        return await self._group_repository.remove_user_from_group(group_id, user_id)
-
-    async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
-        """Retrieve all periods associated with a specific group."""
-        return await self._group_repository.get_periods_by_group_id(group_id)
-
-    async def get_current_period_by_group_id(self, group_id: int) -> Period | None:
-        """Retrieve the current unsettled period for a specific group."""
-        return await self._group_repository.get_current_period_by_group_id(group_id)
+        # Remove user by deleting their GroupRoleBinding
+        await self._authorization_service.unassign_group_role(user_id, group_id)
 
     async def _validate_group_and_user(self, group_id: int, user_id: int) -> None:
         """Validate that a group and user exist.
@@ -236,6 +279,6 @@ class GroupService:
         if not group:
             raise NotFoundError(_("Group %s not found") % group_id)
 
-        user = await self._user_service.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)

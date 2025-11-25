@@ -139,17 +139,3 @@ class TestUserRepository:
         repo = UserRepository(db_session)
         # Should not raise an exception
         await repo.delete_user(99999)
-
-    async def test_get_groups_by_user_id(self, db_session: AsyncSession):
-        """Test retrieving groups for a user."""
-        repo = UserRepository(db_session)
-
-        # This test requires Group and GroupUser models
-        # For now, test that it returns an empty list when user has no groups
-        user = create_test_user(email="nogroups@example.com", name="No Groups")
-        db_session.add(user)
-        await db_session.commit()
-
-        groups = await repo.get_groups_by_user_id(user.id)
-        assert isinstance(groups, list)
-        assert len(groups) == 0

@@ -21,6 +21,16 @@ class PeriodRepository:
         """Retrieve a specific period by its ID."""
         return await self.session.get(Period, id)
 
+    async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
+        """Retrieve all periods associated with a specific group."""
+        stmt = select(Period).where(Period.group_id == group_id)
+        return (await self.session.scalars(stmt)).all()
+
+    async def get_current_period_by_group_id(self, group_id: int) -> Period | None:
+        """Retrieve the current unsettled period for a specific group."""
+        stmt = select(Period).where(Period.group_id == group_id, Period.end_date.is_(None))
+        return (await self.session.scalars(stmt)).one_or_none()
+
     async def create_period(self, period: Period) -> Period:
         """Create a new period and persist it to the database."""
         self.session.add(period)

@@ -61,10 +61,11 @@ def get_transaction_service(db: AsyncSession = Depends(get_db)) -> TransactionSe
 # Services with dependencies on other services
 def get_group_service(
     db: AsyncSession = Depends(get_db),
-    user_service: UserService = Depends(get_user_service),
+    authorization_service: AuthorizationService = Depends(get_authorization_service),
+    period_service: PeriodService = Depends(get_period_service),
 ) -> GroupService:
     """Dependency that provides GroupService instance."""
-    return GroupService(db, user_service)
+    return GroupService(db, authorization_service, period_service)
 
 
 def get_settlement_service(
@@ -144,7 +145,8 @@ def get_serializable_services(
 
     # Create services with dependencies on base services
     authentication_service = AuthenticationService(session=db, user_service=user_service)
-    group_service = GroupService(db, user_service)
+    authorization_service = AuthorizationService(db)
+    group_service = GroupService(db, authorization_service, period_service)
 
     # Create services with dependencies on multiple services
     settlement_service = SettlementService(

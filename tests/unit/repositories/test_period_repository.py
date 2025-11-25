@@ -122,3 +122,58 @@ class TestPeriodRepository:
         repo = PeriodRepository(db_session)
         # Should not raise an exception
         await repo.delete_period(99999)
+
+    async def test_get_periods_by_group_id(self, db_session: AsyncSession):
+        """Test retrieving periods for a specific group."""
+        repo = PeriodRepository(db_session)
+
+        # Create periods for different groups
+        period1 = create_test_period(group_id=1, name="Period 1")
+        period2 = create_test_period(group_id=1, name="Period 2")
+        period3 = create_test_period(group_id=2, name="Period 3")
+        db_session.add(period1)
+        db_session.add(period2)
+        db_session.add(period3)
+        await db_session.commit()
+
+        # Get periods for group 1
+        periods = await repo.get_periods_by_group_id(1)
+        assert len(periods) == 2
+        period_names = {p.name for p in periods}
+        assert "Period 1" in period_names
+        assert "Period 2" in period_names
+        assert "Period 3" not in period_names
+
+        # Get periods for group 2
+        periods = await repo.get_periods_by_group_id(2)
+        assert len(periods) == 1
+        assert periods[0].name == "Period 3"
+
+        # Get periods for non-existent group
+        periods = await repo.get_periods_by_group_id(999)
+        assert len(periods) == 0
+
+    async def test_get_current_period_by_group_id(self, db_session: AsyncSession):
+        """Test retrieving the current (unsettled) period for a group."""
+        from datetime import UTC, datetime
+
+        repo = PeriodRepository(db_session)
+
+        # Create a closed period and an open period for group 1
+        closed_period = create_test_period(group_id=1, name="Closed Period")
+        closed_period.end_date = datetime.now(UTC)
+        open_period = create_test_period(group_id=1, name="Open Period")
+        db_session.add(closed_period)
+        db_session.add(open_period)
+        await db_session.commit()
+
+        # Get current period for group 1 (should be the open one)
+        current = await repo.get_current_period_by_group_id(1)
+        assert current is not None
+        assert current.id == open_period.id
+        assert current.name == "Open Period"
+        assert current.end_date is None
+
+        # Get current period for group with no open periods
+        current = await repo.get_current_period_by_group_id(2)
+        assert current is None

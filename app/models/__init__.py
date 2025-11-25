@@ -11,7 +11,7 @@ from app.models.authorization import (
     SystemRoleBinding,
 )
 from app.models.base import AuditMixin, Base, TimestampMixin
-from app.models.group import Group, GroupUser
+from app.models.group import Group
 from app.models.period import Period
 from app.models.transaction import Category, ExpenseShare, SplitKind, Transaction, TransactionKind
 from app.models.user import (
@@ -47,7 +47,6 @@ __all__ = [
     "AccountLinkRequest",
     # Group
     "Group",
-    "GroupUser",
     # Period
     "Period",
     # Transaction

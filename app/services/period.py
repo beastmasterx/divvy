@@ -26,6 +26,14 @@ class PeriodService:
         period = await self.period_repository.get_period_by_id(period_id)
         return PeriodResponse.model_validate(period) if period else None
 
+    async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
+        """Retrieve all periods associated with a specific group."""
+        return await self.period_repository.get_periods_by_group_id(group_id)
+
+    async def get_current_period_by_group_id(self, group_id: int) -> Period | None:
+        """Retrieve the current unsettled period for a specific group."""
+        return await self.period_repository.get_current_period_by_group_id(group_id)
+
     async def _validate_start_date(self, start_date: datetime | None) -> datetime:
         date: datetime = start_date if start_date else datetime.now(UTC)
 

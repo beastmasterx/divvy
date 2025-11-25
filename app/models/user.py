@@ -13,7 +13,6 @@ from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .authorization import GroupRoleBinding, SystemRoleBinding
-    from .group import Group, GroupUser
     from .transaction import ExpenseShare, Transaction
 
 
@@ -47,10 +46,6 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
-    owned_groups: Mapped[list[Group]] = relationship("Group", foreign_keys="Group.owner_id", back_populates="owner")
-    group_users: Mapped[list[GroupUser]] = relationship(
-        "GroupUser", foreign_keys="GroupUser.user_id", back_populates="user"
-    )
     paid_transactions: Mapped[list[Transaction]] = relationship(
         "Transaction", foreign_keys="Transaction.payer_id", back_populates="payer"
     )
@@ -68,7 +63,7 @@ class User(TimestampMixin, Base):
         "SystemRoleBinding", back_populates="user", cascade="all, delete-orphan"
     )
     group_role_bindings: Mapped[list[GroupRoleBinding]] = relationship(
-        "GroupRoleBinding", back_populates="user", cascade="all, delete-orphan"
+        "GroupRoleBinding", foreign_keys="GroupRoleBinding.user_id", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

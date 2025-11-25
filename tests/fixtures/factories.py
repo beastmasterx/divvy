@@ -44,19 +44,18 @@ def create_test_user(
     return User(email=email, name=name, password=password, is_active=is_active, avatar=avatar, **kwargs)
 
 
-def create_test_group(name: str = "Test Group", owner_id: int = 1, **kwargs: Any) -> Group:
+def create_test_group(name: str = "Test Group", **kwargs: Any) -> Group:
     """
     Factory for creating test groups.
 
     Args:
         name: Group name
-        owner_id: ID of the group owner
         **kwargs: Additional Group model fields
 
     Returns:
         Group instance (not persisted to database)
     """
-    return Group(name=name, owner_id=owner_id, **kwargs)
+    return Group(name=name, **kwargs)
 
 
 def create_test_category(name: str = "Test Category", is_default: bool = False, **kwargs: Any) -> Category:

@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
-from app.models import Group, User
-from app.repositories import UserRepository
+from app.models import User
+from app.repositories import GroupRepository, UserRepository
 from app.schemas import ProfileRequest, UserRequest, UserResponse
 
 
@@ -14,6 +14,7 @@ class UserService:
 
     def __init__(self, session: AsyncSession):
         self._user_repository = UserRepository(session)
+        self._group_repository = GroupRepository(session)
 
     async def get_all_users(self) -> Sequence[UserResponse]:
         """Retrieve all users."""
@@ -30,9 +31,9 @@ class UserService:
         user = await self._user_repository.get_user_by_email(email)
         return UserResponse.model_validate(user) if user else None
 
-    async def get_groups_by_user_id(self, user_id: int) -> Sequence[Group]:
-        """Retrieve all groups that a specific user is a member of."""
-        return await self._user_repository.get_groups_by_user_id(user_id)
+    async def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
+        """Retrieve all users associated with a specific group."""
+        return await self._group_repository.get_users_by_group_id(group_id)
 
     async def create_user(self, request: UserRequest) -> UserResponse:
         """
@@ -120,7 +121,7 @@ class UserService:
         if not user:
             raise NotFoundError(_("User %s not found") % user_id)
 
-        groups = await self.get_groups_by_user_id(user_id)
+        groups = await self._group_repository.get_groups_by_user_id(user_id)
 
         if groups:
             group_names = [g.name for g in groups]

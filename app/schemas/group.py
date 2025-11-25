@@ -13,4 +13,3 @@ class GroupResponse(BaseModel):
     model_config = {"from_attributes": True}
     id: int = Field(..., description="Group ID")
     name: str = Field(..., description="Group name")
-    owner_id: int = Field(..., description="ID of the group owner")

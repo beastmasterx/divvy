@@ -163,16 +163,3 @@ class TestUserService:
 
         with pytest.raises(NotFoundError):
             await service.delete_user(99999)
-
-    async def test_get_groups_by_user_id(self, db_session: AsyncSession):
-        """Test retrieving groups for a user."""
-        service = UserService(db_session)
-
-        user = create_test_user(email="nogroups@example.com", name="No Groups")
-        db_session.add(user)
-        await db_session.commit()
-
-        groups = await service.get_groups_by_user_id(user.id)
-        assert isinstance(groups, list)
-        # User should have no groups initially
-        assert len(groups) == 0

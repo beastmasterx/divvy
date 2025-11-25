@@ -121,11 +121,11 @@ class RolePermission(Base):
 
 
 class GroupRoleBinding(AuditMixin, Base):
-    """Group-level role binding (authorization).
+    """Group-level role binding (authorization and membership).
 
     This represents: "User X has role Y in group Z"
-    Separate from membership - a user can be a member without a role,
-    or have a role without explicit membership (though typically both exist).
+    - Membership: If a user has any GroupRoleBinding for a group, they are a member
+    - Authorization: The role determines what permissions the user has in the group
 
     This is the group-level equivalent of SystemRoleBinding (system-level).
     """
@@ -145,7 +145,7 @@ class GroupRoleBinding(AuditMixin, Base):
     )  # group:owner, group:admin, group:member, group:viewer
 
     # Relationships
-    user: Mapped[User] = relationship("User", back_populates="group_role_bindings")
+    user: Mapped[User] = relationship("User", foreign_keys=[user_id], back_populates="group_role_bindings")
     group: Mapped[Group] = relationship("Group", back_populates="role_bindings")
 
     @validates("role")

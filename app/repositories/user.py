@@ -3,11 +3,11 @@ from collections.abc import Sequence
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Group, GroupUser, User
+from app.models import User
 
 
 class UserRepository:
-    """Repository for managing user entities and their group memberships."""
+    """Repository for managing user entities."""
 
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -42,8 +42,3 @@ class UserRepository:
         stmt = delete(User).where(User.id == id)
         await self.session.execute(stmt)
         await self.session.commit()
-
-    async def get_groups_by_user_id(self, user_id: int) -> Sequence[Group]:
-        """Retrieve all groups that a specific user is a member of."""
-        stmt = select(Group).join(GroupUser, Group.id == GroupUser.group_id).where(GroupUser.user_id == user_id)
-        return (await self.session.scalars(stmt)).all()
