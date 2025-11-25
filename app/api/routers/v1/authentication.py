@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import Discriminator
 
 from app.api.dependencies import (
-    get_auth_service,
+    get_authentication_service,
     get_current_user,
     get_current_user_optional,
     get_identity_provider_service,
@@ -17,14 +17,14 @@ from app.api.dependencies import (
 from app.exceptions import ValidationError
 from app.models import User
 from app.schemas import UserResponse
-from app.schemas.auth import (
+from app.schemas.authentication import (
     AccountLinkVerifyRequest,
     LinkingRequiredResponse,
     OAuthAuthorizeResponse,
     RegisterRequest,
     TokenResponse,
 )
-from app.services import AuthService
+from app.services import AuthenticationService
 from app.services.identity_provider import IdentityProviderService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 async def register(
     request: RegisterRequest,
     http: Request,
-    auth: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
 ) -> TokenResponse:
     """
     Register a new user account.
@@ -50,16 +50,16 @@ async def register(
     Args:
         request: Registration request containing email, name, and password
         http: HTTP request object for extracting device info
-        auth: Authentication service instance
+        authentication_service: Authentication service instance
 
     Returns:
         TokenResponse containing access token and refresh token
 
     Raises:
-        ConflictError: If email already exists (raised by auth_service)
+        ConflictError: If email already exists (raised by authentication_service)
     """
     device_info = _get_device_info(http)
-    return await auth.register(
+    return await authentication_service.register(
         email=request.email,
         name=request.name,
         password=request.password,
@@ -74,7 +74,7 @@ async def token(
     username: Annotated[str | None, Form()] = None,
     password: Annotated[str | None, Form()] = None,
     refresh_token: Annotated[str | None, Form()] = None,
-    auth: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
 ) -> TokenResponse:
     """
     OAuth2 token endpoint - issue and refresh access tokens (RFC 6749).
@@ -89,7 +89,7 @@ async def token(
         username: User email (required for password grant)
         password: User password (required for password grant)
         refresh_token: Refresh token (required for refresh_token grant)
-        auth: Authentication service instance
+        authentication_service: Authentication service instance
 
     Returns:
         TokenResponse containing access token and refresh token
@@ -103,12 +103,12 @@ async def token(
     if grant_type == "password":
         if not username or not password:
             raise ValidationError("username and password are required for password grant")
-        return await auth.authenticate(username, password, device_info)
+        return await authentication_service.authenticate(username, password, device_info)
 
     elif grant_type == "refresh_token":
         if not refresh_token:
             raise ValidationError("refresh_token is required for refresh_token grant")
-        return await auth.rotate_refresh_token(refresh_token)
+        return await authentication_service.rotate_refresh_token(refresh_token)
 
     else:
         raise ValidationError(f"Unsupported grant_type: {grant_type}. Supported types: password, refresh_token")
@@ -118,7 +118,7 @@ async def token(
 async def revoke_token(
     token: Annotated[str, Form()],
     token_type_hint: Annotated[str | None, Form()] = None,
-    auth: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
 ) -> None:
     """
     OAuth2 token revocation endpoint (RFC 7009).
@@ -129,7 +129,7 @@ async def revoke_token(
     Args:
         token: Refresh token to revoke (OAuth2 standard form parameter, required)
         token_type_hint: Hint about the token type (accepted but only "refresh_token" is supported)
-        auth: Authentication service instance
+        authentication_service: Authentication service instance
 
     Raises:
         ValidationError: If token is not provided
@@ -141,13 +141,13 @@ async def revoke_token(
         the access token to expire naturally.
     """
     # Only refresh tokens can be revoked in this implementation
-    await auth.revoke_refresh_token(token)
+    await authentication_service.revoke_refresh_token(token)
 
 
 @router.post("/logout-all", response_model=None)
 async def logout_all(
     user: User = Depends(get_current_user),
-    auth: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
 ) -> None:
     """
     Logout from all devices by revoking all refresh tokens for the authenticated user.
@@ -156,9 +156,9 @@ async def logout_all(
 
     Args:
         user: Current authenticated user from access token
-        auth: Authentication service instance
+        authentication_service: Authentication service instance
     """
-    await auth.revoke_all_user_refresh_tokens(user.id)
+    await authentication_service.revoke_all_user_refresh_tokens(user.id)
 
 
 @router.get("/oauth/{provider}/authorize")

@@ -2,7 +2,7 @@
 Pydantic schemas (DTOs) for API requests and responses.
 """
 
-from .auth import (
+from .authentication import (
     AccountLinkVerifyRequest,
     LinkingRequiredResponse,
     OAuthAuthorizeResponse,

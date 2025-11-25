@@ -7,18 +7,18 @@ from typing import Annotated
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from app.api.dependencies.services import get_auth_service, get_user_service
+from app.api.dependencies.services import get_authentication_service, get_user_service
 from app.db.audit import set_current_user_id
 from app.exceptions import UnauthorizedError
 from app.schemas import UserResponse
-from app.services import AuthService, UserService
+from app.services import AuthenticationService, UserService
 
 _oauth2_schema = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
 async def get_current_user(
     token: Annotated[str, Depends(_oauth2_schema)],
-    auth_service: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
     user_service: UserService = Depends(get_user_service),
 ) -> UserResponse:
     """
@@ -28,7 +28,7 @@ async def get_current_user(
 
     Args:
         token: JWT token
-        auth_service: Authentication service instance
+        authentication_service: Authentication service instance
         user_service: User service instance
 
     Returns:
@@ -38,7 +38,7 @@ async def get_current_user(
         HTTPException: If token is invalid, expired, or user not found/inactive
     """
     try:
-        payload = await auth_service.verify_token(token)
+        payload = await authentication_service.verify_token(token)
         user_id_str = payload.get("sub")
         if not user_id_str:
             raise UnauthorizedError("Invalid authentication token")
@@ -74,7 +74,7 @@ def _get_optional_token(request: Request) -> str | None:
 
 async def get_current_user_optional(
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
     user_service: UserService = Depends(get_user_service),
 ) -> UserResponse | None:
     """
@@ -85,7 +85,7 @@ async def get_current_user_optional(
 
     Args:
         request: FastAPI request object
-        auth_service: Authentication service instance
+        authentication_service: Authentication service instance
         user_service: User service instance
 
     Returns:
@@ -96,7 +96,7 @@ async def get_current_user_optional(
         return None
 
     try:
-        payload = await auth_service.verify_token(token)
+        payload = await authentication_service.verify_token(token)
         user_id_str = payload.get("sub")
         if not user_id_str:
             return None

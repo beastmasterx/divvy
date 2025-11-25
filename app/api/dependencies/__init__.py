@@ -7,13 +7,14 @@ Individual dependencies are organized in submodules:
 - services: Service dependencies
 - auth: Authentication dependencies
 """
-from app.api.dependencies.auth import (
+
+from app.api.dependencies.authentication import (
     get_current_user,
     get_current_user_optional,
 )
 from app.api.dependencies.db import get_db
 from app.api.dependencies.services import (
-    get_auth_service,
+    get_authentication_service,
     get_category_service,
     get_group_service,
     get_identity_provider_service,
@@ -28,7 +29,7 @@ __all__ = [
     "get_db",
     # Services
     "get_user_service",
-    "get_auth_service",
+    "get_authentication_service",
     "get_category_service",
     "get_period_service",
     "get_transaction_service",
@@ -39,4 +40,3 @@ __all__ = [
     "get_current_user",
     "get_current_user_optional",
 ]
-

@@ -27,7 +27,7 @@ from app.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserRe
 from app.services.user import UserService
 
 
-class AuthService:
+class AuthenticationService:
     """Service layer for authentication-related operations."""
 
     def __init__(self, session: AsyncSession, user_service: UserService):

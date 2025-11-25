@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.db import get_db, get_serializable_db
 from app.services import (
-    AuthService,
+    AuthenticationService,
     CategoryService,
     GroupService,
     IdentityProviderService,
@@ -26,12 +26,12 @@ def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
     return UserService(db)
 
 
-def get_auth_service(
+def get_authentication_service(
     db: AsyncSession = Depends(get_db),
     user_service: UserService = Depends(get_user_service),
-) -> AuthService:
-    """Dependency that provides AuthService instance."""
-    return AuthService(
+) -> AuthenticationService:
+    """Dependency that provides AuthenticationService instance."""
+    return AuthenticationService(
         session=db,
         user_service=user_service,
     )
@@ -80,13 +80,13 @@ def get_settlement_service(
 def get_identity_provider_service(
     db: AsyncSession = Depends(get_db),
     user_service: UserService = Depends(get_user_service),
-    auth_service: AuthService = Depends(get_auth_service),
+    authentication_service: AuthenticationService = Depends(get_authentication_service),
 ) -> IdentityProviderService:
     """Dependency that provides IdentityProviderService instance."""
     return IdentityProviderService(
         session=db,
         user_service=user_service,
-        auth_service=auth_service,
+        authentication_service=authentication_service,
     )
 
 
@@ -107,7 +107,7 @@ class SerializableServices:
 
     Attributes:
         user_service: Service for user management operations
-        auth_service: Service for authentication operations
+        authentication_service: Service for authentication operations
         category_service: Service for category management
         period_service: Service for period management
         transaction_service: Service for transaction operations
@@ -117,7 +117,7 @@ class SerializableServices:
     """
 
     user_service: UserService
-    auth_service: AuthService
+    authentication_service: AuthenticationService
     category_service: CategoryService
     period_service: PeriodService
     transaction_service: TransactionService
@@ -137,7 +137,7 @@ def get_serializable_services(
     transaction_service = TransactionService(db)
 
     # Create services with dependencies on base services
-    auth_service = AuthService(session=db, user_service=user_service)
+    authentication_service = AuthenticationService(session=db, user_service=user_service)
     group_service = GroupService(db, user_service)
 
     # Create services with dependencies on multiple services
@@ -150,12 +150,12 @@ def get_serializable_services(
     identity_provider_service = IdentityProviderService(
         session=db,
         user_service=user_service,
-        auth_service=auth_service,
+        authentication_service=authentication_service,
     )
 
     return SerializableServices(
         user_service=user_service,
-        auth_service=auth_service,
+        authentication_service=authentication_service,
         category_service=category_service,
         period_service=period_service,
         transaction_service=transaction_service,

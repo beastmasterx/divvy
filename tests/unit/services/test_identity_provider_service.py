@@ -13,7 +13,7 @@ from app.exceptions import UnauthorizedError, ValidationError
 from app.models import AccountLinkRequestStatus
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
 from app.schemas import TokenResponse as TokenResponseSchema
-from app.services import AuthService, IdentityProviderService, UserService
+from app.services import AuthenticationService, IdentityProviderService, UserService
 from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 from app.services.identity_providers.registry import IdentityProviderRegistry
 from tests.fixtures.factories import (
@@ -31,11 +31,11 @@ class TestIdentityProviderService:
     async def identity_provider_service(self, db_session: AsyncSession) -> IdentityProviderService:
         """Create an IdentityProviderService instance with dependencies."""
         user_service = UserService(db_session)
-        auth_service = AuthService(session=db_session, user_service=user_service)
+        authentication_service = AuthenticationService(session=db_session, user_service=user_service)
         return IdentityProviderService(
             session=db_session,
             user_service=user_service,
-            auth_service=auth_service,
+            authentication_service=authentication_service,
         )
 
     @pytest.fixture(autouse=True)
@@ -132,7 +132,7 @@ class TestIdentityProviderService:
         )
 
         # Should return LinkingRequiredResponse
-        from app.schemas.auth import LinkingRequiredResponse
+        from app.schemas.authentication import LinkingRequiredResponse
 
         assert isinstance(result, LinkingRequiredResponse)
         assert result.response_type == "linking_required"

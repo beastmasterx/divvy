@@ -15,7 +15,7 @@ from app.exceptions import NotFoundError, UnauthorizedError, ValidationError
 from app.models import AccountLinkRequest, AccountLinkRequestStatus, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
 from app.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
-from app.services.auth import AuthService
+from app.services.authentication import AuthenticationService
 from app.services.identity_providers.registry import IdentityProviderRegistry
 from app.services.user import UserService
 
@@ -32,7 +32,7 @@ class IdentityProviderService:
         self,
         session: AsyncSession,
         user_service: UserService,
-        auth_service: AuthService,
+        authentication_service: AuthenticationService,
     ):
         """
         Initialize IdentityProviderService with dependencies.
@@ -40,11 +40,11 @@ class IdentityProviderService:
         Args:
             session: Database session for repository operations
             user_service: User service for user operations
-            auth_service: Auth service for token generation
+            authentication_service: Authentication service for token generation
         """
         self._session = session
         self._user_service = user_service
-        self._auth_service = auth_service
+        self._auth_service = authentication_service
         self._user_identity_repository = UserIdentityRepository(session)
         self._account_link_request_repository = AccountLinkRequestRepository(session)
         self._user_repository = UserRepository(session)
