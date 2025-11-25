@@ -5,8 +5,11 @@ API v1 router for Period endpoints.
 from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_period_service, get_settlement_service
+from app.api.dependencies.db import get_serializable_db
+from app.api.dependencies.services import SerializableServices, get_serializable_services
 from app.api.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest, SettlementPlanResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
@@ -87,7 +90,6 @@ async def get_balances(
 @router.get("/{period_id}/get-settlement-plan", response_model=list[SettlementPlanResponse])
 async def get_settlement_plan(
     period_id: int,
-    period_service: PeriodService = Depends(get_period_service),
     settlement_service: SettlementService = Depends(get_settlement_service),
 ) -> list[SettlementPlanResponse]:
     """
@@ -99,9 +101,10 @@ async def get_settlement_plan(
 @router.post("/{period_id}/apply-settlement-plan", status_code=status.HTTP_204_NO_CONTENT)
 async def apply_settlement_plan(
     period_id: int,
-    settlement_service: SettlementService = Depends(get_settlement_service),
+    services: SerializableServices = Depends(get_serializable_services),
+    db: AsyncSession = Depends(get_serializable_db),
 ) -> None:
     """
     Apply the settlement plan and settle the period.
     """
-    await settlement_service.apply_settlement_plan(period_id)
+    await services.settlement_service.apply_settlement_plan(period_id, db)

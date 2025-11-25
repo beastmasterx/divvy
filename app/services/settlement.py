@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.schemas import SettlementPlanResponse, TransactionRequest
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError, ValidationError
@@ -103,27 +105,48 @@ class SettlementService:
                 plan.append(transaction)
         return plan
 
-    async def apply_settlement_plan(self, period_id: int) -> None:
-        """Apply the settlement plan to the period."""
+    async def apply_settlement_plan(self, period_id: int, db: AsyncSession) -> None:
+        """
+        Apply the settlement plan to the period.
 
-        # TODO: Refactor: This entire block must be wrapped in a transaction
-        # boundary (try/except/rollback/commit) to ensure atomicity across
-        # multiple service calls (create_transaction, close_period).
-        # All underlying services must be refactored to remove internal commits.
+        This method performs all settlement operations within a single transaction
+        to ensure atomicity. If any operation fails, all changes are rolled back.
 
-        # TODO: Business Logic: Verify that all dependent services (TransactionService,
-        # PeriodService) are now transactionless (i.e., they DO NOT call commit() internally).
-        plan = await self.get_settlement_plan(period_id)
-        for t in plan:
-            request = TransactionRequest(
-                transaction_kind=t.transaction_kind,
-                amount=t.amount,
-                payer_id=t.payer_id,
-                period_id=t.period_id,
-                category_id=t.category_id,
-                split_kind=t.split_kind,
-                description=t.description,
-                expense_shares=[],
-            )
-            await self.transaction_service.create_transaction(request)
-        await self.period_service.close_period(period_id)
+        Args:
+            period_id: The ID of the period to settle
+            db: Database session to use for the transaction. Should be a session
+                with SERIALIZABLE isolation level for critical financial operations.
+
+        Raises:
+            NotFoundError: If period, settlement category, or users are not found
+            BusinessRuleError: If period is already closed
+            ValidationError: If transaction data is invalid
+        """
+        try:
+            # Get the settlement plan (validates period exists and is not closed)
+            plan = await self.get_settlement_plan(period_id)
+
+            # Create settlement transactions for each user with a non-zero balance
+            for p in plan:
+                request = TransactionRequest(
+                    transaction_kind=p.transaction_kind,
+                    amount=p.amount,
+                    payer_id=p.payer_id,
+                    period_id=p.period_id,
+                    category_id=p.category_id,
+                    split_kind=p.split_kind,
+                    description=p.description,
+                    expense_shares=[],
+                )
+                await self.transaction_service.create_transaction(request)
+
+            # Close the period after all settlement transactions are created
+            await self.period_service.close_period(period_id)
+
+            # Commit all changes atomically
+            await db.commit()
+
+        except Exception:
+            # Rollback all changes if any operation fails
+            await db.rollback()
+            raise
