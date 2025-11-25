@@ -94,7 +94,7 @@ class GroupService:
         updated_group = await self._group_repository.update_group(group)
         return GroupResponse.model_validate(updated_group)
 
-    async def delete_group(self, group_id: int) -> None:
+    async def delete_group(self, id: int) -> None:
         """Delete a group by its ID.
 
         Group can only be deleted if the active period (if any) with transactions
@@ -107,12 +107,12 @@ class GroupService:
             NotFoundError: If group not found
             BusinessRuleError: If active period with transactions is not settled
         """
-        group = await self._group_repository.get_group_by_id(group_id)
+        group = await self._group_repository.get_group_by_id(id)
         if not group:
-            raise NotFoundError(_("Group %s not found") % group_id)
+            raise NotFoundError(_("Group %s not found") % id)
 
         # Check for active period with transactions
-        active_period = await self.get_current_period_by_group_id(group_id)
+        active_period = await self.get_current_period_by_group_id(id)
 
         # Active period exists with transactions - must be settled first
         if active_period and active_period.transactions and not active_period.is_closed:
@@ -128,7 +128,7 @@ class GroupService:
             )
 
         # All checks passed - safe to delete group
-        return await self._group_repository.delete_group(group_id)
+        await self._group_repository.delete_group(id)
 
     async def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve all users associated with a specific group."""

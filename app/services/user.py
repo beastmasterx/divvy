@@ -12,7 +12,7 @@ from app.repositories import UserRepository
 class UserService:
     """Service layer for user-related business logic and operations."""
 
-    async def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession):
         self._user_repository = UserRepository(session)
 
     async def get_all_users(self) -> Sequence[UserResponse]:

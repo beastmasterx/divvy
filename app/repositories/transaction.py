@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models import ExpenseShare, Transaction
 
@@ -19,6 +19,7 @@ class TransactionRepository:
             joinedload(Transaction.payer),
             joinedload(Transaction.category),
             joinedload(Transaction.period),
+            selectinload(Transaction.expense_shares),
         )
         return (await self.session.scalars(stmt)).all()
 
@@ -31,6 +32,7 @@ class TransactionRepository:
                 joinedload(Transaction.payer),
                 joinedload(Transaction.category),
                 joinedload(Transaction.period),
+                selectinload(Transaction.expense_shares),
             )
         )
         return (await self.session.scalars(stmt)).one_or_none()
@@ -44,6 +46,7 @@ class TransactionRepository:
                 joinedload(Transaction.payer),
                 joinedload(Transaction.category),
                 joinedload(Transaction.period),
+                selectinload(Transaction.expense_shares),
             )
         )
         return (await self.session.scalars(stmt)).all()
@@ -58,6 +61,7 @@ class TransactionRepository:
                 joinedload(Transaction.payer),
                 joinedload(Transaction.category),
                 joinedload(Transaction.period),
+                selectinload(Transaction.expense_shares),
             )
         )
         return (await self.session.scalars(stmt)).all()
@@ -74,6 +78,7 @@ class TransactionRepository:
                 joinedload(Transaction.payer),
                 joinedload(Transaction.category),
                 joinedload(Transaction.period),
+                selectinload(Transaction.expense_shares),
             )
         )
         return (await self.session.scalars(stmt)).one()
@@ -89,6 +94,7 @@ class TransactionRepository:
                 joinedload(Transaction.payer),
                 joinedload(Transaction.category),
                 joinedload(Transaction.period),
+                selectinload(Transaction.expense_shares),
             )
         )
         return (await self.session.scalars(stmt)).one()

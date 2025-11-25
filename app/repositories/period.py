@@ -32,7 +32,7 @@ class PeriodRepository:
         await self.session.commit()
         return period
 
-    async def delete_period(self, period_id: int) -> None:
+    async def delete_period(self, id: int) -> None:
         """Delete a period by its ID if it exists."""
         stmt = delete(Period).where(Period.id == id)
         await self.session.execute(stmt)

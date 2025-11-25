@@ -32,7 +32,7 @@ class GroupRepository:
         await self.session.commit()
         return group
 
-    async def delete_group(self, group_id: int) -> None:
+    async def delete_group(self, id: int) -> None:
         """Delete a group by its ID if it exists."""
         stmt = delete(Group).where(Group.id == id)
         await self.session.execute(stmt)

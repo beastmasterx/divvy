@@ -97,3 +97,7 @@ reportMissingTypeStubs = "error"
 exclude = [
     "alembic/versions/*"
 ]
+
+[tool.pytest.ini_options]
+# Enable pytest-asyncio auto mode to automatically detect and handle async test functions
+asyncio_mode = "auto"

@@ -38,7 +38,7 @@ class PeriodService:
         """Create a new period."""
         period = Period(name=request.name, group_id=request.group_id)
         period.start_date = await self._validate_start_date(request.start_date)
-        period = self.period_repository.create_period(period)
+        period = await self.period_repository.create_period(period)
         return PeriodResponse.model_validate(period)
 
     async def update_period(self, period_id: int, request: PeriodUpdateRequest) -> PeriodResponse:
@@ -72,19 +72,19 @@ class PeriodService:
         updated_period = await self.period_repository.update_period(period)
         return PeriodResponse.model_validate(updated_period)
 
-    async def delete_period(self, period_id: int) -> None:
+    async def delete_period(self, id: int) -> None:
         """Delete a period by its ID."""
         # Fetch from repository (need ORM for relationship access)
-        period = await self.period_repository.get_period_by_id(period_id)
+        period = await self.period_repository.get_period_by_id(id)
         if not period:
-            raise NotFoundError(_("Period %s not found") % period_id)
+            raise NotFoundError(_("Period %s not found") % id)
 
         if not period.is_closed and period.transactions:
             raise BusinessRuleError(
                 _(
                     "Period %s is not settled and has transactions. Please settle the period or delete the transactions first."
                 )
-                % period_id
+                % id
             )
 
-        return await self.period_repository.delete_period(period_id)
+        await self.period_repository.delete_period(id)
