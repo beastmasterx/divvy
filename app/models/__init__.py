@@ -2,6 +2,14 @@
 SQLAlchemy database models.
 """
 
+from app.models.authorization import (
+    GroupRole,
+    GroupRoleBinding,
+    Permission,
+    RolePermission,
+    SystemRole,
+    SystemRoleBinding,
+)
 from app.models.base import AuditMixin, Base, TimestampMixin
 from app.models.group import Group, GroupUser
 from app.models.period import Period
@@ -15,15 +23,6 @@ from app.models.user import (
     UserIdentity,
 )
 
-default_categories = [
-    "Utilities (Water & Electricity & Gas)",
-    "Groceries",
-    "Daily Necessities",
-    "Rent",
-    "Settlement",
-    "Other",
-]
-
 __all__ = [
     # Base
     "Base",
@@ -34,6 +33,13 @@ __all__ = [
     "SplitKind",
     "IdentityProvider",
     "AccountLinkRequestStatus",
+    # Authorization
+    "SystemRole",
+    "GroupRole",
+    "Permission",
+    "SystemRoleBinding",
+    "RolePermission",
+    "GroupRoleBinding",
     # User
     "User",
     "RefreshToken",
@@ -48,6 +54,4 @@ __all__ = [
     "Transaction",
     "ExpenseShare",
     "Category",
-    # Constants
-    "default_categories",
 ]

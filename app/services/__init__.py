@@ -3,6 +3,7 @@ Business logic services.
 """
 
 from .authentication import AuthenticationService
+from .authorization import AuthorizationService
 from .category import CategoryService
 from .group import GroupService
 from .identity_provider import IdentityProviderService
@@ -13,6 +14,7 @@ from .user import UserService
 
 __all__ = [
     "AuthenticationService",
+    "AuthorizationService",
     "CategoryService",
     "GroupService",
     "IdentityProviderService",

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from .authorization import GroupRoleBinding, SystemRoleBinding
     from .group import Group, GroupUser
     from .transaction import ExpenseShare, Transaction
 
@@ -61,6 +62,13 @@ class User(TimestampMixin, Base):
     )
     identities: Mapped[list[UserIdentity]] = relationship(
         "UserIdentity", back_populates="user", cascade="all, delete-orphan"
+    )
+    # Authorization relationships
+    system_role_bindings: Mapped[list[SystemRoleBinding]] = relationship(
+        "SystemRoleBinding", back_populates="user", cascade="all, delete-orphan"
+    )
+    group_role_bindings: Mapped[list[GroupRoleBinding]] = relationship(
+        "GroupRoleBinding", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

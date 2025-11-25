@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import AuditMixin, Base
 
 if TYPE_CHECKING:
+    from .authorization import GroupRoleBinding
     from .period import Period
     from .user import User
 
@@ -29,6 +30,10 @@ class Group(AuditMixin, Base):
         "GroupUser", back_populates="group", cascade="all, delete-orphan"
     )
     periods: Mapped[list[Period]] = relationship("Period", back_populates="group", cascade="all, delete-orphan")
+    # Authorization relationship
+    role_bindings: Mapped[list[GroupRoleBinding]] = relationship(
+        "GroupRoleBinding", back_populates="group", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Group(id={self.id}, name='{self.name}')>"

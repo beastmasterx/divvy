@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.db import get_db, get_serializable_db
 from app.services import (
     AuthenticationService,
+    AuthorizationService,
     CategoryService,
     GroupService,
     IdentityProviderService,
@@ -35,6 +36,11 @@ def get_authentication_service(
         session=db,
         user_service=user_service,
     )
+
+
+def get_authorization_service(db: AsyncSession = Depends(get_db)) -> AuthorizationService:
+    """Dependency that provides AuthorizationService instance."""
+    return AuthorizationService(db)
 
 
 def get_category_service(db: AsyncSession = Depends(get_db)) -> CategoryService:
