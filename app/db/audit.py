@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
-from app.models.models import AuditMixin
+from app.models import AuditMixin
 
 # Context variable to store current user ID per request
 _current_user_id: ContextVar[int | None] = ContextVar("current_user_id", default=None)

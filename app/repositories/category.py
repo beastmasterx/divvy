@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.models import Category
+from app.models import Category
 
 
 class CategoryRepository:

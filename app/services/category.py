@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import NotFoundError
-from app.models.models import Category
+from app.models import Category
 from app.repositories import CategoryRepository
 from app.schemas import CategoryRequest, CategoryResponse
 

@@ -2,20 +2,15 @@
 SQLAlchemy database models.
 """
 
-from .models import (
+from app.models.base import AuditMixin, Base, TimestampMixin
+from app.models.group import Group, GroupUser
+from app.models.period import Period
+from app.models.transaction import Category, ExpenseShare, SplitKind, Transaction, TransactionKind
+from app.models.user import (
     AccountLinkRequest,
     AccountLinkRequestStatus,
-    Base,
-    Category,
-    ExpenseShare,
-    Group,
-    GroupUser,
     IdentityProvider,
-    Period,
     RefreshToken,
-    SplitKind,
-    Transaction,
-    TransactionKind,
     User,
     UserIdentity,
 )
@@ -30,19 +25,29 @@ default_categories = [
 ]
 
 __all__ = [
-    "AccountLinkRequest",
-    "AccountLinkRequestStatus",
+    # Base
     "Base",
-    "Category",
-    "ExpenseShare",
+    "TimestampMixin",
+    "AuditMixin",
+    # Enums
+    "TransactionKind",
+    "SplitKind",
+    "IdentityProvider",
+    "AccountLinkRequestStatus",
+    # User
+    "User",
+    "RefreshToken",
+    "UserIdentity",
+    "AccountLinkRequest",
+    # Group
     "Group",
     "GroupUser",
-    "IdentityProvider",
+    # Period
     "Period",
-    "RefreshToken",
-    "SplitKind",
+    # Transaction
     "Transaction",
-    "TransactionKind",
-    "User",
-    "UserIdentity",
+    "ExpenseShare",
+    "Category",
+    # Constants
+    "default_categories",
 ]
