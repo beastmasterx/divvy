@@ -110,7 +110,7 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
-async def reset_engine():
+async def reset_engine() -> None:
     """
     Reset the global async engine (useful for testing or switching databases).
 
@@ -120,3 +120,28 @@ async def reset_engine():
     if _engine is not None:
         await _engine.dispose()
     _engine = None
+
+
+_serializable_engine: AsyncEngine | None = None
+
+
+def get_serializable_engine() -> AsyncEngine:
+    """
+    Get or create engine with SERIALIZABLE isolation level.
+
+    Used for critical financial operations that require highest isolation.
+    """
+    global _serializable_engine
+    if _serializable_engine is None:
+        _serializable_engine = _create_engine_from_url().execution_options(isolation_level="SERIALIZABLE")
+    return _serializable_engine
+
+
+async def reset_serializable_engine() -> None:
+    """
+    Reset the global async engine with SERIALIZABLE isolation level.
+    """
+    global _serializable_engine
+    if _serializable_engine is not None:
+        await _serializable_engine.dispose()
+    _serializable_engine = None

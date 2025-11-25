@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from . import (
     audit,  # noqa: F401  # pyright: ignore[reportUnusedImport]  # Import side effect registers SQLAlchemy event listeners
 )
-from .connection import get_engine
+from .connection import get_engine, get_serializable_engine
 
 # Lazy async session factory - only creates engine when first used
 # This allows .env files to be loaded before engine creation
@@ -66,3 +66,43 @@ async def create_session() -> AsyncSession:
         Async SQLAlchemy Session instance
     """
     return _get_session_factory()()
+
+
+_serializable_session_local: async_sessionmaker[AsyncSession] | None = None
+
+
+def _get_serializable_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Get or create the async session factory with SERIALIZABLE isolation level (lazy initialization)."""
+    global _serializable_session_local
+    if _serializable_session_local is None:
+        _serializable_session_local = async_sessionmaker(
+            bind=get_serializable_engine(),
+            class_=AsyncSession,
+            autocommit=False,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+    return _serializable_session_local
+
+
+@asynccontextmanager
+async def get_serializable_session() -> AsyncIterator[AsyncSession]:
+    """
+    Async context manager for database sessions with SERIALIZABLE isolation level.
+    """
+    async_session = _get_serializable_session_factory()()
+    try:
+        yield async_session
+        await async_session.commit()
+    except Exception:
+        await async_session.rollback()
+        raise
+    finally:
+        await async_session.close()
+
+
+async def create_serializable_session() -> AsyncSession:
+    """
+    Create a new async database session with SERIALIZABLE isolation level (manual management).
+    """
+    return _get_serializable_session_factory()()
