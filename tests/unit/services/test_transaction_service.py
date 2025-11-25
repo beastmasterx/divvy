@@ -5,9 +5,9 @@ Unit tests for TransactionService.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import ExpenseShareRequest, TransactionRequest
 from app.exceptions import NotFoundError, ValidationError
 from app.models import SplitKind, TransactionKind
+from app.schemas import ExpenseShareRequest, TransactionRequest
 from app.services import TransactionService
 from tests.fixtures.factories import create_test_category, create_test_period, create_test_transaction, create_test_user
 

@@ -5,8 +5,8 @@ Unit tests for UserService.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import ProfileRequest, UserRequest
 from app.exceptions import NotFoundError
+from app.schemas import ProfileRequest, UserRequest
 from app.services import UserService
 from tests.fixtures.factories import create_test_user
 

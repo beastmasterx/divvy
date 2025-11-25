@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import ExpenseShareRequest, TransactionRequest
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models import SplitKind, TransactionKind
+from app.schemas import ExpenseShareRequest, TransactionRequest
 from app.services import (
     CategoryService,
     PeriodService,

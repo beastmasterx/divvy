@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import TokenResponse as TokenResponseSchema
 from app.core.security import create_state_token, hash_password, is_signed_state_token, verify_state_token
 from app.exceptions import UnauthorizedError, ValidationError
 from app.models import AccountLinkRequestStatus
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
+from app.schemas import TokenResponse as TokenResponseSchema
 from app.services import AuthService, IdentityProviderService, UserService
 from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 from app.services.identity_providers.registry import IdentityProviderRegistry
@@ -132,7 +132,7 @@ class TestIdentityProviderService:
         )
 
         # Should return LinkingRequiredResponse
-        from app.api.schemas.auth import LinkingRequiredResponse
+        from app.schemas.auth import LinkingRequiredResponse
 
         assert isinstance(result, LinkingRequiredResponse)
         assert result.response_type == "linking_required"

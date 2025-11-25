@@ -1,17 +1,17 @@
 """
 Authentication dependencies.
 """
+
 from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from app.api.dependencies.services import get_auth_service, get_user_service
-from app.api.schemas import UserResponse
 from app.db.audit import set_current_user_id
 from app.exceptions import UnauthorizedError
+from app.schemas import UserResponse
 from app.services import AuthService, UserService
-
 
 _oauth2_schema = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
@@ -113,4 +113,3 @@ async def get_current_user_optional(
     set_current_user_id(user.id)
 
     return user
-

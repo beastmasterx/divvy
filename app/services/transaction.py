@@ -3,11 +3,11 @@ from decimal import ROUND_HALF_EVEN, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import TransactionRequest, TransactionResponse
 from app.core.i18n import _
 from app.exceptions import InternalServerError, NotFoundError, ValidationError
 from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind
 from app.repositories import TransactionRepository
+from app.schemas import TransactionRequest, TransactionResponse
 
 
 class TransactionService:

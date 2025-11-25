@@ -5,8 +5,8 @@ Unit tests for GroupService.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import GroupRequest
 from app.exceptions import ConflictError, NotFoundError
+from app.schemas import GroupRequest
 from app.services import GroupService, UserService
 from tests.fixtures.factories import create_test_group, create_test_user
 

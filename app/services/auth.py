@@ -8,7 +8,6 @@ from typing import Any
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserResponse
 from app.core.config import (
     get_jwt_refresh_token_expire_days,
 )
@@ -24,6 +23,7 @@ from app.core.security import (
 from app.exceptions import NotFoundError, UnauthorizedError
 from app.models import RefreshToken
 from app.repositories import RefreshTokenRepository, UserRepository
+from app.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserResponse
 from app.services.user import UserService
 
 

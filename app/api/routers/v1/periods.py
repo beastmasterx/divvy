@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_period_service, get_settlement_service
 from app.api.dependencies.db import get_serializable_db
 from app.api.dependencies.services import SerializableServices, get_serializable_services
-from app.api.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest, SettlementPlanResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
+from app.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest, SettlementPlanResponse
 from app.services import PeriodService, SettlementService
 
 router = APIRouter(prefix="/periods", tags=["periods"])

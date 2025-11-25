@@ -2,11 +2,11 @@ from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import ProfileRequest, UserRequest, UserResponse
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models import Group, User
 from app.repositories import UserRepository
+from app.schemas import ProfileRequest, UserRequest, UserResponse
 
 
 class UserService:

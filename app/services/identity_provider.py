@@ -8,13 +8,13 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
 from app.core.datetime import utc, utc_now
 from app.core.security import check_password, is_signed_state_token, verify_state_token
 from app.core.security.oauth import StateTokenPayload
 from app.exceptions import NotFoundError, UnauthorizedError, ValidationError
 from app.models import AccountLinkRequest, AccountLinkRequestStatus, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
+from app.schemas import LinkingRequiredResponse, TokenResponse, UserRequest
 from app.services.auth import AuthService
 from app.services.identity_providers.registry import IdentityProviderRegistry
 from app.services.user import UserService

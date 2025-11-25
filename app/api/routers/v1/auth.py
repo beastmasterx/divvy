@@ -14,16 +14,16 @@ from app.api.dependencies import (
     get_current_user_optional,
     get_identity_provider_service,
 )
-from app.api.schemas import UserResponse
-from app.api.schemas.auth import (
+from app.exceptions import ValidationError
+from app.models import User
+from app.schemas import UserResponse
+from app.schemas.auth import (
     AccountLinkVerifyRequest,
     LinkingRequiredResponse,
     OAuthAuthorizeResponse,
     RegisterRequest,
     TokenResponse,
 )
-from app.exceptions import ValidationError
-from app.models import User
 from app.services import AuthService
 from app.services.identity_provider import IdentityProviderService
 

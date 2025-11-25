@@ -2,10 +2,10 @@ from collections import defaultdict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import SettlementPlanResponse, TransactionRequest
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError, ValidationError
 from app.models import SplitKind, TransactionKind
+from app.schemas import SettlementPlanResponse, TransactionRequest
 from app.services.category import CategoryService
 from app.services.period import PeriodService
 from app.services.transaction import TransactionService

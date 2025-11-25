@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_category_service
-from app.api.schemas.category import CategoryResponse
+from app.schemas.category import CategoryResponse
 from app.services import CategoryService
 
 router = APIRouter(prefix="/categories", tags=["categories"])

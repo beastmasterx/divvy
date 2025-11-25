@@ -3,11 +3,11 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models.models import Period
 from app.repositories import PeriodRepository
+from app.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest
 
 
 class PeriodService:

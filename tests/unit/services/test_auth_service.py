@@ -7,9 +7,9 @@ from datetime import timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas.user import PasswordResetRequest
 from app.core.security import generate_access_token, hash_password
 from app.exceptions import ConflictError, NotFoundError, UnauthorizedError
+from app.schemas.user import PasswordResetRequest
 from app.services import AuthService, UserService
 from tests.fixtures.factories import create_test_user
 

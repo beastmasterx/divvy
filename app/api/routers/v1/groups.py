@@ -7,10 +7,10 @@ from collections.abc import Sequence
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_current_user, get_group_service
-from app.api.schemas import GroupRequest, GroupResponse, PeriodResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import User
+from app.schemas import GroupRequest, GroupResponse, PeriodResponse
 from app.services import GroupService
 
 router = APIRouter(

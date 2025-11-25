@@ -5,7 +5,7 @@ Unit tests for CategoryService.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas.category import CategoryRequest
+from app.schemas.category import CategoryRequest
 from app.services import CategoryService
 from tests.fixtures.factories import create_test_category
 

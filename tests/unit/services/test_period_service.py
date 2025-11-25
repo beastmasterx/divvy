@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import PeriodCreateRequest, PeriodUpdateRequest
 from app.exceptions import NotFoundError
+from app.schemas import PeriodCreateRequest, PeriodUpdateRequest
 from app.services import PeriodService
 from tests.fixtures.factories import create_test_group, create_test_period, create_test_user
 

@@ -7,9 +7,9 @@ from collections.abc import Sequence
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_transaction_service
-from app.api.schemas import TransactionRequest, TransactionResponse
 from app.core.i18n import _
 from app.exceptions import NotFoundError
+from app.schemas import TransactionRequest, TransactionResponse
 from app.services import TransactionService
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
