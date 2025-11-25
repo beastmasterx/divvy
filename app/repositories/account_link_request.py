@@ -52,16 +52,16 @@ class AccountLinkRequestRepository:
     async def create_request(self, request: AccountLinkRequest) -> AccountLinkRequest:
         """Create a new account link request and persist it to the database."""
         self.session.add(request)
-        await self.session.commit()
+        await self.session.flush()
         return request
 
     async def update_request(self, request: AccountLinkRequest) -> AccountLinkRequest:
         """Update an existing account link request and commit changes to the database."""
-        await self.session.commit()
+        await self.session.flush()
         return request
 
     async def delete_request(self, id: int) -> None:
         """Delete an account link request by its ID if it exists."""
         stmt = delete(AccountLinkRequest).where(AccountLinkRequest.id == id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()

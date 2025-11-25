@@ -30,7 +30,7 @@ class RefreshTokenRepository:
             is_revoked=False,
         )
         self.session.add(refresh_token)
-        await self.session.commit()
+        await self.session.flush()
         return refresh_token
 
     async def lookup(self, hashed_token: str) -> RefreshToken | None:
@@ -43,7 +43,7 @@ class RefreshTokenRepository:
         refresh_token = await self.session.get(RefreshToken, id)
         if refresh_token:
             refresh_token.is_revoked = True
-            await self.session.commit()
+            await self.session.flush()
         return refresh_token
 
     async def revoke(self, hashed_token: str) -> RefreshToken | None:
@@ -51,7 +51,7 @@ class RefreshTokenRepository:
         refresh_token = await self.lookup(hashed_token)
         if refresh_token:
             refresh_token.is_revoked = True
-            await self.session.commit()
+            await self.session.flush()
         return refresh_token
 
     async def revoke_all(self, user_id: int) -> None:
@@ -60,11 +60,11 @@ class RefreshTokenRepository:
         tokens = (await self.session.scalars(stmt)).all()
         for token in tokens:
             token.is_revoked = True
-        await self.session.commit()
+        await self.session.flush()
 
     async def update_last_used(self, token_id: int, last_used_at: datetime) -> None:
         """Update the last used timestamp for a refresh token."""
         refresh_token = await self.session.get(RefreshToken, token_id)
         if refresh_token:
             refresh_token.last_used_at = last_used_at
-            await self.session.commit()
+            await self.session.flush()

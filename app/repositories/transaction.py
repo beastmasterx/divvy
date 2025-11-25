@@ -69,7 +69,7 @@ class TransactionRepository:
     async def create_transaction(self, transaction: Transaction) -> Transaction:
         """Create a new transaction and persist it to the database."""
         self.session.add(transaction)
-        await self.session.commit()
+        await self.session.flush()
         # Eagerly load relationships for response serialization
         stmt = (
             select(Transaction)
@@ -85,7 +85,7 @@ class TransactionRepository:
 
     async def update_transaction(self, transaction: Transaction) -> Transaction:
         """Update an existing transaction and commit changes to the database."""
-        await self.session.commit()
+        await self.session.flush()
         # Eagerly load relationships for response serialization
         stmt = (
             select(Transaction)
@@ -103,4 +103,4 @@ class TransactionRepository:
         """Delete a transaction by its ID if it exists."""
         stmt = delete(Transaction).where(Transaction.id == id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()

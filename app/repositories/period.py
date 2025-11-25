@@ -24,16 +24,16 @@ class PeriodRepository:
     async def create_period(self, period: Period) -> Period:
         """Create a new period and persist it to the database."""
         self.session.add(period)
-        await self.session.commit()
+        await self.session.flush()
         return period
 
     async def update_period(self, period: Period) -> Period:
         """Update an existing period and commit changes to the database."""
-        await self.session.commit()
+        await self.session.flush()
         return period
 
     async def delete_period(self, id: int) -> None:
         """Delete a period by its ID if it exists."""
         stmt = delete(Period).where(Period.id == id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()

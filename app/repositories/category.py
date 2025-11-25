@@ -29,16 +29,16 @@ class CategoryRepository:
     async def create_category(self, category: Category) -> Category:
         """Create a new category and persist it to the database."""
         self.session.add(category)
-        await self.session.commit()
+        await self.session.flush()
         return category
 
     async def update_category(self, category: Category) -> Category:
         """Update an existing category and commit changes to the database."""
-        await self.session.commit()
+        await self.session.flush()
         return category
 
     async def delete_category(self, id: int) -> None:
         """Delete a category by its ID if it exists."""
         stmt = delete(Category).where(Category.id == id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()

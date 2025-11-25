@@ -24,19 +24,19 @@ class GroupRepository:
     async def create_group(self, group: Group) -> Group:
         """Create a new group and persist it to the database."""
         self.session.add(group)
-        await self.session.commit()
+        await self.session.flush()
         return group
 
     async def update_group(self, group: Group) -> Group:
         """Update an existing group and commit changes to the database."""
-        await self.session.commit()
+        await self.session.flush()
         return group
 
     async def delete_group(self, id: int) -> None:
         """Delete a group by its ID if it exists."""
         stmt = delete(Group).where(Group.id == id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()
 
     async def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
         """Retrieve all users associated with a specific group."""
@@ -52,13 +52,13 @@ class GroupRepository:
         """Add a user to a group by creating a GroupUser relationship."""
         group_user = GroupUser(group_id=group_id, user_id=user_id)
         self.session.add(group_user)
-        await self.session.commit()
+        await self.session.flush()
 
     async def remove_user_from_group(self, group_id: int, user_id: int) -> None:
         """Remove a user from a group by deleting the GroupUser relationship."""
         stmt = delete(GroupUser).where(GroupUser.group_id == group_id).where(GroupUser.user_id == user_id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()
 
     async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
         """Retrieve all periods associated with a specific group."""

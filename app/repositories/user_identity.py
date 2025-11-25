@@ -43,16 +43,16 @@ class UserIdentityRepository:
     async def create_identity(self, identity: UserIdentity) -> UserIdentity:
         """Create a new user identity and persist it to the database."""
         self.session.add(identity)
-        await self.session.commit()
+        await self.session.flush()
         return identity
 
     async def update_identity(self, identity: UserIdentity) -> UserIdentity:
         """Update an existing user identity and commit changes to the database."""
-        await self.session.commit()
+        await self.session.flush()
         return identity
 
     async def delete_identity(self, id: int) -> None:
         """Delete a user identity by its ID if it exists."""
         stmt = delete(UserIdentity).where(UserIdentity.id == id)
         await self.session.execute(stmt)
-        await self.session.commit()
+        await self.session.flush()
