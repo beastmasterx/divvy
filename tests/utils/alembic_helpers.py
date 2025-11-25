@@ -6,15 +6,15 @@ import asyncio
 from pathlib import Path
 
 from alembic.config import Config
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
 from app.models import Base
 
 
-def _do_run_migrations(connection):
+def _do_run_migrations(connection: Connection) -> None:
     """Run migrations with the given sync connection (called from async context)."""
-    alembic_cfg = context.config
     context.configure(connection=connection, target_metadata=Base.metadata)
     with context.begin_transaction():
         context.run_migrations()
@@ -29,7 +29,7 @@ async def _run_async_migrations(engine: AsyncEngine, alembic_cfg: Config) -> Non
 async def _downgrade_async_migrations(engine: AsyncEngine, alembic_cfg: Config, revision: str) -> None:
     """Downgrade migrations with async engine."""
 
-    def _do_downgrade(connection):
+    def _do_downgrade(connection: Connection) -> None:
         context.configure(connection=connection, target_metadata=Base.metadata)
         with context.begin_transaction():
             context.run_migrations(downgrade=True)
