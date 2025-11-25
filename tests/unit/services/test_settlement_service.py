@@ -297,7 +297,7 @@ class TestSettlementService:
         await transaction_service.create_transaction(expense)
 
         # Apply settlement
-        await settlement_service.apply_settlement_plan(period.id)
+        await settlement_service.apply_settlement_plan(period.id, db_session)
 
         # Verify period is settled
         period_service = PeriodService(db_session)
