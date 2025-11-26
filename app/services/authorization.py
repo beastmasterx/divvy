@@ -179,16 +179,16 @@ class AuthorizationService:
 
     # ========== Role Permission Management ==========
 
-    async def get_role_permissions(self, role: str) -> Sequence[str]:
+    async def get_permissions(self, role: str) -> Sequence[str]:
         """Get all permissions for a role."""
         return await self._auth_repository.get_role_permissions(role)
 
-    async def assign_permission_to_role(self, role: str, permission: str | Permission) -> None:
-        """Assign a permission to a role.
+    async def grant_permission(self, role: str, permission: str | Permission) -> None:
+        """Grant a permission to a role.
 
         Args:
             role: Role name (system or group role)
-            permission: Permission to assign
+            permission: Permission to grant
 
         Raises:
             ValidationError: If permission is invalid
@@ -197,19 +197,19 @@ class AuthorizationService:
         if permission_str not in [p.value for p in Permission]:
             raise ValidationError(_("Invalid permission: %s") % permission_str)
 
-        # Check if already assigned
-        existing_permissions = await self._auth_repository.get_role_permissions(role)
+        # Check if already granted
+        existing_permissions = await self.get_permissions(role)
         if permission_str in existing_permissions:
-            return  # Already assigned, no-op
+            return  # Already granted, no-op
 
         await self._auth_repository.create_role_permission(role, permission_str)
 
-    async def unassign_permission_from_role(self, role: str, permission: str | Permission) -> None:
-        """Unassign a permission from a role.
+    async def revoke_permission(self, role: str, permission: str | Permission) -> None:
+        """Revoke a permission from a role.
 
         Args:
             role: Role name (system or group role)
-            permission: Permission to unassign
+            permission: Permission to revoke
 
         Raises:
             ValidationError: If permission is invalid
