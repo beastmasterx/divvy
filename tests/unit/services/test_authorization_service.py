@@ -355,39 +355,39 @@ class TestAuthorizationService:
         assert Permission.GROUPS_READ.value in permission_set
         assert Permission.GROUPS_WRITE.value in permission_set
 
-    async def test_grant_permission(self, db_session: AsyncSession, auth_service: AuthorizationService):
+    async def test_grant_permission(self, auth_service: AuthorizationService):
         """Test granting a permission to a role."""
-        await auth_service.grant_permission("test:role", Permission.GROUPS_READ)
+        await auth_service.grant_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ)
 
-        permissions = await auth_service.get_permissions("test:role")
+        permissions = await auth_service.get_permissions(GroupRole.ADMIN.value)
         assert Permission.GROUPS_READ.value in permissions
 
-    async def test_grant_permission_already_granted(self, db_session: AsyncSession, auth_service: AuthorizationService):
+    async def test_grant_permission_already_granted(self, auth_service: AuthorizationService):
         """Test granting already granted permission is idempotent."""
         # Grant permission first time
-        await auth_service.grant_permission("test:role", Permission.GROUPS_READ)
+        await auth_service.grant_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ)
 
         # Grant again (should be no-op)
-        await auth_service.grant_permission("test:role", Permission.GROUPS_READ)
+        await auth_service.grant_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ)
 
         # Should still have the permission
-        permissions = await auth_service.get_permissions("test:role")
+        permissions = await auth_service.get_permissions(GroupRole.ADMIN.value)
         assert Permission.GROUPS_READ.value in permissions
         assert len(permissions) == 1  # Only one instance
 
-    async def test_grant_permission_invalid(self, db_session: AsyncSession, auth_service: AuthorizationService):
+    async def test_grant_permission_invalid(self, auth_service: AuthorizationService):
         """Test granting invalid permission raises ValidationError."""
         with pytest.raises(ValidationError, match="Invalid permission"):
             await auth_service.grant_permission("test:role", "invalid:permission")
 
-    async def test_revoke_permission(self, db_session: AsyncSession, auth_service: AuthorizationService):
+    async def test_revoke_permission(self, auth_service: AuthorizationService):
         """Test revoking a permission from a role."""
         # Grant permission first
-        await auth_service.grant_permission("test:role", Permission.GROUPS_READ)
-        assert Permission.GROUPS_READ.value in await auth_service.get_permissions("test:role")
+        await auth_service.grant_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ)
+        assert Permission.GROUPS_READ.value in await auth_service.get_permissions(GroupRole.ADMIN.value)
 
         # Revoke permission
-        await auth_service.revoke_permission("test:role", Permission.GROUPS_READ)
+        await auth_service.revoke_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ)
 
         # Verify it's removed
         permissions = await auth_service.get_permissions("test:role")

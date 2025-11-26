@@ -5,7 +5,7 @@ Unit tests for AuthorizationRepository.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import GroupRole, GroupRoleBinding, RolePermission, SystemRole, SystemRoleBinding
+from app.models import GroupRole, GroupRoleBinding, Permission, RolePermission, SystemRole, SystemRoleBinding
 from app.repositories import AuthorizationRepository
 from tests.fixtures.factories import create_test_group, create_test_user
 
@@ -229,29 +229,31 @@ class TestAuthorizationRepository:
 
     async def test_create_role_permission(self, db_session: AsyncSession, auth_repository: AuthorizationRepository):
         """Test creating a role permission mapping."""
-        role_permission = await auth_repository.create_role_permission("test:role", "test:permission")
+        role_permission = await auth_repository.create_role_permission(
+            GroupRole.ADMIN.value, Permission.GROUPS_READ.value
+        )
 
-        assert role_permission.role == "test:role"
-        assert role_permission.permission == "test:permission"
+        assert role_permission.role == GroupRole.ADMIN.value
+        assert role_permission.permission == Permission.GROUPS_READ.value
 
         # Verify it's in the database
-        permissions = await auth_repository.get_role_permissions("test:role")
-        assert "test:permission" in permissions
+        permissions = await auth_repository.get_role_permissions(GroupRole.ADMIN.value)
+        assert Permission.GROUPS_READ.value in permissions
 
     async def test_delete_role_permission(self, db_session: AsyncSession, auth_repository: AuthorizationRepository):
         """Test deleting a role permission mapping."""
         # Create role permission
-        role_permission = RolePermission(role="test:role", permission="test:permission")
+        role_permission = RolePermission(role=GroupRole.ADMIN.value, permission=Permission.GROUPS_READ.value)
         db_session.add(role_permission)
         await db_session.commit()
 
         # Verify it exists
-        permissions = await auth_repository.get_role_permissions("test:role")
-        assert "test:permission" in permissions
+        permissions = await auth_repository.get_role_permissions(GroupRole.ADMIN.value)
+        assert Permission.GROUPS_READ.value in permissions
 
         # Delete it
-        await auth_repository.delete_role_permission("test:role", "test:permission")
+        await auth_repository.delete_role_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ.value)
 
         # Verify it's removed
-        permissions = await auth_repository.get_role_permissions("test:role")
+        permissions = await auth_repository.get_role_permissions(GroupRole.ADMIN.value)
         assert "test:permission" not in permissions
