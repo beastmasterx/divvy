@@ -7,8 +7,6 @@ from collections.abc import Sequence
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.i18n import _
-from app.exceptions import NotFoundError
 from app.models import GroupRoleBinding, RolePermission, SystemRoleBinding
 
 
@@ -20,38 +18,54 @@ class AuthorizationRepository:
 
     # ========== System Role Bindings ==========
 
-    async def get_system_roles(self, user_id: int) -> Sequence[str]:
-        """Get all system roles for a user."""
+    async def get_system_role(self, user_id: int) -> str | None:
+        """Get user's system role (single role per user)."""
         stmt = select(SystemRoleBinding.role).where(SystemRoleBinding.user_id == user_id)
-        return (await self.session.scalars(stmt)).all()
+        return await self.session.scalar(stmt)
 
-    async def create_system_role_binding(
+    async def assign_system_role(
         self,
         user_id: int,
-        role: str,
-    ) -> SystemRoleBinding:
-        """Create a system role binding."""
-        binding = SystemRoleBinding(user_id=user_id, role=role)
-        self.session.add(binding)
+        role: str | None,
+    ) -> SystemRoleBinding | None:
+        """Assign a system role to a user (upsert) or remove it (if role is None).
+
+        Args:
+            user_id: ID of the user
+            role: Role to assign, or None to remove the role binding
+
+        Returns:
+            SystemRoleBinding if role was assigned, None if role was removed
+        """
+        if role is None:
+            # Delete the binding
+            stmt = delete(SystemRoleBinding).where(
+                SystemRoleBinding.user_id == user_id,
+            )
+            await self.session.execute(stmt)
+            await self.session.flush()
+            return None
+
+        # Upsert: Check if binding exists
+        stmt = select(SystemRoleBinding).where(
+            SystemRoleBinding.user_id == user_id,
+        )
+        binding = (await self.session.scalars(stmt)).one_or_none()
+
+        if binding:
+            # Update existing binding
+            binding.role = role
+        else:
+            # Create new binding
+            binding = SystemRoleBinding(user_id=user_id, role=role)
+            self.session.add(binding)
+
         await self.session.flush()
         return binding
 
-    async def delete_system_role_binding(
-        self,
-        user_id: int,
-        role: str,
-    ) -> None:
-        """Delete a system role binding."""
-        stmt = delete(SystemRoleBinding).where(
-            SystemRoleBinding.user_id == user_id,
-            SystemRoleBinding.role == role,
-        )
-        await self.session.execute(stmt)
-        await self.session.flush()
-
     # ========== Group Role Bindings ==========
 
-    async def get_user_group_role(self, user_id: int, group_id: int) -> str | None:
+    async def get_group_role(self, user_id: int, group_id: int) -> str | None:
         """Get user's role in a specific group."""
         stmt = select(GroupRoleBinding.role).where(
             GroupRoleBinding.user_id == user_id,
@@ -59,55 +73,49 @@ class AuthorizationRepository:
         )
         return await self.session.scalar(stmt)
 
-    async def create_group_role_binding(
+    async def assign_group_role(
         self,
         user_id: int,
         group_id: int,
-        role: str,
-    ) -> GroupRoleBinding:
-        """Create a group role binding."""
-        binding = GroupRoleBinding(user_id=user_id, group_id=group_id, role=role)
-        self.session.add(binding)
-        await self.session.flush()
-        return binding
+        role: str | None,
+    ) -> GroupRoleBinding | None:
+        """Assign a group role to a user (upsert) or remove it (if role is None).
 
-    async def update_group_role_binding(
-        self,
-        user_id: int,
-        group_id: int,
-        role: str,
-    ) -> GroupRoleBinding:
-        """Update an existing group role binding.
+        Args:
+            user_id: ID of the user
+            group_id: ID of the group
+            role: Role to assign, or None to remove the role binding
 
-        Raises:
-            NotFoundError: If the binding does not exist
+        Returns:
+            GroupRoleBinding if role was assigned, None if role was removed
         """
+        if role is None:
+            # Delete the binding
+            stmt = delete(GroupRoleBinding).where(
+                GroupRoleBinding.user_id == user_id,
+                GroupRoleBinding.group_id == group_id,
+            )
+            await self.session.execute(stmt)
+            await self.session.flush()
+            return None
+
+        # Upsert: Check if binding exists
         stmt = select(GroupRoleBinding).where(
             GroupRoleBinding.user_id == user_id,
             GroupRoleBinding.group_id == group_id,
         )
         binding = (await self.session.scalars(stmt)).one_or_none()
-        if not binding:
-            raise NotFoundError(
-                _("Group role binding not found for user %(user_id)s in group %(group_id)s")
-                % {"user_id": user_id, "group_id": group_id}
-            )
-        binding.role = role
+
+        if binding:
+            # Update existing binding
+            binding.role = role
+        else:
+            # Create new binding
+            binding = GroupRoleBinding(user_id=user_id, group_id=group_id, role=role)
+            self.session.add(binding)
+
         await self.session.flush()
         return binding
-
-    async def delete_group_role_binding(
-        self,
-        user_id: int,
-        group_id: int,
-    ) -> None:
-        """Delete a group role binding."""
-        stmt = delete(GroupRoleBinding).where(
-            GroupRoleBinding.user_id == user_id,
-            GroupRoleBinding.group_id == group_id,
-        )
-        await self.session.execute(stmt)
-        await self.session.flush()
 
     # ========== Role Permissions ==========
 

@@ -43,22 +43,22 @@ class AuthorizationService:
         """
         permission_str = permission.value if isinstance(permission, Permission) else permission
 
-        # Get user's system roles
-        system_roles = await self._auth_repository.get_system_roles(user_id)
+        # Get user's system role (single role per user)
+        system_role = await self._auth_repository.get_system_role(user_id)
 
         # System ADMIN has all permissions
-        if SystemRole.ADMIN.value in system_roles:
+        if system_role == SystemRole.ADMIN.value:
             return True
 
         # Check system role permissions
-        for role in system_roles:
-            role_permissions = await self._auth_repository.get_role_permissions(role)
+        if system_role:
+            role_permissions = await self._auth_repository.get_role_permissions(system_role)
             if permission_str in role_permissions:
                 return True
 
         # If group_id is provided, check group-level permissions
         if group_id is not None:
-            group_role = await self._auth_repository.get_user_group_role(user_id, group_id)
+            group_role = await self._auth_repository.get_group_role(user_id, group_id)
             if group_role:
                 # Group OWNER has all group permissions
                 if group_role == GroupRole.OWNER.value:
@@ -115,16 +115,23 @@ class AuthorizationService:
 
     # ========== System Role Management ==========
 
-    async def get_system_roles(self, user_id: int) -> Sequence[str]:
-        """Get all system roles for a user."""
-        return await self._auth_repository.get_system_roles(user_id)
+    async def get_system_role(self, user_id: int) -> str | None:
+        """Get user's system role (single role per user)."""
+        return await self._auth_repository.get_system_role(user_id)
 
-    async def assign_system_role(self, user_id: int, role: str | SystemRole) -> None:
-        """Assign a system role to a user.
+    async def assign_system_role(
+        self,
+        user_id: int,
+        role: str | SystemRole,
+    ) -> None:
+        """Assign a system role to a user (switches role if one already exists).
+
+        Users must always have a system role. This method switches between roles.
+        To switch from admin to user, call: assign_system_role(user_id, SystemRole.USER)
 
         Args:
             user_id: ID of the user
-            role: System role to assign
+            role: System role to assign (required, cannot be None)
 
         Raises:
             ValidationError: If role is invalid
@@ -133,72 +140,42 @@ class AuthorizationService:
         if role_str not in [r.value for r in SystemRole]:
             raise ValidationError(_("Invalid system role: %s") % role_str)
 
-        # Check if already assigned
-        existing_roles = await self._auth_repository.get_system_roles(user_id)
-        if role_str in existing_roles:
-            return  # Already assigned, no-op
-
-        await self._auth_repository.create_system_role_binding(user_id, role_str)
-
-    async def unassign_system_role(self, user_id: int, role: str | SystemRole) -> None:
-        """Unassign a system role from a user.
-
-        Args:
-            user_id: ID of the user
-            role: System role to unassign
-
-        Raises:
-            ValidationError: If role is invalid
-        """
-        role_str = role.value if isinstance(role, SystemRole) else role
-        if role_str not in [r.value for r in SystemRole]:
-            raise ValidationError(_("Invalid system role: %s") % role_str)
-
-        await self._auth_repository.delete_system_role_binding(user_id, role_str)
+        # Upsert: creates or updates the role
+        await self._auth_repository.assign_system_role(user_id, role_str)
 
     # ========== Group Role Management ==========
 
     async def get_group_role(self, user_id: int, group_id: int) -> str | None:
         """Get user's role in a specific group."""
-        return await self._auth_repository.get_user_group_role(user_id, group_id)
+        return await self._auth_repository.get_group_role(user_id, group_id)
 
     async def assign_group_role(
         self,
         user_id: int,
         group_id: int,
-        role: str | GroupRole,
+        role: str | GroupRole | None,
     ) -> None:
-        """Assign a group role to a user.
+        """Assign a group role to a user, or remove them from the group if role is None.
 
-        Creates a new binding if it doesn't exist, or updates the existing one.
+        Creates a new binding if it doesn't exist, updates the existing one,
+        or deletes it if role is None (removes user from group).
 
         Args:
             user_id: ID of the user
             group_id: ID of the group
-            role: Group role to assign
+            role: Group role to assign, or None to remove user from group
 
         Raises:
-            ValidationError: If role is invalid
+            ValidationError: If role is invalid (when not None)
         """
         role_str = role.value if isinstance(role, GroupRole) else role
-        if role_str not in [r.value for r in GroupRole]:
+
+        # Validate role if provided
+        if role_str is not None and role_str not in [r.value for r in GroupRole]:
             raise ValidationError(_("Invalid group role: %s") % role_str)
 
-        # Check if binding exists
-        existing_role = await self._auth_repository.get_user_group_role(user_id, group_id)
-        if existing_role:
-            await self._auth_repository.update_group_role_binding(user_id, group_id, role_str)
-        else:
-            await self._auth_repository.create_group_role_binding(user_id, group_id, role_str)
-
-    async def unassign_group_role(self, user_id: int, group_id: int) -> None:
-        """Unassign a group role from a user.
-
-        Args:
-            user_id: ID of the user
-            group_id: ID of the group
-        """
-        await self._auth_repository.delete_group_role_binding(user_id, group_id)
+        # Upsert or delete
+        await self._auth_repository.assign_group_role(user_id, group_id, role_str)
 
     # ========== Role Permission Management ==========
 

@@ -28,7 +28,6 @@ class GroupRole(str, Enum):
     OWNER = "group:owner"
     ADMIN = "group:admin"
     MEMBER = "group:member"
-    VIEWER = "group:viewer"
 
 
 class Permission(str, Enum):
@@ -38,7 +37,6 @@ class Permission(str, Enum):
     GROUPS_READ = "groups:read"
     GROUPS_WRITE = "groups:write"
     GROUPS_DELETE = "groups:delete"
-    GROUPS_MANAGE_MEMBERS = "groups:manage_members"
 
     # Transactions
     TRANSACTIONS_READ = "transactions:read"
@@ -49,7 +47,6 @@ class Permission(str, Enum):
     PERIODS_READ = "periods:read"
     PERIODS_WRITE = "periods:write"
     PERIODS_DELETE = "periods:delete"
-    PERIODS_SETTLE = "periods:settle"
 
 
 class SystemRoleBinding(Base):
@@ -57,7 +54,7 @@ class SystemRoleBinding(Base):
 
     __tablename__ = "system_role_bindings"
     __table_args__ = (
-        UniqueConstraint("user_id", "role", name="uq_user_role"),
+        UniqueConstraint("user_id", name="uq_user_system_role"),
         Index("ix_system_role_binding_user", "user_id"),
     )
 
@@ -140,9 +137,7 @@ class GroupRoleBinding(AuditMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"), nullable=False, index=True)
-    role: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True
-    )  # group:owner, group:admin, group:member, group:viewer
+    role: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
 
     # Relationships
     user: Mapped[User] = relationship("User", foreign_keys=[user_id], back_populates="group_role_bindings")

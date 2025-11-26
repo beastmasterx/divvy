@@ -21,7 +21,8 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[GroupResponse])
-async def list_groups(
+async def get_groups_by_user_id(
+    current_user: User = Depends(get_current_user),
     group_service: GroupService = Depends(get_group_service),
 ) -> Sequence[GroupResponse]:
     """
@@ -30,11 +31,11 @@ async def list_groups(
     Returns:
         List of all periods, ordered by start_date descending
     """
-    return await group_service.get_all_groups()
+    return await group_service.get_groups_by_user_id(current_user.id)
 
 
 @router.get("/{group_id}", response_model=GroupResponse)
-async def get_group(
+async def get_group_by_id(
     group_id: int,
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:

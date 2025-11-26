@@ -21,20 +21,14 @@ role_permissions = [
     # Group Role: group:admin
     ("group:admin", "groups:read"),
     ("group:admin", "groups:write"),
-    ("group:admin", "groups:manage_members"),
     ("group:admin", "transactions:read"),
     ("group:admin", "transactions:write"),
     ("group:admin", "transactions:delete"),
     ("group:admin", "periods:read"),
     ("group:admin", "periods:write"),
     ("group:admin", "periods:delete"),
-    ("group:admin", "periods:settle"),
     # Group Role: group:member
     ("group:member", "transactions:read"),
     ("group:member", "transactions:write"),
     ("group:member", "periods:read"),
-    # Group Role: group:viewer
-    ("group:viewer", "groups:read"),
-    ("group:viewer", "transactions:read"),
-    ("group:viewer", "periods:read"),
 ]

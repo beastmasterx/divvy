@@ -68,8 +68,8 @@ async def init_admin(
         existing_user = await user_repository.get_user_by_email(email)
         if existing_user:
             # Check if user already has admin role
-            system_roles = await auth_repository.get_system_roles(existing_user.id)
-            if SystemRole.ADMIN.value in system_roles:
+            system_role = await auth_repository.get_system_role(existing_user.id)
+            if system_role == SystemRole.ADMIN.value:
                 print(f"✓ Admin user already exists: {email}")
                 print(f"  User ID: {existing_user.id}")
                 print(f"  Name: {existing_user.name}")

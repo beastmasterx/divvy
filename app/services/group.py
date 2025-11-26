@@ -263,7 +263,7 @@ class GroupService:
 
         # All checks passed - safe to remove user
         # Remove user by deleting their GroupRoleBinding
-        await self._authorization_service.unassign_group_role(user_id, group_id)
+        await self._authorization_service.assign_group_role(user_id, group_id, None)
 
     async def _validate_group_and_user(self, group_id: int, user_id: int) -> None:
         """Validate that a group and user exist.
