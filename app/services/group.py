@@ -226,7 +226,8 @@ class GroupService:
         # Get group and user for better error messages
         group = await self.get_group_by_id(group_id)
         user = await self._user_repository.get_user_by_id(user_id)
-        assert group is not None and user is not None  # Type narrowing after validation
+        assert group is not None  # Type narrowing after validation
+        assert user is not None  # Type narrowing after validation
 
         # Handle role removal (user removal from group)
         if role is None:

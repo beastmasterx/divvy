@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import Period
 
@@ -28,7 +29,11 @@ class PeriodRepository:
 
     async def get_current_period_by_group_id(self, group_id: int) -> Period | None:
         """Retrieve the current unsettled period for a specific group."""
-        stmt = select(Period).where(Period.group_id == group_id, Period.end_date.is_(None))
+        stmt = (
+            select(Period)
+            .where(Period.group_id == group_id, Period.end_date.is_(None))
+            .options(selectinload(Period.transactions))
+        )
         return (await self.session.scalars(stmt)).one_or_none()
 
     async def create_period(self, period: Period) -> Period:

@@ -2,6 +2,7 @@
 Unit tests for IdentityProviderService.
 """
 
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
@@ -39,7 +40,7 @@ class TestIdentityProviderService:
         )
 
     @pytest.fixture(autouse=True)
-    def clear_provider_registry(self):
+    def clear_provider_registry(self) -> Iterator[None]:
         """Clear the provider registry before and after each test to ensure test isolation."""
         from app.services.identity_providers.registry import IdentityProviderRegistry
 

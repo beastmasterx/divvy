@@ -30,7 +30,7 @@ class TestSettlementService:
     """Test suite for SettlementService."""
 
     @pytest.fixture
-    def settlement_service(self, db_session: AsyncSession):
+    def settlement_service(self, db_session: AsyncSession) -> SettlementService:
         """Create a SettlementService instance with all dependencies."""
         transaction_service = TransactionService(db_session)
         period_service = PeriodService(db_session)

@@ -9,8 +9,7 @@ Key features:
 - Test-specific environment variables (no external .env files)
 """
 
-import tempfile
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,43 +29,39 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "slow: Slow running tests")
 
 
-@pytest.fixture(scope="function")
-async def test_db_engine() -> AsyncIterator[AsyncEngine]:
+@pytest.fixture
+async def test_db_engine(tmp_path: Path) -> AsyncIterator[AsyncEngine]:
     """
     Create a temporary file-based SQLite async database engine with Alembic migrations applied.
 
     Each test gets a fresh database with the current schema from migrations.
-    Uses a temporary file that is automatically cleaned up after the test.
+    Uses pytest's tmp_path fixture for automatic cleanup.
     """
-    # Create a temporary database file
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
-        db_path = temp_db.name
+    # Create a temporary database file using pytest's tmp_path fixture
+    db_path = tmp_path / "test.db"
 
-    try:
-        # Create async SQLite engine pointing to temporary file
-        engine = create_async_engine(
-            f"sqlite+aiosqlite:///{db_path}",
-            connect_args={"check_same_thread": False},
-            echo=False,  # Set to True for SQL debugging
-        )
+    # Create async SQLite engine pointing to temporary file
+    engine = create_async_engine(
+        f"sqlite+aiosqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+        echo=False,  # Set to True for SQL debugging
+    )
 
-        # Create all tables using Base.metadata
-        # This is faster for unit tests and ensures schema matches models
-        # For integration tests that need to test migrations, use Alembic
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+    # Create all tables using Base.metadata
+    # This is faster for unit tests and ensures schema matches models
+    # For integration tests that need to test migrations, use Alembic
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-        yield engine
+    yield engine
 
-        # Cleanup
-        await engine.dispose()
-    finally:
-        # Remove temporary database file
-        Path(db_path).unlink(missing_ok=True)
+    # Cleanup
+    await engine.dispose()
+    # pytest's tmp_path automatically cleans up the directory and all files
 
 
 @pytest.fixture(autouse=True)
-def test_env_vars(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def test_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Set test-specific environment variables.
 
@@ -83,9 +78,8 @@ def test_env_vars(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
     monkeypatch.setenv("DIVVY_LOG_LEVEL", "WARNING")
 
-    yield
-
     # Cleanup: restore original environment (monkeypatch handles this automatically)
+    return
 
 
 @pytest.fixture(autouse=True)
