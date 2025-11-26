@@ -12,7 +12,7 @@ from .authentication import (
     TokenResponse,
 )
 from .category import CategoryRequest, CategoryResponse
-from .group import GroupRequest, GroupResponse
+from .group import GroupRequest, GroupResponse, GroupRoleAssignmentRequest
 from .period import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest
 from .transaction import (
     ExpenseShareRequest,
@@ -29,6 +29,7 @@ __all__ = [
     "CategoryResponse",
     "GroupRequest",
     "GroupResponse",
+    "GroupRoleAssignmentRequest",
     "LinkingRequiredResponse",
     "OAuthAuthorizeResponse",
     "OAuthCallbackResponse",

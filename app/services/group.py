@@ -3,8 +3,8 @@ from collections.abc import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
-from app.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from app.models import Group, GroupRole
+from app.exceptions import BusinessRuleError, ConflictError, ForbiddenError, NotFoundError
+from app.models import Group, GroupRole, Permission
 from app.repositories import GroupRepository, UserRepository
 from app.schemas import GroupRequest, GroupResponse
 from app.services.authorization import AuthorizationService
@@ -143,22 +143,31 @@ class GroupService:
 
         return GroupResponse.model_validate(group)
 
-    async def delete_group(self, id: int) -> None:
+    async def delete_group(self, id: int, current_user_id: int) -> None:
         """Delete a group by its ID.
 
         Group can only be deleted if the active period (if any) with transactions
         is already settled. This ensures data integrity for active settlements.
 
+        ABAC Rule: Only owner can delete the group.
+
         Args:
-            group_id: ID of the group to delete
+            id: ID of the group to delete
+            current_user_id: ID of the user performing the deletion
 
         Raises:
             NotFoundError: If group not found
+            ForbiddenError: If user is not the owner (ABAC)
             BusinessRuleError: If active period with transactions is not settled
         """
         group = await self._group_repository.get_group_by_id(id)
         if not group:
             raise NotFoundError(_("Group %s not found") % id)
+
+        # ABAC: Only owner can delete
+        owner_id = await self._group_repository.get_group_owner(id)
+        if owner_id != current_user_id:
+            raise ForbiddenError(_("Only the group owner can delete the group"))
 
         # Check for active period with transactions
         active_period = await self._period_service.get_current_period_by_group_id(id)
@@ -179,91 +188,147 @@ class GroupService:
         # All checks passed - safe to delete group
         await self._group_repository.delete_group(id)
 
-    async def add_user_to_group(self, group_id: int, user_id: int) -> None:
-        """Add a user to a group.
+    async def assign_group_role(
+        self,
+        group_id: int,
+        user_id: int,
+        role: GroupRole | None,
+        assigned_by_user_id: int,
+    ) -> None:
+        """Assign a role to a member in a group, or remove them from the group.
 
-        Users can join a group at any time. They will participate in future
-        transactions but not in past transactions.
+        Handles all role assignment and membership operations:
+        - Role assignment (owner, admin, member)
+        - User addition (assigning member role to non-member)
+        - User removal (assigning None role)
+
+        ABAC Rules:
+        - If assigning owner role: Only current owner can transfer (ABAC)
+        - If assigning owner role: Automatically demotes old owner to member
+        - For other roles: Only owner/admin can assign (checked via permission)
+        - Removing user (role=None): Validates active period is settled
 
         Args:
             group_id: ID of the group
-            user_id: ID of the user to add
+            user_id: ID of the user to assign role to
+            role: Role to assign, or None to remove user from group
+            assigned_by_user_id: ID of the user performing the assignment
 
         Raises:
-            NotFoundError: If group/user not found
-            ConflictError: If user already in group
+            NotFoundError: If group/user not found, or user not in group (when appropriate)
+            ForbiddenError: If user doesn't have permission to assign role
+            ConflictError: If trying to add user who is already a member
+            BusinessRuleError: If trying to remove user when active period is not settled
         """
+        # Validate group and user exist
         await self._validate_group_and_user(group_id, user_id)
 
-        # Get group and user for better error messages (already validated, so not None)
+        # Get group and user for better error messages
         group = await self.get_group_by_id(group_id)
         user = await self._user_repository.get_user_by_id(user_id)
         assert group is not None and user is not None  # Type narrowing after validation
 
-        # Check for duplicate membership
-        if await self._group_repository.check_if_user_is_in_group(group_id, user_id):
-            raise ConflictError(
-                _("User '%(user_name)s' is already a member of group '%(group_name)s'")
-                % {"user_name": user.name, "group_name": group.name}
+        # Handle role removal (user removal from group)
+        if role is None:
+            # Check if user is actually in the group
+            if not await self._group_repository.check_if_user_is_in_group(group_id, user_id):
+                raise NotFoundError(
+                    _("User '%(user_name)s' is not a member of group '%(group_name)s'")
+                    % {"user_name": user.name, "group_name": group.name}
+                )
+
+            # Check for active period with transactions (business rule)
+            active_period = await self._period_service.get_current_period_by_group_id(group_id)
+            if active_period and active_period.transactions and not active_period.is_closed:
+                raise BusinessRuleError(
+                    _(
+                        "Cannot remove user '%(user_name)s' from group '%(group_name)s': "
+                        "the active period '%(period_name)s' has transactions and is not settled. "
+                        "Please settle the period first."
+                    )
+                    % {
+                        "user_name": user.name,
+                        "group_name": group.name,
+                        "period_name": active_period.name,
+                    }
+                )
+
+            # All checks passed - safe to remove user
+            await self._authorization_service.assign_group_role(user_id, group_id, None)
+            return
+
+        # Get current owner for ABAC checks
+        current_owner_id = await self._group_repository.get_group_owner(group_id)
+
+        # Special handling for owner role assignment (ownership transfer)
+        if role == GroupRole.OWNER:
+            # ABAC: Only current owner can transfer ownership
+            if current_owner_id != assigned_by_user_id:
+                raise ForbiddenError(_("Only the current owner can transfer group ownership"))
+
+            # Check if target user is a member (or allow if not, since they'll become owner)
+            if not await self._group_repository.check_if_user_is_in_group(group_id, user_id):
+                # If not a member, add them first (they'll become owner)
+                await self._authorization_service.assign_group_role(
+                    user_id=user_id,
+                    group_id=group_id,
+                    role=GroupRole.MEMBER,
+                )
+
+            # Demote old owner to member (if different from new owner)
+            if current_owner_id and current_owner_id != user_id:
+                await self._authorization_service.assign_group_role(
+                    user_id=current_owner_id,
+                    group_id=group_id,
+                    role=GroupRole.MEMBER,
+                )
+
+            # Assign owner role to new user
+            await self._authorization_service.assign_group_role(
+                user_id=user_id,
+                group_id=group_id,
+                role=GroupRole.OWNER,
             )
+            return
 
-        # User can join anytime - no period validation needed
-        # Add user with default member role via GroupRoleBinding
-        await self._authorization_service.assign_group_role(
-            user_id=user_id,
+        # For non-owner roles, check permission
+        has_permission = await self._authorization_service.has_permission(
+            user_id=assigned_by_user_id,
+            permission=Permission.GROUPS_WRITE,
             group_id=group_id,
-            role=GroupRole.MEMBER,
         )
+        if not has_permission:
+            raise ForbiddenError(_("Permission denied: groups:write required to assign roles"))
 
-    async def remove_user_from_group(self, group_id: int, user_id: int) -> None:
-        """Remove a user from a group.
+        # Special handling for member role (adding user to group)
+        if role == GroupRole.MEMBER:
+            # Check for duplicate membership
+            if await self._group_repository.check_if_user_is_in_group(group_id, user_id):
+                raise ConflictError(
+                    _("User '%(user_name)s' is already a member of group '%(group_name)s'")
+                    % {"user_name": user.name, "group_name": group.name}
+                )
+            # User can join anytime - no period validation needed
+            await self._authorization_service.assign_group_role(
+                user_id=user_id,
+                group_id=group_id,
+                role=GroupRole.MEMBER,
+            )
+            return
 
-        User can only leave if the active period (if any) with transactions
-        is already settled. This ensures data integrity for active settlements.
-
-        Args:
-            group_id: ID of the group
-            user_id: ID of the user to remove
-
-        Raises:
-            NotFoundError: If group/user not found, or user not in group
-            BusinessRuleError: If active period with transactions is not settled
-        """
-        await self._validate_group_and_user(group_id, user_id)
-
-        # Get group and user for better error messages (already validated, so not None)
-        group = await self.get_group_by_id(group_id)
-        user = await self._user_repository.get_user_by_id(user_id)
-        assert group is not None and user is not None  # Type narrowing after validation
-
-        # Check if user is actually in the group
+        # For admin role (or any other role), user must already be a member
         if not await self._group_repository.check_if_user_is_in_group(group_id, user_id):
             raise NotFoundError(
                 _("User '%(user_name)s' is not a member of group '%(group_name)s'")
                 % {"user_name": user.name, "group_name": group.name}
             )
 
-        # Check for active period with transactions
-        active_period = await self._period_service.get_current_period_by_group_id(group_id)
-
-        # Active period exists with transactions - must be settled first
-        if active_period and active_period.transactions and not active_period.is_closed:
-            raise BusinessRuleError(
-                _(
-                    "Cannot remove user '%(user_name)s' from group '%(group_name)s': "
-                    "the active period '%(period_name)s' has transactions and is not settled. "
-                    "Please settle the period first."
-                )
-                % {
-                    "user_name": user.name,
-                    "group_name": group.name,
-                    "period_name": active_period.name,
-                }
-            )
-
-        # All checks passed - safe to remove user
-        # Remove user by deleting their GroupRoleBinding
-        await self._authorization_service.assign_group_role(user_id, group_id, None)
+        # Assign the role
+        await self._authorization_service.assign_group_role(
+            user_id=user_id,
+            group_id=group_id,
+            role=role,
+        )
 
     async def _validate_group_and_user(self, group_id: int, user_id: int) -> None:
         """Validate that a group and user exist.
