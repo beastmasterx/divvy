@@ -16,6 +16,7 @@ pytest_plugins = [
     "tests.fixtures.entities",
     "tests.fixtures.services",
     "tests.fixtures.database",
+    "tests.fixtures.api",
 ]
 
 
