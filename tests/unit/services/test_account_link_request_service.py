@@ -424,7 +424,6 @@ class TestAccountLinkRequestService:
         with pytest.raises(ConflictError, match="Identity already exists"):
             await account_link_request_service.approve_request(pending_request.request_token, user.id)
 
-    # TODO: learning pytest mock, how to mock the function in the class?
     @patch("app.services.account_link_request.get_account_link_request_expiration_hours")
     async def test_create_request_uses_config_expiration(
         self,

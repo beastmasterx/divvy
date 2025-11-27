@@ -33,7 +33,6 @@ class TestIdentityProviderService:
         # Clear after test
         IdentityProviderRegistry.clear()
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_new_user_creates_identity(
         self,
         identity_provider_service: IdentityProviderService,
@@ -85,7 +84,6 @@ class TestIdentityProviderService:
         assert identity.external_email == "newuser@example.com"
         assert identity.external_username == "New User"
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_existing_email_creates_link_request(
         self,
         identity_provider_service: IdentityProviderService,
@@ -147,7 +145,6 @@ class TestIdentityProviderService:
         )
         assert identity is None
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_existing_identity_returns_tokens(
         self,
         identity_provider_service: IdentityProviderService,
@@ -194,7 +191,6 @@ class TestIdentityProviderService:
         assert result.access_token is not None
         assert result.refresh_token is not None
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_no_access_token_raises_error(
         self, identity_provider_service: IdentityProviderService
     ):
@@ -217,7 +213,6 @@ class TestIdentityProviderService:
                 device_info=None,
             )
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_inactive_user_raises_error(
         self,
         identity_provider_service: IdentityProviderService,
@@ -260,7 +255,6 @@ class TestIdentityProviderService:
                 device_info=None,
             )
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_unregistered_provider_raises_error(
         self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
     ):
@@ -275,7 +269,6 @@ class TestIdentityProviderService:
                 device_info=None,
             )
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_with_signed_state_token(
         self,
         identity_provider_service: IdentityProviderService,
@@ -327,7 +320,6 @@ class TestIdentityProviderService:
         assert identity.user_id == user.id
         assert identity.external_email == "user@example.com"
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_email_mismatch(
         self,
         identity_provider_service: IdentityProviderService,
@@ -378,7 +370,6 @@ class TestIdentityProviderService:
         assert identity.external_email == "different@microsoft.com"
         assert identity.user_id == user.id
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_invalid_state_token(
         self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
     ):
@@ -400,7 +391,6 @@ class TestIdentityProviderService:
                 device_info=None,
             )
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_user_id_mismatch(
         self,
         identity_provider_service: IdentityProviderService,
@@ -441,7 +431,6 @@ class TestIdentityProviderService:
                 device_info=None,
             )
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_inactive_user(
         self,
         identity_provider_service: IdentityProviderService,
@@ -480,7 +469,6 @@ class TestIdentityProviderService:
                 device_info=None,
             )
 
-    @pytest.mark.asyncio
     async def test_handle_oauth_callback_frontend_generated_state_passed_through(
         self, identity_provider_service: IdentityProviderService
     ):
