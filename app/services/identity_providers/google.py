@@ -13,7 +13,7 @@ from app.core.config import (
     get_google_redirect_uri,
 )
 from app.exceptions import UnauthorizedError
-from app.models import IdentityProvider as IdentityProviderEnum
+from app.models import IdentityProviderName
 from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class GoogleProvider:
     @property
     def name(self) -> str:
         """Provider name."""
-        return IdentityProviderEnum.GOOGLE.value
+        return IdentityProviderName.GOOGLE.value
 
     def get_authorization_url(self, state: str | None = None) -> str:
         """Generate Google OAuth2 authorization URL.

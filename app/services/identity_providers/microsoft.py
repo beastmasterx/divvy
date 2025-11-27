@@ -14,7 +14,7 @@ from app.core.config import (
     get_microsoft_tenant_id,
 )
 from app.exceptions import UnauthorizedError
-from app.models import IdentityProvider as IdentityProviderEnum
+from app.models import IdentityProviderName
 from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class MicrosoftProvider:
     @property
     def name(self) -> str:
         """Provider name."""
-        return IdentityProviderEnum.MICROSOFT.value
+        return IdentityProviderName.MICROSOFT.value
 
     def get_authorization_url(self, state: str | None = None) -> str:
         """Generate Microsoft OAuth2 authorization URL.

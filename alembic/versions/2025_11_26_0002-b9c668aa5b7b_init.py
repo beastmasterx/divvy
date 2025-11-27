@@ -3,7 +3,6 @@
 Revision ID: b9c668aa5b7b
 Revises:
 Create Date: 2025-11-26 00:02:33.873468
-
 """
 
 from collections.abc import Sequence
@@ -80,6 +79,37 @@ def upgrade() -> None:
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
     op.create_index(op.f("ix_users_updated_at"), "users", ["updated_at"], unique=False)
     op.create_table(
+        "account_link_requests",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("request_token", sa.String(length=255), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("identity_provider", sa.String(length=50), nullable=False),
+        sa.Column("external_id", sa.String(length=255), nullable=False),
+        sa.Column("external_email", sa.String(length=255), nullable=True),
+        sa.Column("external_username", sa.String(length=255), nullable=True),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_account_link_requests_created_at"), "account_link_requests", ["created_at"], unique=False)
+    op.create_index(op.f("ix_account_link_requests_expires_at"), "account_link_requests", ["expires_at"], unique=False)
+    op.create_index(
+        op.f("ix_account_link_requests_request_token"), "account_link_requests", ["request_token"], unique=True
+    )
+    op.create_index(op.f("ix_account_link_requests_status"), "account_link_requests", ["status"], unique=False)
+    op.create_index(op.f("ix_account_link_requests_updated_at"), "account_link_requests", ["updated_at"], unique=False)
+    op.create_index(op.f("ix_account_link_requests_user_id"), "account_link_requests", ["user_id"], unique=False)
+    op.create_index("ix_link_request_expires", "account_link_requests", ["expires_at"], unique=False)
+    op.create_index("ix_link_request_status", "account_link_requests", ["status"], unique=False)
+    op.create_index("ix_link_request_token", "account_link_requests", ["request_token"], unique=False)
+    op.create_index("ix_link_request_user", "account_link_requests", ["user_id"], unique=False)
+    op.create_table(
         "groups",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
@@ -137,7 +167,7 @@ def upgrade() -> None:
             ["users.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "role", name="uq_user_role"),
+        sa.UniqueConstraint("user_id", name="uq_user_system_role"),
     )
     op.create_index("ix_system_role_binding_user", "system_role_bindings", ["user_id"], unique=False)
     op.create_index(op.f("ix_system_role_bindings_role"), "system_role_bindings", ["role"], unique=False)
@@ -165,37 +195,6 @@ def upgrade() -> None:
     op.create_index("ix_user_identity_external_id", "user_identities", ["external_id"], unique=False)
     op.create_index("ix_user_identity_provider", "user_identities", ["identity_provider"], unique=False)
     op.create_index("ix_user_identity_user", "user_identities", ["user_id"], unique=False)
-    op.create_table(
-        "account_link_requests",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("request_token", sa.String(length=255), nullable=False),
-        sa.Column("user_identity_id", sa.Integer(), nullable=False),
-        sa.Column("status", sa.String(length=20), nullable=False),
-        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("email_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("verified_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_identity_id"],
-            ["user_identities.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_account_link_requests_created_at"), "account_link_requests", ["created_at"], unique=False)
-    op.create_index(op.f("ix_account_link_requests_expires_at"), "account_link_requests", ["expires_at"], unique=False)
-    op.create_index(
-        op.f("ix_account_link_requests_request_token"), "account_link_requests", ["request_token"], unique=True
-    )
-    op.create_index(op.f("ix_account_link_requests_status"), "account_link_requests", ["status"], unique=False)
-    op.create_index(op.f("ix_account_link_requests_updated_at"), "account_link_requests", ["updated_at"], unique=False)
-    op.create_index(
-        op.f("ix_account_link_requests_user_identity_id"), "account_link_requests", ["user_identity_id"], unique=False
-    )
-    op.create_index("ix_link_request_expires", "account_link_requests", ["expires_at"], unique=False)
-    op.create_index("ix_link_request_status", "account_link_requests", ["status"], unique=False)
-    op.create_index("ix_link_request_token", "account_link_requests", ["request_token"], unique=False)
-    op.create_index("ix_link_request_user_identity", "account_link_requests", ["user_identity_id"], unique=False)
     op.create_table(
         "group_role_bindings",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -384,17 +383,6 @@ def downgrade() -> None:
     op.drop_index("ix_group_role_binding_user", table_name="group_role_bindings")
     op.drop_index("ix_group_role_binding_group", table_name="group_role_bindings")
     op.drop_table("group_role_bindings")
-    op.drop_index("ix_link_request_user_identity", table_name="account_link_requests")
-    op.drop_index("ix_link_request_token", table_name="account_link_requests")
-    op.drop_index("ix_link_request_status", table_name="account_link_requests")
-    op.drop_index("ix_link_request_expires", table_name="account_link_requests")
-    op.drop_index(op.f("ix_account_link_requests_user_identity_id"), table_name="account_link_requests")
-    op.drop_index(op.f("ix_account_link_requests_updated_at"), table_name="account_link_requests")
-    op.drop_index(op.f("ix_account_link_requests_status"), table_name="account_link_requests")
-    op.drop_index(op.f("ix_account_link_requests_request_token"), table_name="account_link_requests")
-    op.drop_index(op.f("ix_account_link_requests_expires_at"), table_name="account_link_requests")
-    op.drop_index(op.f("ix_account_link_requests_created_at"), table_name="account_link_requests")
-    op.drop_table("account_link_requests")
     op.drop_index("ix_user_identity_user", table_name="user_identities")
     op.drop_index("ix_user_identity_provider", table_name="user_identities")
     op.drop_index("ix_user_identity_external_id", table_name="user_identities")
@@ -421,6 +409,17 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_groups_created_by"), table_name="groups")
     op.drop_index(op.f("ix_groups_created_at"), table_name="groups")
     op.drop_table("groups")
+    op.drop_index("ix_link_request_user", table_name="account_link_requests")
+    op.drop_index("ix_link_request_token", table_name="account_link_requests")
+    op.drop_index("ix_link_request_status", table_name="account_link_requests")
+    op.drop_index("ix_link_request_expires", table_name="account_link_requests")
+    op.drop_index(op.f("ix_account_link_requests_user_id"), table_name="account_link_requests")
+    op.drop_index(op.f("ix_account_link_requests_updated_at"), table_name="account_link_requests")
+    op.drop_index(op.f("ix_account_link_requests_status"), table_name="account_link_requests")
+    op.drop_index(op.f("ix_account_link_requests_request_token"), table_name="account_link_requests")
+    op.drop_index(op.f("ix_account_link_requests_expires_at"), table_name="account_link_requests")
+    op.drop_index(op.f("ix_account_link_requests_created_at"), table_name="account_link_requests")
+    op.drop_table("account_link_requests")
     op.drop_index(op.f("ix_users_updated_at"), table_name="users")
     op.drop_index(op.f("ix_users_email"), table_name="users")
     op.drop_index(op.f("ix_users_created_at"), table_name="users")

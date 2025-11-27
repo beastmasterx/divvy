@@ -9,23 +9,22 @@ from fastapi.responses import RedirectResponse
 from pydantic import Discriminator
 
 from app.api.dependencies import (
+    get_account_link_request_service,
     get_authentication_service,
     get_current_user,
-    get_current_user_optional,
     get_identity_provider_service,
 )
 from app.exceptions import ValidationError
-from app.models import User
-from app.schemas import UserResponse
-from app.schemas.authentication import (
+from app.models import IdentityProviderName, User
+from app.schemas import (
     AccountLinkVerifyRequest,
     LinkingRequiredResponse,
     OAuthAuthorizeResponse,
     RegisterRequest,
     TokenResponse,
+    UserResponse,
 )
-from app.services import AuthenticationService
-from app.services.identity_provider import IdentityProviderService
+from app.services import AccountLinkRequestService, AuthenticationService, IdentityProviderService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -163,7 +162,7 @@ async def logout_all(
 
 @router.get("/oauth/{provider}/authorize")
 def oauth_authorize(
-    provider: str,
+    provider: IdentityProviderName,
     state: Annotated[str | None, Query()] = None,
     identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
 ) -> RedirectResponse:
@@ -254,7 +253,7 @@ def oauth_authorize(
     ],
 )
 async def oauth_callback(
-    provider: str,
+    provider: IdentityProviderName,
     code: Annotated[str, Query(..., description="Authorization code from OAuth provider")],
     state: Annotated[str | None, Query()] = None,
     http: Request = None,  # type: ignore[assignment]
@@ -292,7 +291,7 @@ async def oauth_callback(
 
 @router.post("/link/{provider}/initiate", response_model=OAuthAuthorizeResponse)
 def initiate_account_link(
-    provider: str,
+    provider: IdentityProviderName,
     current_user: User = Depends(get_current_user),
     identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
 ) -> OAuthAuthorizeResponse:
@@ -322,37 +321,32 @@ def initiate_account_link(
     return OAuthAuthorizeResponse(authorization_url=authorization_url)
 
 
-@router.post("/link/approve", response_model=TokenResponse, response_model_exclude_none=True)
+@router.post("/link/approve", status_code=status.HTTP_204_NO_CONTENT)
 async def approve_account_link(
     request: AccountLinkVerifyRequest,
-    current_user: UserResponse | None = Depends(get_current_user_optional),
-    identity_provider_service: IdentityProviderService = Depends(get_identity_provider_service),
-) -> TokenResponse:
+    current_user: UserResponse = Depends(get_current_user),
+    account_link_request_service: AccountLinkRequestService = Depends(get_account_link_request_service),
+) -> None:
     """
-    Approve an account link request by verifying password or authenticated user and linking the identity.
+    Approve an account link request for an authenticated user.
 
-    This endpoint verifies the password (or authenticated user) and then links the external identity
-    to the existing user account. Returns tokens for the authenticated user.
-
-    If the user is already authenticated, password is not required.
+    This endpoint verifies the authenticated user matches the account link request
+    and then links the external identity to the existing user account.
 
     Args:
-        request: Account link approval request with token and optional password
-        current_user: Current authenticated user (optional)
-        identity_provider_service: Identity provider service instance
+        request: Account link approval request with token
+        current_user: Current authenticated user (required)
+        account_link_request_service: Account link request service instance
 
     Returns:
-        TokenResponse with access and refresh tokens
+        None (204 No Content on success)
 
     Raises:
         NotFoundError: If request not found
-        ValidationError: If request is expired or already processed, or if password is required but not provided
-        UnauthorizedError: If password is incorrect or authenticated user doesn't match request
+        ValidationError: If request is expired or already processed
+        UnauthorizedError: If authenticated user doesn't match request
     """
-    authenticated_user_id = current_user.id if current_user else None
-    return await identity_provider_service.approve_account_link_request(
-        request.request_token, request.password, authenticated_user_id
-    )
+    await account_link_request_service.approve_request(request.request_token, current_user.id)
 
 
 def _get_device_info(http: Request) -> str:

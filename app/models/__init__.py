@@ -17,7 +17,7 @@ from app.models.transaction import Category, ExpenseShare, SplitKind, Transactio
 from app.models.user import (
     AccountLinkRequest,
     AccountLinkRequestStatus,
-    IdentityProvider,
+    IdentityProviderName,
     RefreshToken,
     User,
     UserIdentity,
@@ -31,7 +31,7 @@ __all__ = [
     # Enums
     "TransactionKind",
     "SplitKind",
-    "IdentityProvider",
+    "IdentityProviderName",
     "AccountLinkRequestStatus",
     # Authorization
     "SystemRole",

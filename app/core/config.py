@@ -192,6 +192,16 @@ def get_jwt_refresh_token_expire_days() -> int:
     return int(os.getenv("DIVVY_JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
+def get_account_link_request_expiration_hours() -> int:
+    """
+    Get account link request expiration time in hours.
+
+    Returns:
+        Expiration time in hours (default: 24)
+    """
+    return int(os.getenv("DIVVY_ACCOUNT_LINK_REQUEST_EXPIRATION_HOURS", "24"))
+
+
 # Application URL Configuration
 def get_frontend_url() -> str:
     """

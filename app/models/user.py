@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from .transaction import ExpenseShare, Transaction
 
 
-class IdentityProvider(str, Enum):
-    """Supported identity providers."""
+class IdentityProviderName(str, Enum):
+    """Supported identity provider names."""
 
     MICROSOFT = "microsoft"
     GOOGLE = "google"
@@ -25,12 +25,15 @@ class IdentityProvider(str, Enum):
 
 
 class AccountLinkRequestStatus(str, Enum):
-    """Status of account link requests."""
+    """Status of account link requests.
+
+    Status values:
+    - pending: Request is waiting for approval
+    - approved: Request has been approved and identity is linked
+    """
 
     PENDING = "pending"
     APPROVED = "approved"
-    DENIED = "denied"
-    EXPIRED = "expired"
 
 
 class User(TimestampMixin, Base):
@@ -115,16 +118,13 @@ class UserIdentity(TimestampMixin, Base):
 
     # Relationships
     user: Mapped[User] = relationship("User", back_populates="identities")
-    account_link_requests: Mapped[list[AccountLinkRequest]] = relationship(
-        "AccountLinkRequest", back_populates="user_identity"
-    )
 
     @validates("identity_provider")
-    def validate_identity_provider(self, key: str, value: str | IdentityProvider) -> str:
-        """Ensure identity_provider is a valid IdentityProvider value."""
-        if isinstance(value, IdentityProvider):
+    def validate_identity_provider(self, key: str, value: str | IdentityProviderName) -> str:
+        """Ensure identity_provider is a valid IdentityProviderName value."""
+        if isinstance(value, IdentityProviderName):
             return value.value
-        valid_values = [p.value for p in IdentityProvider]
+        valid_values = [p.value for p in IdentityProviderName]
         if value not in valid_values:
             raise ValueError(f"Invalid identity_provider: {value}. Must be one of {valid_values}")
         return value
@@ -142,27 +142,29 @@ class AccountLinkRequest(TimestampMixin, Base):
     __tablename__ = "account_link_requests"
     __table_args__ = (
         Index("ix_link_request_token", "request_token"),
-        Index("ix_link_request_user_identity", "user_identity_id"),
+        Index("ix_link_request_user", "user_id"),
         Index("ix_link_request_status", "status"),
         Index("ix_link_request_expires", "expires_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     request_token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    user_identity_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_identities.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    identity_provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)  # Provider's unique user ID
+    external_email: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Email from provider
+    external_username: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Username from provider
     status: Mapped[str] = mapped_column(
         String(20),
-        CheckConstraint("status IN ('pending', 'approved', 'denied', 'expired')"),
+        CheckConstraint("status IN ('pending', 'approved')"),
         default=AccountLinkRequestStatus.PENDING.value,
         nullable=False,
         index=True,
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
-    email_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    user_identity: Mapped[UserIdentity] = relationship("UserIdentity", back_populates="account_link_requests")
+    user: Mapped[User] = relationship("User")
 
     @validates("status")
     def validate_status(self, key: str, value: str | AccountLinkRequestStatus) -> str:
@@ -174,8 +176,18 @@ class AccountLinkRequest(TimestampMixin, Base):
             raise ValueError(f"Invalid status: {value}. Must be one of {valid_values}")
         return value
 
+    @validates("identity_provider")
+    def validate_identity_provider(self, key: str, value: str | IdentityProviderName) -> str:
+        """Ensure identity_provider is a valid IdentityProviderName value."""
+        if isinstance(value, IdentityProviderName):
+            return value.value
+        valid_values = [p.value for p in IdentityProviderName]
+        if value not in valid_values:
+            raise ValueError(f"Invalid identity_provider: {value}. Must be one of {valid_values}")
+        return value
+
     def __repr__(self) -> str:
         return (
             f"<AccountLinkRequest(id={self.id}, token='{self.request_token[:8]}...', "
-            f"user_identity_id={self.user_identity_id}, status='{self.status}')>"
+            f"user_id={self.user_id}, provider='{self.identity_provider}', status='{self.status}')>"
         )

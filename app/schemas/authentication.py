@@ -67,18 +67,3 @@ class LinkingRequiredResponse(BaseModel):
     request_token: str = Field(..., description="Token for account linking request")
     email: str = Field(..., description="Email address for account linking")
     message: str = Field(..., description="Message explaining the account linking requirement")
-
-
-# Keep OAuthCallbackResponse for backward compatibility, but it's now just an alias
-OAuthCallbackResponse = LinkingRequiredResponse
-
-
-class AccountLinkVerifyRequest(BaseModel):
-    """Request schema for verifying an account link request with password."""
-
-    request_token: str = Field(..., description="Account link request token")
-    password: str | None = Field(
-        default=None,
-        min_length=1,
-        description="User's password for verification (required if not authenticated)",
-    )

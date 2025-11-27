@@ -27,18 +27,24 @@ class AccountLinkRequestRepository:
         stmt = select(AccountLinkRequest).where(AccountLinkRequest.request_token == request_token)
         return (await self.session.scalars(stmt)).one_or_none()
 
-    async def get_requests_by_user_identity_id(self, user_identity_id: int) -> Sequence[AccountLinkRequest]:
-        """Retrieve all requests for a specific user identity."""
-        stmt = select(AccountLinkRequest).where(AccountLinkRequest.user_identity_id == user_identity_id)
-        return (await self.session.scalars(stmt)).all()
-
-    async def get_pending_requests_by_user_identity_id(self, user_identity_id: int) -> Sequence[AccountLinkRequest]:
-        """Retrieve all pending requests for a specific user identity."""
+    async def get_pending_requests_by_user_id(self, user_id: int) -> Sequence[AccountLinkRequest]:
+        """Retrieve all pending requests for a specific user."""
         stmt = select(AccountLinkRequest).where(
-            AccountLinkRequest.user_identity_id == user_identity_id,
+            AccountLinkRequest.user_id == user_id,
             AccountLinkRequest.status == "pending",
         )
         return (await self.session.scalars(stmt)).all()
+
+    async def get_pending_request_by_provider_and_external_id(
+        self, identity_provider: str, external_id: str
+    ) -> AccountLinkRequest | None:
+        """Retrieve a pending request by provider and external_id."""
+        stmt = select(AccountLinkRequest).where(
+            AccountLinkRequest.identity_provider == identity_provider,
+            AccountLinkRequest.external_id == external_id,
+            AccountLinkRequest.status == "pending",
+        )
+        return (await self.session.scalars(stmt)).one_or_none()
 
     async def get_expired_requests(self) -> Sequence[AccountLinkRequest]:
         """Retrieve all expired requests."""
@@ -56,7 +62,8 @@ class AccountLinkRequestRepository:
         return request
 
     async def update_request(self, request: AccountLinkRequest) -> AccountLinkRequest:
-        """Update an existing account link request and commit changes to the database."""
+        """Update an existing account link request and persist it to the database."""
+        self.session.add(request)
         await self.session.flush()
         return request
 

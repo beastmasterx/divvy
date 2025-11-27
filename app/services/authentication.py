@@ -107,13 +107,43 @@ class AuthenticationService:
         Raises:
             UnauthorizedError: If email or password is incorrect or user is inactive
         """
-        # Need ORM model for password verification (password not in DTO)
-        user = await self._user_repository.get_user_by_email(email)
-
-        if not user or not user.password or not check_password(password, user.password) or not user.is_active:
+        user = await self.verify_password(email, password)
+        if not user:
             raise UnauthorizedError("Invalid email or password or user is inactive")
 
         return await self.generate_tokens(user.id, device_info)
+
+    async def verify_password(self, email: str, password: str) -> UserResponse | None:
+        """
+        Verify user credentials and return user if authentication succeeds.
+
+        Performs the following checks in order:
+        1. User exists with the given email
+        2. User has a password set
+        3. User account is active
+        4. Provided password matches the stored password hash
+
+        Args:
+            email: User's email address
+            password: Plain text password to verify
+
+        Returns:
+            UserResponse if all checks pass, None otherwise
+        """
+        user = await self._user_repository.get_user_by_email(email)
+        if user is None:
+            return None
+
+        if user.password is None:
+            return None
+
+        if not user.is_active:
+            return None
+
+        if not check_password(password, user.password):
+            return None
+
+        return UserResponse.model_validate(user)
 
     async def change_password(
         self,
@@ -136,7 +166,6 @@ class AuthenticationService:
             NotFoundError: If user not found
             UnauthorizedError: If old password is incorrect
         """
-        # Need ORM model for password verification (password not in DTO)
         user = await self._user_repository.get_user_by_id(user_id)
         if not user:
             raise NotFoundError(f"User {user_id} not found")

@@ -2,6 +2,7 @@
 Business logic services.
 """
 
+from .account_link_request import AccountLinkRequestService
 from .authentication import AuthenticationService
 from .authorization import AuthorizationService
 from .category import CategoryService
@@ -11,8 +12,10 @@ from .period import PeriodService
 from .settlement import SettlementService
 from .transaction import TransactionService
 from .user import UserService
+from .user_identity import UserIdentityService
 
 __all__ = [
+    "AccountLinkRequestService",
     "AuthenticationService",
     "AuthorizationService",
     "CategoryService",
@@ -22,4 +25,5 @@ __all__ = [
     "SettlementService",
     "TransactionService",
     "UserService",
+    "UserIdentityService",
 ]
