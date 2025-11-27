@@ -5,7 +5,7 @@ Service for managing user identities linked to external identity providers.
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import ConflictError, NotFoundError
-from app.models import UserIdentity
+from app.models import IdentityProviderName, UserIdentity
 from app.repositories import UserIdentityRepository
 from app.schemas import UserIdentityRequest, UserIdentityResponse, UserIdentityUpdateRequest
 from app.services.user import UserService
@@ -46,7 +46,7 @@ class UserIdentityService:
         return UserIdentityResponse.model_validate(identity)
 
     async def get_identity_by_provider_and_external_id(
-        self, provider_name: str, external_id: str
+        self, provider_name: IdentityProviderName, external_id: str
     ) -> UserIdentityResponse | None:
         """
         Get a user identity by provider and external ID.
@@ -59,7 +59,7 @@ class UserIdentityService:
             UserIdentityResponse if found, None otherwise
         """
         identity = await self._user_identity_repository.get_identity_by_provider_and_external_id(
-            provider_name, external_id
+            provider_name.value, external_id
         )
         if identity is None:
             return None

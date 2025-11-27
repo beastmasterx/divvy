@@ -2,11 +2,13 @@
 Unit tests for PeriodRepository.
 """
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import Group, Period
 from app.repositories import PeriodRepository
 from tests.fixtures.factories import create_test_period
 
@@ -15,57 +17,55 @@ from tests.fixtures.factories import create_test_period
 class TestPeriodRepository:
     """Test suite for PeriodRepository."""
 
-    async def test_get_all_periods_empty(self, db_session: AsyncSession):
+    @pytest.fixture
+    def period_repository(self, db_session: AsyncSession) -> PeriodRepository:
+        return PeriodRepository(db_session)
+
+    async def test_get_all_periods_empty(self, period_repository: PeriodRepository):
         """Test retrieving all periods when database is empty."""
-        repo = PeriodRepository(db_session)
-        periods = await repo.get_all_periods()
+        periods = await period_repository.get_all_periods()
         assert isinstance(periods, list)
         assert len(periods) == 0
 
-    async def test_get_all_periods_multiple(self, db_session: AsyncSession):
+    async def test_get_all_periods_multiple(
+        self,
+        period_repository: PeriodRepository,
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
         """Test retrieving all periods when multiple exist."""
-        repo = PeriodRepository(db_session)
-
         # Create multiple periods (requires group_id)
-        # Note: This test assumes a group exists or we need to create one
-        period1 = create_test_period(group_id=1, name="Period 1")
-        period2 = create_test_period(group_id=1, name="Period 2")
-        db_session.add(period1)
-        db_session.add(period2)
-        await db_session.commit()
+        group = await group_factory(name="Test Group")
+        period1 = await period_factory(group_id=group.id, name="Period 1")
+        period2 = await period_factory(group_id=group.id, name="Period 2")
 
-        periods = await repo.get_all_periods()
+        periods = await period_repository.get_all_periods()
+
         assert len(periods) >= 2
         period_names = {p.name for p in periods}
-        assert "Period 1" in period_names
-        assert "Period 2" in period_names
+        assert period1.name in period_names
+        assert period2.name in period_names
 
-    async def test_get_period_by_id_exists(self, db_session: AsyncSession):
+    async def test_get_period_by_id_exists(
+        self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
+    ):
         """Test retrieving a period by ID when it exists."""
-        repo = PeriodRepository(db_session)
+        period = await period_factory(group_id=1, name="Test Period")
 
-        period = create_test_period(group_id=1, name="Test Period")
-        db_session.add(period)
-        await db_session.commit()
-        period_id = period.id
-
-        retrieved = await repo.get_period_by_id(period_id)
+        retrieved = await period_repository.get_period_by_id(period.id)
         assert retrieved is not None
-        assert retrieved.id == period_id
-        assert retrieved.name == "Test Period"
+        assert retrieved.id == period.id
+        assert retrieved.name == period.name
 
-    async def test_get_period_by_id_not_exists(self, db_session: AsyncSession):
+    async def test_get_period_by_id_not_exists(self, period_repository: PeriodRepository):
         """Test retrieving a period by ID when it doesn't exist."""
-        repo = PeriodRepository(db_session)
-        result = await repo.get_period_by_id(99999)
+        result = await period_repository.get_period_by_id(99999)
         assert result is None
 
-    async def test_create_period(self, db_session: AsyncSession):
+    async def test_create_period(self, period_repository: PeriodRepository):
         """Test creating a new period."""
-        repo = PeriodRepository(db_session)
-
         period = create_test_period(group_id=1, name="New Period")
-        created = await repo.create_period(period)
+        created = await period_repository.create_period(period)
 
         assert created.id is not None
         assert created.name == "New Period"
@@ -73,107 +73,103 @@ class TestPeriodRepository:
         assert created.group_id == 1
 
         # Verify it's in the database
-        retrieved = await repo.get_period_by_id(created.id)
+        retrieved = await period_repository.get_period_by_id(created.id)
         assert retrieved is not None
         assert retrieved.name == "New Period"
 
-    async def test_update_period(self, db_session: AsyncSession):
+    async def test_update_period(
+        self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
+    ):
         """Test updating an existing period."""
-        repo = PeriodRepository(db_session)
-
         # Create a period
-        period = create_test_period(group_id=1, name="Original Name")
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=1, name="Original Name")
 
         # Update it
         period.name = "Updated Name"
         period.end_date = datetime.now(UTC)
-        updated = await repo.update_period(period)
+        updated = await period_repository.update_period(period)
 
         assert updated.name == "Updated Name"
         assert updated.is_closed is True
 
         # Verify the update persisted
-        retrieved = await repo.get_period_by_id(period.id)
+        retrieved = await period_repository.get_period_by_id(period.id)
+
         assert retrieved is not None
         assert retrieved.name == "Updated Name"
         assert retrieved.is_closed is True
 
-    async def test_delete_period_exists(self, db_session: AsyncSession):
+    async def test_delete_period_exists(
+        self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
+    ):
         """Test deleting a period that exists."""
-        repo = PeriodRepository(db_session)
-
         # Create a period
-        period = create_test_period(group_id=1, name="To Delete")
-        db_session.add(period)
-        await db_session.commit()
-        period_id = period.id
+        period = await period_factory(group_id=1, name="To Delete")
 
         # Delete it
-        await repo.delete_period(period_id)
+        await period_repository.delete_period(period.id)
 
         # Verify it's gone
-        retrieved = await repo.get_period_by_id(period_id)
+        retrieved = await period_repository.get_period_by_id(period.id)
+
         assert retrieved is None
 
-    async def test_delete_period_not_exists(self, db_session: AsyncSession):
+    async def test_delete_period_not_exists(self, period_repository: PeriodRepository):
         """Test deleting a period that doesn't exist (should not raise error)."""
-        repo = PeriodRepository(db_session)
         # Should not raise an exception
-        await repo.delete_period(99999)
+        await period_repository.delete_period(99999)
 
-    async def test_get_periods_by_group_id(self, db_session: AsyncSession):
+    async def test_get_periods_by_group_id(
+        self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
+    ):
         """Test retrieving periods for a specific group."""
-        repo = PeriodRepository(db_session)
 
         # Create periods for different groups
-        period1 = create_test_period(group_id=1, name="Period 1")
-        period2 = create_test_period(group_id=1, name="Period 2")
-        period3 = create_test_period(group_id=2, name="Period 3")
-        db_session.add(period1)
-        db_session.add(period2)
-        db_session.add(period3)
-        await db_session.commit()
+        period1 = await period_factory(group_id=1, name="Period 1")
+        period2 = await period_factory(group_id=1, name="Period 2")
+        period3 = await period_factory(group_id=2, name="Period 3")
 
         # Get periods for group 1
-        periods = await repo.get_periods_by_group_id(1)
+        periods = await period_repository.get_periods_by_group_id(1)
+
         assert len(periods) == 2
+
         period_names = {p.name for p in periods}
-        assert "Period 1" in period_names
-        assert "Period 2" in period_names
-        assert "Period 3" not in period_names
+
+        assert period1.name in period_names
+        assert period2.name in period_names
+        assert period3.name not in period_names
 
         # Get periods for group 2
-        periods = await repo.get_periods_by_group_id(2)
+        periods = await period_repository.get_periods_by_group_id(2)
+
         assert len(periods) == 1
-        assert periods[0].name == "Period 3"
+        assert periods[0].name == period3.name
 
         # Get periods for non-existent group
-        periods = await repo.get_periods_by_group_id(999)
+        periods = await period_repository.get_periods_by_group_id(999)
+
         assert len(periods) == 0
 
-    async def test_get_current_period_by_group_id(self, db_session: AsyncSession):
+    async def test_get_current_period_by_group_id(
+        self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
+    ):
         """Test retrieving the current (unsettled) period for a group."""
         from datetime import UTC, datetime
 
-        repo = PeriodRepository(db_session)
-
         # Create a closed period and an open period for group 1
-        closed_period = create_test_period(group_id=1, name="Closed Period")
-        closed_period.end_date = datetime.now(UTC)
-        open_period = create_test_period(group_id=1, name="Open Period")
-        db_session.add(closed_period)
-        db_session.add(open_period)
-        await db_session.commit()
+        _ = await period_factory(group_id=1, name="Closed Period", end_date=datetime.now(UTC))
+        open_period = await period_factory(group_id=1, name="Open Period")
 
         # Get current period for group 1 (should be the open one)
-        current = await repo.get_current_period_by_group_id(1)
+        current = await period_repository.get_current_period_by_group_id(1)
+
         assert current is not None
         assert current.id == open_period.id
-        assert current.name == "Open Period"
+        assert current.name == open_period.name
         assert current.end_date is None
 
         # Get current period for group with no open periods
-        current = await repo.get_current_period_by_group_id(2)
+        current = await period_repository.get_current_period_by_group_id(2)
+
         assert current is None

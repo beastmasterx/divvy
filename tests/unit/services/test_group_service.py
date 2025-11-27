@@ -6,24 +6,16 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import BusinessRuleError, ConflictError, ForbiddenError, NotFoundError
 from app.models import Category, Group, GroupRole, Period, Transaction, User
 from app.schemas import GroupRequest
-from app.services import AuthorizationService, GroupService, PeriodService, UserService
+from app.services import AuthorizationService, GroupService, UserService
 
 
 @pytest.mark.unit
 class TestGroupService:
     """Test suite for GroupService."""
-
-    @pytest.fixture
-    async def group_service(
-        self, authorization_service: AuthorizationService, period_service: PeriodService, db_session: AsyncSession
-    ) -> GroupService:
-        """Create a GroupService instance for testing."""
-        return GroupService(db_session, authorization_service, period_service)
 
     # ========== Get Operations ==========
 

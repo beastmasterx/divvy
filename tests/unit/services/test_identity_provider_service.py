@@ -2,42 +2,25 @@
 Unit tests for IdentityProviderService.
 """
 
-from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from collections.abc import Awaitable, Callable, Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_state_token, hash_password, is_signed_state_token, verify_state_token
+from app.core.security import create_state_token, is_signed_state_token, verify_state_token
 from app.exceptions import UnauthorizedError, ValidationError
-from app.models import AccountLinkRequestStatus
-from app.repositories import AccountLinkRequestRepository, UserIdentityRepository, UserRepository
+from app.models import AccountLinkRequestStatus, IdentityProviderName, User, UserIdentity
+from app.repositories import AccountLinkRequestRepository, UserIdentityRepository
 from app.schemas import TokenResponse as TokenResponseSchema
-from app.services import AuthenticationService, IdentityProviderService, UserService
+from app.services import IdentityProviderService, UserService
 from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
 from app.services.identity_providers.registry import IdentityProviderRegistry
-from tests.fixtures.factories import (
-    create_test_account_link_request,
-    create_test_user,
-    create_test_user_identity,
-)
 
 
 @pytest.mark.unit
 class TestIdentityProviderService:
     """Test suite for IdentityProviderService."""
-
-    @pytest.fixture
-    async def identity_provider_service(self, db_session: AsyncSession) -> IdentityProviderService:
-        """Create an IdentityProviderService instance with dependencies."""
-        user_service = UserService(db_session)
-        authentication_service = AuthenticationService(session=db_session, user_service=user_service)
-        return IdentityProviderService(
-            session=db_session,
-            user_service=user_service,
-            authentication_service=authentication_service,
-        )
 
     @pytest.fixture(autouse=True)
     def clear_provider_registry(self) -> Iterator[None]:
@@ -52,12 +35,15 @@ class TestIdentityProviderService:
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_new_user_creates_identity(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        user_service: UserService,
+        db_session: AsyncSession,
     ):
         """Test that handle_oauth_callback creates user and identity for new users."""
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -73,7 +59,7 @@ class TestIdentityProviderService:
         IdentityProviderRegistry.register(mock_provider)
 
         result = await identity_provider_service.handle_oauth_callback(
-            provider_name="microsoft",
+            provider_name=IdentityProviderName.MICROSOFT,
             code="test_code",
             state=None,
             device_info="test_device",
@@ -85,14 +71,15 @@ class TestIdentityProviderService:
         assert result.refresh_token is not None
 
         # Verify user was created
-        user_repo = UserRepository(db_session)
-        user = await user_repo.get_user_by_email("newuser@example.com")
+        user = await user_service.get_user_by_email("newuser@example.com")
         assert user is not None
         assert user.name == "New User"
 
         # Verify identity was created
         identity_repo = UserIdentityRepository(db_session)
-        identity = await identity_repo.get_identity_by_provider_and_external_id("microsoft", "ms_123")
+        identity = await identity_repo.get_identity_by_provider_and_external_id(
+            IdentityProviderName.MICROSOFT.value, "ms_123"
+        )
         assert identity is not None
         assert identity.user_id == user.id
         assert identity.external_email == "newuser@example.com"
@@ -100,17 +87,18 @@ class TestIdentityProviderService:
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_existing_email_creates_link_request(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
     ):
         """Test that handle_oauth_callback creates account link request when email exists."""
         # Create existing user
-        user = create_test_user(email="existing@example.com", name="Existing User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
+        user = await user_factory(email="existing@example.com", name="Existing User", is_active=True)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "google"
+        mock_provider.name = IdentityProviderName.GOOGLE.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -126,7 +114,7 @@ class TestIdentityProviderService:
         IdentityProviderRegistry.register(mock_provider)
 
         result = await identity_provider_service.handle_oauth_callback(
-            provider_name="google",
+            provider_name=IdentityProviderName.GOOGLE,
             code="test_code",
             state=None,
             device_info=None,
@@ -146,34 +134,40 @@ class TestIdentityProviderService:
         request = await request_repo.get_request_by_token(result.request_token)
         assert request is not None
         assert request.status == AccountLinkRequestStatus.PENDING.value
+        assert request.user_id == user.id
+        assert request.identity_provider == IdentityProviderName.GOOGLE.value
+        assert request.external_id == "go_456"
+        assert request.external_email == "existing@example.com"
+        assert request.external_username == "Google User"
 
-        # Verify identity was created
+        # Verify identity was NOT created yet (only created when request is approved)
         identity_repo = UserIdentityRepository(db_session)
-        identity = await identity_repo.get_identity_by_provider_and_external_id("google", "go_456")
-        assert identity is not None
-        assert identity.user_id == user.id
+        identity = await identity_repo.get_identity_by_provider_and_external_id(
+            IdentityProviderName.GOOGLE.value, "go_456"
+        )
+        assert identity is None
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_existing_identity_returns_tokens(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
+        user_identity_factory: Callable[..., Awaitable[UserIdentity]],
     ):
         """Test that handle_oauth_callback returns tokens for existing linked identity."""
         # Create user and existing identity
-        user = create_test_user(email="test@example.com", name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
+        user = await user_factory(email="test@example.com", name="Test User", is_active=True)
 
-        identity = create_test_user_identity(
+        await user_identity_factory(
             user_id=user.id,
-            identity_provider="microsoft",
+            identity_provider=IdentityProviderName.MICROSOFT,
             external_id="ms_existing",
         )
-        db_session.add(identity)
-        await db_session.commit()
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -189,7 +183,7 @@ class TestIdentityProviderService:
         IdentityProviderRegistry.register(mock_provider)
 
         result = await identity_provider_service.handle_oauth_callback(
-            provider_name="microsoft",
+            provider_name=IdentityProviderName.MICROSOFT,
             code="test_code",
             state=None,
             device_info="test_device",
@@ -207,7 +201,7 @@ class TestIdentityProviderService:
         """Test that handle_oauth_callback raises UnauthorizedError when no access token received."""
         # Create and register a mock OAuth provider returning no access token
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="", token_type="Bearer")
@@ -217,7 +211,7 @@ class TestIdentityProviderService:
 
         with pytest.raises(UnauthorizedError, match="No access token received"):
             await identity_provider_service.handle_oauth_callback(
-                provider_name="microsoft",
+                provider_name=IdentityProviderName.MICROSOFT,
                 code="test_code",
                 state=None,
                 device_info=None,
@@ -225,25 +219,25 @@ class TestIdentityProviderService:
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_inactive_user_raises_error(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
+        user_identity_factory: Callable[..., Awaitable[UserIdentity]],
     ):
         """Test that handle_oauth_callback raises UnauthorizedError for inactive user with existing identity."""
         # Create inactive user and existing identity
-        user = create_test_user(email="test@example.com", name="Test User", is_active=False)
-        db_session.add(user)
-        await db_session.commit()
+        user = await user_factory(email="test@example.com", name="Test User", is_active=False)
 
-        identity = create_test_user_identity(
+        await user_identity_factory(
             user_id=user.id,
-            identity_provider="microsoft",
+            identity_provider=IdentityProviderName.MICROSOFT,
             external_id="ms_inactive",
         )
-        db_session.add(identity)
-        await db_session.commit()
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -260,7 +254,7 @@ class TestIdentityProviderService:
 
         with pytest.raises(UnauthorizedError, match="User account not found or inactive"):
             await identity_provider_service.handle_oauth_callback(
-                provider_name="microsoft",
+                provider_name=IdentityProviderName.MICROSOFT,
                 code="test_code",
                 state=None,
                 device_info=None,
@@ -275,7 +269,7 @@ class TestIdentityProviderService:
 
         with pytest.raises(ValueError, match="Unknown identity provider"):
             await identity_provider_service.handle_oauth_callback(
-                provider_name="nonexistent",
+                provider_name=IdentityProviderName.MICROSOFT,  # Use valid enum, but provider not registered
                 code="test_code",
                 state=None,
                 device_info=None,
@@ -283,20 +277,21 @@ class TestIdentityProviderService:
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_with_signed_state_token(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
     ):
         """Test that handle_oauth_callback directly links account when signed state token with operation=link is provided."""
         # Create an authenticated user
-        user = create_test_user(email="user@example.com", name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
+        user = await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token for authenticated link
         state_token = create_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -312,7 +307,7 @@ class TestIdentityProviderService:
         IdentityProviderRegistry.register(mock_provider)
 
         result = await identity_provider_service.handle_oauth_callback(
-            provider_name="microsoft",
+            provider_name=IdentityProviderName.MICROSOFT,
             code="test_code",
             state=state_token,
             device_info="test_device",
@@ -325,27 +320,30 @@ class TestIdentityProviderService:
 
         # Verify identity was created and linked
         identity_repo = UserIdentityRepository(db_session)
-        identity = await identity_repo.get_identity_by_provider_and_external_id("microsoft", "ms_new_identity")
+        identity = await identity_repo.get_identity_by_provider_and_external_id(
+            IdentityProviderName.MICROSOFT.value, "ms_new_identity"
+        )
         assert identity is not None
         assert identity.user_id == user.id
         assert identity.external_email == "user@example.com"
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_email_mismatch(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
     ):
         """Test that handle_oauth_callback allows linking even if provider email differs from account email."""
         # Create an authenticated user
-        user = create_test_user(email="user@example.com", name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
+        user = await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token for authenticated link
         state_token = create_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider with different email
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -361,7 +359,7 @@ class TestIdentityProviderService:
         IdentityProviderRegistry.register(mock_provider)
 
         result = await identity_provider_service.handle_oauth_callback(
-            provider_name="microsoft",
+            provider_name=IdentityProviderName.MICROSOFT,
             code="test_code",
             state=state_token,
             device_info="test_device",
@@ -373,7 +371,9 @@ class TestIdentityProviderService:
 
         # Verify identity was created with provider email
         identity_repo = UserIdentityRepository(db_session)
-        identity = await identity_repo.get_identity_by_provider_and_external_id("microsoft", "ms_new_identity")
+        identity = await identity_repo.get_identity_by_provider_and_external_id(
+            IdentityProviderName.MICROSOFT.value, "ms_new_identity"
+        )
         assert identity is not None
         assert identity.external_email == "different@microsoft.com"
         assert identity.user_id == user.id
@@ -385,7 +385,7 @@ class TestIdentityProviderService:
         """Test that handle_oauth_callback raises ValidationError for invalid signed state token."""
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         IdentityProviderRegistry.register(mock_provider)
 
@@ -394,7 +394,7 @@ class TestIdentityProviderService:
 
         with pytest.raises(ValidationError, match="Invalid or expired state token"):
             await identity_provider_service.handle_oauth_callback(
-                provider_name="microsoft",
+                provider_name=IdentityProviderName.MICROSOFT,
                 code="test_code",
                 state=invalid_state_token,
                 device_info=None,
@@ -402,13 +402,14 @@ class TestIdentityProviderService:
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_user_id_mismatch(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
     ):
         """Test that handle_oauth_callback raises ValidationError when user_id in state token doesn't match retrieved user."""
-        # Create a user
-        user = create_test_user(email="user@example.com", name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
+        # Create a user (not used but kept for clarity)
+        await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token with different user_id (simulating tampering)
         # This shouldn't happen in practice, but we test the validation
@@ -416,7 +417,7 @@ class TestIdentityProviderService:
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -434,7 +435,7 @@ class TestIdentityProviderService:
         # Should raise UnauthorizedError when user is not found (user_id=99999 doesn't exist)
         with pytest.raises(UnauthorizedError, match="User account not found or inactive"):
             await identity_provider_service.handle_oauth_callback(
-                provider_name="microsoft",
+                provider_name=IdentityProviderName.MICROSOFT,
                 code="test_code",
                 state=state_token,
                 device_info=None,
@@ -442,20 +443,21 @@ class TestIdentityProviderService:
 
     @pytest.mark.asyncio
     async def test_handle_oauth_callback_authenticated_link_inactive_user(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self,
+        identity_provider_service: IdentityProviderService,
+        db_session: AsyncSession,
+        user_factory: Callable[..., Awaitable[User]],
     ):
         """Test that handle_oauth_callback raises UnauthorizedError for inactive user in authenticated link flow."""
         # Create an inactive user
-        user = create_test_user(email="user@example.com", name="Test User", is_active=False)
-        db_session.add(user)
-        await db_session.commit()
+        user = await user_factory(email="user@example.com", name="Test User", is_active=False)
 
         # Create signed state token for authenticated link
         state_token = create_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -472,7 +474,7 @@ class TestIdentityProviderService:
 
         with pytest.raises(UnauthorizedError, match="User account not found or inactive"):
             await identity_provider_service.handle_oauth_callback(
-                provider_name="microsoft",
+                provider_name=IdentityProviderName.MICROSOFT,
                 code="test_code",
                 state=state_token,
                 device_info=None,
@@ -485,7 +487,7 @@ class TestIdentityProviderService:
         """Test that handle_oauth_callback passes through frontend-generated state without verification."""
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth")
         mock_provider.exchange_code_for_tokens = AsyncMock(
             return_value=IdentityProviderTokenResponse(access_token="test_access_token", token_type="Bearer")
@@ -504,7 +506,7 @@ class TestIdentityProviderService:
         frontend_state = "550e8400-e29b-41d4-a716-446655440000"
 
         result = await identity_provider_service.handle_oauth_callback(
-            provider_name="microsoft",
+            provider_name=IdentityProviderName.MICROSOFT,
             code="test_code",
             state=frontend_state,
             device_info="test_device",
@@ -518,11 +520,11 @@ class TestIdentityProviderService:
         """Test that get_authorization_url works with registered provider."""
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth?state=test")
         IdentityProviderRegistry.register(mock_provider)
 
-        url = identity_provider_service.get_authorization_url("microsoft", state="test")
+        url = identity_provider_service.get_authorization_url(IdentityProviderName.MICROSOFT, state="test")
         assert url == "https://example.com/auth?state=test"
         mock_provider.get_authorization_url.assert_called_once_with("test")
 
@@ -533,18 +535,18 @@ class TestIdentityProviderService:
         # Don't register any provider
 
         with pytest.raises(ValueError, match="Unknown identity provider"):
-            identity_provider_service.get_authorization_url("nonexistent", state=None)
+            identity_provider_service.get_authorization_url(IdentityProviderName.MICROSOFT, state=None)
 
     def test_get_link_authorization_url_registered_provider(self, identity_provider_service: IdentityProviderService):
         """Test that get_link_authorization_url creates signed state token and returns URL."""
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
-        mock_provider.name = "microsoft"
+        mock_provider.name = IdentityProviderName.MICROSOFT.value
         mock_provider.get_authorization_url = MagicMock(return_value="https://example.com/auth?state=token")
         IdentityProviderRegistry.register(mock_provider)
 
         user_id = 123
-        url = identity_provider_service.get_link_authorization_url("microsoft", user_id)
+        url = identity_provider_service.get_link_authorization_url(IdentityProviderName.MICROSOFT, user_id)
 
         # Verify URL was returned
         assert url == "https://example.com/auth?state=token"
@@ -569,323 +571,4 @@ class TestIdentityProviderService:
         # Don't register any provider
 
         with pytest.raises(ValueError, match="Unknown identity provider"):
-            identity_provider_service.get_link_authorization_url("nonexistent", user_id=123)
-
-    async def test_approve_account_link_request_with_password(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request with valid password."""
-        # Create a user with password
-        password = "securepass123"
-        user = create_test_user(
-            email="test@example.com", name="Test User", password=hash_password(password), is_active=True
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Approve the request
-        token_response = await identity_provider_service.approve_account_link_request(
-            request_token="approve_token", password=password, user_id=None
-        )
-
-        assert token_response.access_token is not None
-        assert token_response.refresh_token is not None
-        assert token_response.token_type == "Bearer"
-
-        # Verify request was updated
-        from app.repositories import AccountLinkRequestRepository
-
-        repo = AccountLinkRequestRepository(db_session)
-        updated_request = await repo.get_request_by_token("approve_token")
-        assert updated_request is not None
-        assert updated_request.status == AccountLinkRequestStatus.APPROVED.value
-        assert updated_request.verified_at is not None
-
-    async def test_approve_account_link_request_with_authenticated_user(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request with authenticated user."""
-        # Create a user
-        user = create_test_user(email="test@example.com", name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Approve the request with authenticated user
-        token_response = await identity_provider_service.approve_account_link_request(
-            request_token="approve_token", password=None, user_id=user.id
-        )
-
-        assert token_response.access_token is not None
-        assert token_response.refresh_token is not None
-
-        # Verify request was updated
-        from app.repositories import AccountLinkRequestRepository
-
-        repo = AccountLinkRequestRepository(db_session)
-        updated_request = await repo.get_request_by_token("approve_token")
-        assert updated_request is not None
-        assert updated_request.status == AccountLinkRequestStatus.APPROVED.value
-
-    async def test_approve_account_link_request_invalid_password(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request with invalid password raises UnauthorizedError."""
-        # Create a user with password
-        password = "securepass123"
-        user = create_test_user(
-            email="test@example.com", name="Test User", password=hash_password(password), is_active=True
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve with wrong password
-        with pytest.raises(UnauthorizedError):
-            await identity_provider_service.approve_account_link_request(
-                request_token="approve_token", password="wrongpassword", user_id=None
-            )
-
-    async def test_approve_account_link_request_user_no_password(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request for user without password raises UnauthorizedError."""
-        # Create a user without password
-        user = create_test_user(email="test@example.com", password=None, name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve with password when user has no password set
-        with pytest.raises(UnauthorizedError, match="User has no password set"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="approve_token", password="pass123", user_id=None
-            )
-
-    async def test_approve_account_link_request_user_inactive(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request for inactive user raises UnauthorizedError."""
-        # Create an inactive user
-        password = "securepass123"
-        user = create_test_user(
-            email="test@example.com", name="Test User", password=hash_password(password), is_active=False
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve for inactive user
-        with pytest.raises(UnauthorizedError, match="User account not found or inactive"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="approve_token", password=password, user_id=None
-            )
-
-    async def test_approve_account_link_request_expired(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an expired account link request raises ValidationError."""
-        # Create a user
-        password = "securepass123"
-        user = create_test_user(
-            email="test@example.com", name="Test User", password=hash_password(password), is_active=True
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and expired request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="expired_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) - timedelta(hours=1),  # Expired 1 hour ago
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve expired request
-        with pytest.raises(ValidationError, match="Account link request has expired"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="expired_token", password=password, user_id=None
-            )
-
-        # Verify status was updated to expired
-        from app.repositories import AccountLinkRequestRepository
-
-        repo = AccountLinkRequestRepository(db_session)
-        updated_request = await repo.get_request_by_token("expired_token")
-        assert updated_request is not None
-        assert updated_request.status == AccountLinkRequestStatus.EXPIRED.value
-
-    async def test_approve_account_link_request_already_processed(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an already processed account link request raises ValidationError."""
-        # Create a user
-        password = "securepass123"
-        user = create_test_user(
-            email="test@example.com", name="Test User", password=hash_password(password), is_active=True
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and approved request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approved_token",
-            status=AccountLinkRequestStatus.APPROVED.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve already approved request
-        with pytest.raises(ValidationError, match="cannot verify"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="approved_token", password=password, user_id=None
-            )
-
-    async def test_approve_account_link_request_wrong_authenticated_user(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request with wrong authenticated user raises UnauthorizedError."""
-        # Create two users
-        user1 = create_test_user(email="user1@example.com", name="User 1", is_active=True)
-        user2 = create_test_user(email="user2@example.com", name="User 2", is_active=True)
-        db_session.add(user1)
-        db_session.add(user2)
-        await db_session.commit()
-
-        # Create an identity for user1 and request
-        identity = create_test_user_identity(user_id=user1.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve with wrong user
-        with pytest.raises(UnauthorizedError, match="Authenticated user does not match"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="approve_token", password=None, user_id=user2.id
-            )
-
-    async def test_approve_account_link_request_not_found(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving a non-existent account link request raises NotFoundError."""
-        from app.exceptions import NotFoundError
-
-        with pytest.raises(NotFoundError, match="Account link request not found"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="nonexistent_token", password="pass123", user_id=None
-            )
-
-    async def test_approve_account_link_request_no_password_when_not_authenticated(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
-    ):
-        """Test approving an account link request without password when not authenticated raises ValidationError."""
-        # Create a user
-        user = create_test_user(email="test@example.com", name="Test User", is_active=True)
-        db_session.add(user)
-        await db_session.commit()
-
-        # Create an identity and request
-        identity = create_test_user_identity(user_id=user.id, identity_provider="microsoft", external_id="ms_123")
-        db_session.add(identity)
-        await db_session.commit()
-
-        request = create_test_account_link_request(
-            user_identity_id=identity.id,
-            request_token="approve_token",
-            status=AccountLinkRequestStatus.PENDING.value,
-            expires_at=datetime.now(UTC) + timedelta(hours=24),
-        )
-        db_session.add(request)
-        await db_session.commit()
-
-        # Try to approve without password and without authenticated user
-        with pytest.raises(ValidationError, match="Password is required when not authenticated"):
-            await identity_provider_service.approve_account_link_request(
-                request_token="approve_token", password=None, user_id=None
-            )
+            identity_provider_service.get_link_authorization_url(IdentityProviderName.MICROSOFT, user_id=123)

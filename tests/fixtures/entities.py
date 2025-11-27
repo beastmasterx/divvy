@@ -8,14 +8,28 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Category, Group, GroupRole, Period, Transaction, User
+from app.models import (
+    AccountLinkRequest,
+    Category,
+    Group,
+    GroupRole,
+    GroupRoleBinding,
+    Period,
+    RolePermission,
+    SystemRoleBinding,
+    Transaction,
+    User,
+    UserIdentity,
+)
 from app.services import AuthorizationService
 from tests.fixtures.factories import (
+    create_test_account_link_request,
     create_test_category,
     create_test_group,
     create_test_period,
     create_test_transaction,
     create_test_user,
+    create_test_user_identity,
 )
 
 
@@ -69,6 +83,50 @@ async def group_with_owner(
 
 
 @pytest.fixture
+async def user_identity_factory(db_session: AsyncSession) -> Callable[..., Awaitable[UserIdentity]]:
+    """Factory fixture for creating user identities."""
+
+    async def _create_user_identity(
+        user_id: int = 1,
+        identity_provider: str = "microsoft",
+        external_id: str = "external_123",
+        external_email: str | None = "external@example.com",
+        external_username: str | None = "external_user",
+        **kwargs: Any
+    ) -> UserIdentity:
+        user_identity = create_test_user_identity(
+            user_id=user_id,
+            identity_provider=identity_provider,
+            external_id=external_id,
+            external_email=external_email,
+            external_username=external_username,
+            **kwargs
+        )
+        db_session.add(user_identity)
+        await db_session.commit()
+        return user_identity
+
+    return _create_user_identity
+
+
+@pytest.fixture
+async def account_link_request_factory(db_session: AsyncSession) -> Callable[..., Awaitable[AccountLinkRequest]]:
+    """Factory fixture for creating account link requests."""
+
+    async def _create_account_link_request(
+        user_id: int = 1, identity_provider: str = "microsoft", external_id: str = "external_123", **kwargs: Any
+    ) -> AccountLinkRequest:
+        account_link_request = create_test_account_link_request(
+            user_id=user_id, identity_provider=identity_provider, external_id=external_id, **kwargs
+        )
+        db_session.add(account_link_request)
+        await db_session.commit()
+        return account_link_request
+
+    return _create_account_link_request
+
+
+@pytest.fixture
 def category_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Category]]:
     """Factory fixture for creating categories."""
 
@@ -98,10 +156,45 @@ def period_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Period]]
 def transaction_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Transaction]]:
     """Factory fixture for creating transactions."""
 
-    async def _create_transaction(payer_id: int, category_id: int, period_id: int, **kwargs: Any) -> Transaction:
+    async def _create_transaction(
+        payer_id: int = 1, category_id: int = 1, period_id: int = 1, **kwargs: Any
+    ) -> Transaction:
         transaction = create_test_transaction(payer_id=payer_id, category_id=category_id, period_id=period_id, **kwargs)
         db_session.add(transaction)
         await db_session.commit()
         return transaction
 
     return _create_transaction
+
+
+@pytest.fixture
+def system_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaitable[SystemRoleBinding]]:
+    async def _create_system_role_binding(user_id: int, role: str, **kwargs: Any) -> SystemRoleBinding:
+        binding = SystemRoleBinding(user_id=user_id, role=role, **kwargs)
+        db_session.add(binding)
+        await db_session.commit()
+        return binding
+
+    return _create_system_role_binding
+
+
+@pytest.fixture
+def group_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaitable[GroupRoleBinding]]:
+    async def _create_group_role_binding(user_id: int, group_id: int, role: str, **kwargs: Any) -> GroupRoleBinding:
+        binding = GroupRoleBinding(user_id=user_id, group_id=group_id, role=role, **kwargs)
+        db_session.add(binding)
+        await db_session.commit()
+        return binding
+
+    return _create_group_role_binding
+
+
+@pytest.fixture
+def role_permission_factory(db_session: AsyncSession) -> Callable[..., Awaitable[RolePermission]]:
+    async def _create_role_permission(role: str, permission: str, **kwargs: Any) -> RolePermission:
+        role_permission = RolePermission(role=role, permission=permission, **kwargs)
+        db_session.add(role_permission)
+        await db_session.commit()
+        return role_permission
+
+    return _create_role_permission

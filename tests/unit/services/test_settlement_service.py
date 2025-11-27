@@ -2,60 +2,35 @@
 Unit tests for SettlementService.
 """
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import BusinessRuleError, NotFoundError
-from app.models import SplitKind, TransactionKind
+from app.models import Category, Group, Period, SplitKind, TransactionKind, User
 from app.schemas import ExpenseShareRequest, TransactionRequest
-from app.services import (
-    CategoryService,
-    PeriodService,
-    SettlementService,
-    TransactionService,
-    UserService,
-)
-from tests.fixtures.factories import (
-    create_test_category,
-    create_test_group,
-    create_test_period,
-    create_test_user,
-)
+from app.services import PeriodService, SettlementService, TransactionService
 
 
 @pytest.mark.unit
 class TestSettlementService:
     """Test suite for SettlementService."""
 
-    @pytest.fixture
-    def settlement_service(self, db_session: AsyncSession) -> SettlementService:
-        """Create a SettlementService instance with all dependencies."""
-        transaction_service = TransactionService(db_session)
-        period_service = PeriodService(db_session)
-        category_service = CategoryService(db_session)
-        user_service = UserService(db_session)
-        return SettlementService(
-            transaction_service=transaction_service,
-            period_service=period_service,
-            category_service=category_service,
-            user_service=user_service,
-        )
-
-    async def test_get_all_balances_empty_period(self, settlement_service: SettlementService, db_session: AsyncSession):
+    async def test_get_all_balances_empty_period(
+        self,
+        settlement_service: SettlementService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
         """Test getting balances for a period with no transactions."""
         # Create required dependencies
-        user = create_test_user(email="user@example.com", name="User")
-        db_session.add(user)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        db_session.add(group)
-        await db_session.commit()
+        user = await user_factory(email="user@example.com", name="User")
+        group = await group_factory(name="Test Group")
 
-        period = create_test_period(group_id=group.id, name="Empty Period", created_by=user.id)
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Empty Period", created_by=user.id)
 
         balances = await settlement_service.get_all_balances(period.id)
 
@@ -63,27 +38,24 @@ class TestSettlementService:
         assert len(balances) == 0
 
     async def test_get_all_balances_with_deposits(
-        self, settlement_service: SettlementService, db_session: AsyncSession
+        self,
+        settlement_service: SettlementService,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test getting balances with deposit transactions."""
         # Create required dependencies
-        user1 = create_test_user(email="user1@example.com", name="User 1")
-        user2 = create_test_user(email="user2@example.com", name="User 2")
-        db_session.add(user1)
-        db_session.add(user2)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        category = create_test_category(name="Deposit")
-        db_session.add(group)
-        db_session.add(category)
-        await db_session.commit()
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Deposit")
 
-        period = create_test_period(group_id=group.id, name="Test Period")
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Test Period")
 
         # Create deposits
-        transaction_service = TransactionService(db_session)
         deposit1 = TransactionRequest(
             description="User 1 deposit",
             amount=10000,  # $100.00
@@ -113,27 +85,24 @@ class TestSettlementService:
         assert balances[user2.id] == 5000  # User 2 is owed $50
 
     async def test_get_all_balances_with_expenses(
-        self, settlement_service: SettlementService, db_session: AsyncSession
+        self,
+        settlement_service: SettlementService,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test getting balances with expense transactions."""
         # Create required dependencies
-        user1 = create_test_user(email="user1@example.com", name="User 1")
-        user2 = create_test_user(email="user2@example.com", name="User 2")
-        db_session.add(user1)
-        db_session.add(user2)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        category = create_test_category(name="Groceries")
-        db_session.add(group)
-        db_session.add(category)
-        await db_session.commit()
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Groceries")
 
-        period = create_test_period(group_id=group.id, name="Test Period")
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Test Period")
 
         # Create expense: User 1 pays $100, split equally between User 1 and User 2
-        transaction_service = TransactionService(db_session)
         expense = TransactionRequest(
             description="Dinner",
             amount=10000,  # $100.00
@@ -156,76 +125,62 @@ class TestSettlementService:
         assert balances[user1.id] == 5000
         assert balances[user2.id] == -5000
 
-    async def test_get_settlement_plan_period_not_exists(
-        self, settlement_service: SettlementService, db_session: AsyncSession
-    ):
+    async def test_get_settlement_plan_period_not_exists(self, settlement_service: SettlementService):
         """Test getting settlement plan for non-existent period raises NotFoundError."""
         with pytest.raises(NotFoundError):
             await settlement_service.get_settlement_plan(99999)
 
     async def test_get_settlement_plan_period_already_closed(
-        self, settlement_service: SettlementService, db_session: AsyncSession
+        self,
+        settlement_service: SettlementService,
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test getting settlement plan for already closed period raises BusinessRuleError."""
         # Create required dependencies
-        user = create_test_user(email="user@example.com", name="User")
-        db_session.add(user)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        db_session.add(group)
-        await db_session.commit()
+        group = await group_factory(name="Test Group")
 
-        period = create_test_period(group_id=group.id, name="Closed Period", end_date=datetime.now(UTC))
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Closed Period", end_date=datetime.now(UTC))
 
         with pytest.raises(BusinessRuleError):
             await settlement_service.get_settlement_plan(period.id)
 
     async def test_get_settlement_plan_no_settlement_category(
-        self, settlement_service: SettlementService, db_session: AsyncSession
+        self,
+        settlement_service: SettlementService,
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test getting settlement plan when Settlement category doesn't exist raises NotFoundError."""
         # Create required dependencies
-        user = create_test_user(email="user@example.com", name="User")
-        db_session.add(user)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        db_session.add(group)
-        await db_session.commit()
+        group = await group_factory(name="Test Group")
 
-        period = create_test_period(group_id=group.id, name="Test Period")
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Test Period")
 
         # Settlement category doesn't exist
         with pytest.raises(NotFoundError):
             await settlement_service.get_settlement_plan(period.id)
 
     async def test_get_settlement_plan_with_balances(
-        self, settlement_service: SettlementService, db_session: AsyncSession
+        self,
+        settlement_service: SettlementService,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test getting settlement plan for period with balances."""
         # Create required dependencies
-        user1 = create_test_user(email="user1@example.com", name="User 1")
-        user2 = create_test_user(email="user2@example.com", name="User 2")
-        db_session.add(user1)
-        db_session.add(user2)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        category = create_test_category(name="Groceries")
-        settlement_category = create_test_category(name="Settlement")
-        db_session.add(group)
-        db_session.add(category)
-        db_session.add(settlement_category)
-        await db_session.commit()
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Groceries")
+        _ = await category_factory(name="Settlement")
 
-        period = create_test_period(group_id=group.id, name="Test Period")
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Test Period")
 
         # Create expense: User 1 pays $100, split equally
-        transaction_service = TransactionService(db_session)
         expense = TransactionRequest(
             description="Dinner",
             amount=10000,  # $100.00
@@ -259,28 +214,28 @@ class TestSettlementService:
         assert user2_tx.transaction_kind == TransactionKind.REFUND
         assert user2_tx.amount < 0
 
-    async def test_apply_settlement_plan(self, settlement_service: SettlementService, db_session: AsyncSession):
+    async def test_apply_settlement_plan(
+        self,
+        db_session: AsyncSession,
+        settlement_service: SettlementService,
+        transaction_service: TransactionService,
+        period_service: PeriodService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
         """Test applying settlement plan to a period."""
         # Create required dependencies
-        user1 = create_test_user(email="user1@example.com", name="User 1")
-        user2 = create_test_user(email="user2@example.com", name="User 2")
-        db_session.add(user1)
-        db_session.add(user2)
-        await db_session.commit()
-        group = create_test_group(name="Test Group")
-        category = create_test_category(name="Groceries")
-        settlement_category = create_test_category(name="Settlement")
-        db_session.add(group)
-        db_session.add(category)
-        db_session.add(settlement_category)
-        await db_session.commit()
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Groceries")
+        _ = await category_factory(name="Settlement")
 
-        period = create_test_period(group_id=group.id, name="Test Period")
-        db_session.add(period)
-        await db_session.commit()
+        period = await period_factory(group_id=group.id, name="Test Period")
 
         # Create expense
-        transaction_service = TransactionService(db_session)
         expense = TransactionRequest(
             description="Dinner",
             amount=10000,  # $100.00
@@ -300,7 +255,6 @@ class TestSettlementService:
         await settlement_service.apply_settlement_plan(period.id, db_session)
 
         # Verify period is settled
-        period_service = PeriodService(db_session)
         settled_period = await period_service.get_period_by_id(period.id)
         assert settled_period is not None
         assert settled_period.is_closed is True

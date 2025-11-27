@@ -10,6 +10,7 @@ from app.models import (
     AccountLinkRequestStatus,
     Category,
     Group,
+    IdentityProviderName,
     Period,
     SplitKind,
     Transaction,
@@ -143,7 +144,7 @@ def create_test_transaction(
 
 def create_test_user_identity(
     user_id: int = 1,
-    identity_provider: str = "microsoft",
+    identity_provider: IdentityProviderName = IdentityProviderName.MICROSOFT,
     external_id: str = "external_123",
     external_email: str | None = "external@example.com",
     external_username: str | None = "external_user",
@@ -165,7 +166,7 @@ def create_test_user_identity(
     """
     return UserIdentity(
         user_id=user_id,
-        identity_provider=identity_provider,
+        identity_provider=identity_provider.value,
         external_id=external_id,
         external_email=external_email,
         external_username=external_username,
@@ -174,24 +175,28 @@ def create_test_user_identity(
 
 
 def create_test_account_link_request(
-    user_identity_id: int = 1,
+    user_id: int = 1,
+    identity_provider: IdentityProviderName = IdentityProviderName.MICROSOFT,
+    external_id: str = "external_123",
+    external_email: str | None = "external@example.com",
+    external_username: str | None = "external_user",
     request_token: str = "test_token_123",
     status: str = AccountLinkRequestStatus.PENDING.value,
     expires_at: datetime | None = None,
-    email_at: datetime | None = None,
-    verified_at: datetime | None = None,
     **kwargs: Any
 ) -> AccountLinkRequest:
     """
     Factory for creating test account link requests.
 
     Args:
-        user_identity_id: ID of the user identity this request is for
+        user_id: ID of the user this request is for
+        identity_provider: Name of the identity provider
+        external_id: Provider's unique user ID
+        external_email: Email from provider (optional)
+        external_username: Username from provider (optional)
         request_token: Unique token for the request
-        status: Status of the request (pending, approved, denied, expired)
+        status: Status of the request (pending or approved)
         expires_at: When the request expires (defaults to 24 hours from now)
-        email_at: When the email was sent (optional)
-        verified_at: When the request was verified (optional)
         **kwargs: Additional AccountLinkRequest model fields
 
     Returns:
@@ -201,11 +206,13 @@ def create_test_account_link_request(
         expires_at = datetime.now(UTC) + timedelta(hours=24)
 
     return AccountLinkRequest(
-        user_identity_id=user_identity_id,
+        user_id=user_id,
+        identity_provider=identity_provider.value,
+        external_id=external_id,
+        external_email=external_email,
+        external_username=external_username,
         request_token=request_token,
         status=status,
         expires_at=expires_at,
-        email_at=email_at,
-        verified_at=verified_at,
         **kwargs
     )
