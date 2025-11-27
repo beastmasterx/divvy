@@ -6,15 +6,15 @@ from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_category_service
+from app.api.dependencies import get_category_service, get_current_user
 from app.schemas.category import CategoryResponse
 from app.services import CategoryService
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/categories", tags=["categories"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/", response_model=list[CategoryResponse])
-async def list_categories(
+async def get_all_categories(
     category_service: CategoryService = Depends(get_category_service),
 ) -> Sequence[CategoryResponse]:
     """
