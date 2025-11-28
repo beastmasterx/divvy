@@ -10,7 +10,7 @@ Individual dependencies are organized in submodules:
 """
 
 from app.api.dependencies.authentication import get_active_user, get_current_user
-from app.api.dependencies.authorization import require_group_role, require_system_role
+from app.api.dependencies.authorization import requires_group_role, requires_system_role
 from app.api.dependencies.db import get_db, get_serializable_db
 from app.api.dependencies.services import (
     get_account_link_request_service,
@@ -46,6 +46,6 @@ __all__ = [
     "get_active_user",
     "get_current_user",
     # Authorization
-    "require_group_role",
-    "require_system_role",
+    "requires_group_role",
+    "requires_system_role",
 ]
