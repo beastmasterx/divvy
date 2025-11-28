@@ -2,7 +2,7 @@
 Registry for identity provider implementations.
 """
 
-from .base import IdentityProvider
+from .protocol import IdentityProvider
 
 
 class IdentityProviderRegistry:

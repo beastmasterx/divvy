@@ -14,6 +14,7 @@ from app.models import (
     Group,
     GroupRole,
     GroupRoleBinding,
+    IdentityProviderName,
     Period,
     RolePermission,
     SystemRoleBinding,
@@ -88,7 +89,7 @@ async def user_identity_factory(db_session: AsyncSession) -> Callable[..., Await
 
     async def _create_user_identity(
         user_id: int = 1,
-        identity_provider: str = "microsoft",
+        identity_provider: IdentityProviderName = IdentityProviderName.MICROSOFT,
         external_id: str = "external_123",
         external_email: str | None = "external@example.com",
         external_username: str | None = "external_user",
@@ -114,7 +115,10 @@ async def account_link_request_factory(db_session: AsyncSession) -> Callable[...
     """Factory fixture for creating account link requests."""
 
     async def _create_account_link_request(
-        user_id: int = 1, identity_provider: str = "microsoft", external_id: str = "external_123", **kwargs: Any
+        user_id: int = 1,
+        identity_provider: IdentityProviderName = IdentityProviderName.MICROSOFT,
+        external_id: str = "external_123",
+        **kwargs: Any
     ) -> AccountLinkRequest:
         account_link_request = create_test_account_link_request(
             user_id=user_id, identity_provider=identity_provider, external_id=external_id, **kwargs

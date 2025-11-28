@@ -5,27 +5,6 @@ Base abstraction for identity providers.
 from typing import Any, NamedTuple, Protocol
 
 
-class IdentityProviderTokenResponse(NamedTuple):
-    """OAuth2 token response from identity provider."""
-
-    access_token: str
-    token_type: str = "Bearer"
-    expires_in: int | None = None
-    refresh_token: str | None = None
-    scope: str | None = None
-    id_token: str | None = None
-    raw_data: dict[str, Any] | None = None
-
-
-class IdentityProviderUserInfo(NamedTuple):
-    """Standardized user information from identity provider."""
-
-    external_id: str
-    email: str
-    name: str | None = None
-    raw_data: dict[str, Any] | None = None
-
-
 class IdentityProvider(Protocol):
     """Protocol/interface for identity providers."""
 
@@ -72,3 +51,24 @@ class IdentityProvider(Protocol):
             UnauthorizedError: If API call fails or required fields cannot be extracted
         """
         ...
+
+
+class IdentityProviderTokenResponse(NamedTuple):
+    """OAuth2 token response from identity provider."""
+
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int | None = None
+    refresh_token: str | None = None
+    scope: str | None = None
+    id_token: str | None = None
+    raw_data: dict[str, Any] | None = None
+
+
+class IdentityProviderUserInfo(NamedTuple):
+    """Standardized user information from identity provider."""
+
+    external_id: str
+    email: str
+    name: str | None = None
+    raw_data: dict[str, Any] | None = None

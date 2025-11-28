@@ -8,14 +8,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.identity_providers import (
+    IdentityProviderRegistry,
+    IdentityProviderTokenResponse,
+    IdentityProviderUserInfo,
+)
 from app.core.security import create_state_token, is_signed_state_token, verify_state_token
 from app.exceptions import UnauthorizedError, ValidationError
 from app.models import AccountLinkRequestStatus, IdentityProviderName, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository
 from app.schemas import TokenResponse as TokenResponseSchema
 from app.services import IdentityProviderService, UserService
-from app.services.identity_providers.base import IdentityProviderTokenResponse, IdentityProviderUserInfo
-from app.services.identity_providers.registry import IdentityProviderRegistry
 
 
 @pytest.mark.unit
@@ -25,8 +28,6 @@ class TestIdentityProviderService:
     @pytest.fixture(autouse=True)
     def clear_provider_registry(self) -> Iterator[None]:
         """Clear the provider registry before and after each test to ensure test isolation."""
-        from app.services.identity_providers.registry import IdentityProviderRegistry
-
         # Clear before test
         IdentityProviderRegistry.clear()
         yield
