@@ -1,117 +1,20 @@
 """
-Authorization service for RBAC permission checking and role management.
+Authorization service for role management.
 """
-
-from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import ValidationError
-from app.models import GroupRole, Permission, SystemRole
+from app.models import GroupRole, SystemRole
 from app.repositories import AuthorizationRepository
 
 
 class AuthorizationService:
-    """Service layer for authorization-related business logic and permission checking."""
+    """Service layer for authorization-related business logic and role management."""
 
     def __init__(self, session: AsyncSession):
         self._auth_repository = AuthorizationRepository(session)
-
-    # ========== Permission Checking ==========
-
-    async def has_permission(
-        self,
-        user_id: int,
-        permission: str | Permission,
-        group_id: int | None = None,
-    ) -> bool:
-        """Check if a user has a specific permission.
-
-        Checks both system-level and group-level roles:
-        - System roles: ADMIN has all permissions
-        - Group roles: Checks group role bindings if group_id is provided
-        - Role permissions: Checks RolePermission mappings
-
-        Args:
-            user_id: ID of the user to check
-            permission: Permission to check (e.g., "groups:read")
-            group_id: Optional group ID for group-scoped permissions
-
-        Returns:
-            True if user has the permission, False otherwise
-        """
-        permission_str = permission.value if isinstance(permission, Permission) else permission
-
-        # Get user's system role (single role per user)
-        system_role = await self._auth_repository.get_system_role(user_id)
-
-        # System ADMIN has all permissions
-        if system_role == SystemRole.ADMIN.value:
-            return True
-
-        # Check system role permissions
-        if system_role:
-            role_permissions = await self._auth_repository.get_role_permissions(system_role)
-            if permission_str in role_permissions:
-                return True
-
-        # If group_id is provided, check group-level permissions
-        if group_id is not None:
-            group_role = await self._auth_repository.get_group_role(user_id, group_id)
-            if group_role:
-                # Group OWNER has all group permissions
-                if group_role == GroupRole.OWNER.value:
-                    return True
-
-                # Check group role permissions
-                group_role_permissions = await self._auth_repository.get_role_permissions(group_role)
-                if permission_str in group_role_permissions:
-                    return True
-
-        return False
-
-    async def has_any_permission(
-        self,
-        user_id: int,
-        permissions: Sequence[str | Permission],
-        group_id: int | None = None,
-    ) -> bool:
-        """Check if a user has any of the specified permissions.
-
-        Args:
-            user_id: ID of the user to check
-            permissions: List of permissions to check
-            group_id: Optional group ID for group-scoped permissions
-
-        Returns:
-            True if user has at least one permission, False otherwise
-        """
-        for permission in permissions:
-            if await self.has_permission(user_id, permission, group_id):
-                return True
-        return False
-
-    async def has_all_permissions(
-        self,
-        user_id: int,
-        permissions: Sequence[str | Permission],
-        group_id: int | None = None,
-    ) -> bool:
-        """Check if a user has all of the specified permissions.
-
-        Args:
-            user_id: ID of the user to check
-            permissions: List of permissions to check
-            group_id: Optional group ID for group-scoped permissions
-
-        Returns:
-            True if user has all permissions, False otherwise
-        """
-        for permission in permissions:
-            if not await self.has_permission(user_id, permission, group_id):
-                return False
-        return True
 
     # ========== System Role Management ==========
 
@@ -176,46 +79,3 @@ class AuthorizationService:
 
         # Upsert or delete
         await self._auth_repository.assign_group_role(user_id, group_id, role_str)
-
-    # ========== Role Permission Management ==========
-
-    async def get_permissions(self, role: str) -> Sequence[str]:
-        """Get all permissions for a role."""
-        return await self._auth_repository.get_role_permissions(role)
-
-    async def grant_permission(self, role: str, permission: str | Permission) -> None:
-        """Grant a permission to a role.
-
-        Args:
-            role: Role name (system or group role)
-            permission: Permission to grant
-
-        Raises:
-            ValidationError: If permission is invalid
-        """
-        permission_str = permission.value if isinstance(permission, Permission) else permission
-        if permission_str not in [p.value for p in Permission]:
-            raise ValidationError(_("Invalid permission: %s") % permission_str)
-
-        # Check if already granted
-        existing_permissions = await self.get_permissions(role)
-        if permission_str in existing_permissions:
-            return  # Already granted, no-op
-
-        await self._auth_repository.create_role_permission(role, permission_str)
-
-    async def revoke_permission(self, role: str, permission: str | Permission) -> None:
-        """Revoke a permission from a role.
-
-        Args:
-            role: Role name (system or group role)
-            permission: Permission to revoke
-
-        Raises:
-            ValidationError: If permission is invalid
-        """
-        permission_str = permission.value if isinstance(permission, Permission) else permission
-        if permission_str not in [p.value for p in Permission]:
-            raise ValidationError(_("Invalid permission: %s") % permission_str)
-
-        await self._auth_repository.delete_role_permission(role, permission_str)

@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Group, GroupRole, GroupRoleBinding, Permission, RolePermission, SystemRole, SystemRoleBinding
+from app.models import Group, GroupRole, GroupRoleBinding, SystemRole, SystemRoleBinding
 from app.models.user import User
 from app.repositories import AuthorizationRepository
 
@@ -242,68 +242,3 @@ class TestAuthorizationRepository:
 
         assert role1 == GroupRole.MEMBER.value
         assert role2 == GroupRole.ADMIN.value
-
-    # ========== Role Permissions ==========
-
-    async def test_get_role_permissions(
-        self,
-        authorization_repository: AuthorizationRepository,
-        role_permission_factory: Callable[..., Awaitable[RolePermission]],
-    ):
-        """Test retrieving permissions for a role."""
-        # Create role permissions (these should be seeded, but create explicitly for test)
-        await role_permission_factory(role=GroupRole.ADMIN.value, permission="groups:read")
-        await role_permission_factory(role=GroupRole.ADMIN.value, permission="groups:write")
-
-        permissions = await authorization_repository.get_role_permissions(GroupRole.ADMIN.value)
-        permission_set = set(permissions)
-        assert "groups:read" in permission_set
-        assert "groups:write" in permission_set
-
-    async def test_get_role_permissions_empty(
-        self,
-        authorization_repository: AuthorizationRepository,
-        role_permission_factory: Callable[..., Awaitable[RolePermission]],
-    ):
-        """Test retrieving permissions for role with no permissions."""
-        permissions = await authorization_repository.get_role_permissions("nonexistent:role")
-        assert len(permissions) == 0
-
-    async def test_create_role_permission(
-        self,
-        authorization_repository: AuthorizationRepository,
-    ):
-        """Test creating a role permission mapping."""
-        role_permission = RolePermission(role=GroupRole.ADMIN.value, permission=Permission.GROUPS_READ.value)
-
-        role_permission = await authorization_repository.create_role_permission(
-            role=GroupRole.ADMIN.value, permission=Permission.GROUPS_READ.value
-        )
-
-        assert role_permission.role == GroupRole.ADMIN.value
-        assert role_permission.permission == Permission.GROUPS_READ.value
-
-        # Verify it's in the database
-        permissions = await authorization_repository.get_role_permissions(GroupRole.ADMIN.value)
-        assert Permission.GROUPS_READ.value in permissions
-
-    async def test_delete_role_permission(
-        self,
-        authorization_repository: AuthorizationRepository,
-        role_permission_factory: Callable[..., Awaitable[RolePermission]],
-    ):
-        """Test deleting a role permission mapping."""
-        # Create role permission
-        await role_permission_factory(role=GroupRole.ADMIN.value, permission=Permission.GROUPS_READ.value)
-
-        # Verify it exists
-        permissions = await authorization_repository.get_role_permissions(GroupRole.ADMIN.value)
-        assert Permission.GROUPS_READ.value in permissions
-
-        # Delete it
-        await authorization_repository.delete_role_permission(GroupRole.ADMIN.value, Permission.GROUPS_READ.value)
-
-        # Verify it's removed
-        permissions = await authorization_repository.get_role_permissions(GroupRole.ADMIN.value)
-
-        assert Permission.GROUPS_READ.value not in permissions

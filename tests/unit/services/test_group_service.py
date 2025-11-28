@@ -428,7 +428,7 @@ class TestGroupService:
                 assigned_by_user_id=owner_user.id,
             )
 
-    async def test_assign_group_role_no_permission(
+    async def test_assign_group_role_not_owner(
         self,
         group_service: GroupService,
         owner_user: User,
@@ -436,8 +436,8 @@ class TestGroupService:
         group_with_owner: Group,
         user_factory: Callable[..., Awaitable[User]],
     ):
-        """Test assigning role without permission raises ForbiddenError."""
-        # Add user as member (not admin)
+        """Test assigning role as non-owner raises ForbiddenError."""
+        # Add user as member (not owner)
         await group_service.assign_group_role(
             group_id=group_with_owner.id,
             user_id=member_user.id,
@@ -448,8 +448,8 @@ class TestGroupService:
         # Create another user
         other_user = await user_factory(email="other@example.com", name="Other")
 
-        # Try to assign role as member (no permission)
-        with pytest.raises(ForbiddenError, match="Permission denied"):
+        # Try to assign role as member (not owner)
+        with pytest.raises(ForbiddenError, match="Only the group owner can assign roles"):
             await group_service.assign_group_role(
                 group_id=group_with_owner.id,
                 user_id=other_user.id,

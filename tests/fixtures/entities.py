@@ -16,7 +16,6 @@ from app.models import (
     GroupRoleBinding,
     IdentityProviderName,
     Period,
-    RolePermission,
     SystemRoleBinding,
     Transaction,
     User,
@@ -191,14 +190,3 @@ def group_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaita
         return binding
 
     return _create_group_role_binding
-
-
-@pytest.fixture
-def role_permission_factory(db_session: AsyncSession) -> Callable[..., Awaitable[RolePermission]]:
-    async def _create_role_permission(role: str, permission: str, **kwargs: Any) -> RolePermission:
-        role_permission = RolePermission(role=role, permission=permission, **kwargs)
-        db_session.add(role_permission)
-        await db_session.commit()
-        return role_permission
-
-    return _create_role_permission

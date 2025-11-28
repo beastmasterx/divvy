@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import BusinessRuleError, ConflictError, ForbiddenError, NotFoundError
-from app.models import Group, GroupRole, Permission
+from app.models import Group, GroupRole
 from app.repositories import GroupRepository, UserRepository
 from app.schemas import GroupRequest, GroupResponse
 from app.services.authorization import AuthorizationService
@@ -205,7 +205,7 @@ class GroupService:
         ABAC Rules:
         - If assigning owner role: Only current owner can transfer (ABAC)
         - If assigning owner role: Automatically demotes old owner to member
-        - For other roles: Only owner/admin can assign (checked via permission)
+        - For other roles: Only owner can assign roles
         - Removing user (role=None): Validates active period is settled
 
         Args:
@@ -292,14 +292,9 @@ class GroupService:
             )
             return
 
-        # For non-owner roles, check permission
-        has_permission = await self._authorization_service.has_permission(
-            user_id=assigned_by_user_id,
-            permission=Permission.GROUPS_WRITE,
-            group_id=group_id,
-        )
-        if not has_permission:
-            raise ForbiddenError(_("Permission denied: groups:write required to assign roles"))
+        # For non-owner roles, only owner can assign
+        if current_owner_id != assigned_by_user_id:
+            raise ForbiddenError(_("Only the group owner can assign roles"))
 
         # Special handling for member role (adding user to group)
         if role == GroupRole.MEMBER:

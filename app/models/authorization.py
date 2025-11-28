@@ -30,25 +30,6 @@ class GroupRole(str, Enum):
     MEMBER = "group:member"
 
 
-class Permission(str, Enum):
-    """System permissions following resource:action pattern."""
-
-    # Groups
-    GROUPS_READ = "groups:read"
-    GROUPS_WRITE = "groups:write"
-    GROUPS_DELETE = "groups:delete"
-
-    # Transactions
-    TRANSACTIONS_READ = "transactions:read"
-    TRANSACTIONS_WRITE = "transactions:write"
-    TRANSACTIONS_DELETE = "transactions:delete"
-
-    # Periods
-    PERIODS_READ = "periods:read"
-    PERIODS_WRITE = "periods:write"
-    PERIODS_DELETE = "periods:delete"
-
-
 class SystemRoleBinding(Base):
     """System-wide role binding (user → role at system level)."""
 
@@ -79,50 +60,12 @@ class SystemRoleBinding(Base):
         return f"<SystemRoleBinding(user_id={self.user_id}, role='{self.role}')>"
 
 
-class RolePermission(Base):
-    """Maps roles to permissions (Role definition)."""
-
-    __tablename__ = "role_permissions"
-    __table_args__ = (
-        UniqueConstraint("role", "permission", name="uq_role_permission"),
-        Index("ix_role_permission_role", "role"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    role: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    permission: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-
-    @validates("role")
-    def validate_role(self, key: str, value: str | SystemRole | GroupRole) -> str:
-        """Ensure role is a valid SystemRole or GroupRole value."""
-        if isinstance(value, (SystemRole, GroupRole)):
-            return value.value
-        # Check if it's a valid system or group role
-        roles_values = [r.value for r in SystemRole] + [r.value for r in GroupRole]
-        if value not in roles_values:
-            raise ValueError(f"Invalid role: {value}. Must be one of {roles_values}")
-        return value
-
-    @validates("permission")
-    def validate_permission(self, key: str, value: str | Permission) -> str:
-        """Ensure permission is a valid Permission value."""
-        if isinstance(value, Permission):
-            return value.value
-        valid_values = [p.value for p in Permission]
-        if value not in valid_values:
-            raise ValueError(f"Invalid permission: {value}. Must be one of {valid_values}")
-        return value
-
-    def __repr__(self) -> str:
-        return f"<RolePermission(role='{self.role}', permission='{self.permission}')>"
-
-
 class GroupRoleBinding(AuditMixin, Base):
     """Group-level role binding (authorization and membership).
 
     This represents: "User X has role Y in group Z"
     - Membership: If a user has any GroupRoleBinding for a group, they are a member
-    - Authorization: The role determines what permissions the user has in the group
+    - Authorization: The role determines what actions the user can perform in the group
 
     This is the group-level equivalent of SystemRoleBinding (system-level).
     """

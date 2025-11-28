@@ -2,12 +2,10 @@
 Repository for authorization-related data access.
 """
 
-from collections.abc import Sequence
-
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import GroupRoleBinding, RolePermission, SystemRoleBinding
+from app.models import GroupRoleBinding, SystemRoleBinding
 
 
 class AuthorizationRepository:
@@ -116,34 +114,3 @@ class AuthorizationRepository:
 
         await self.session.flush()
         return binding
-
-    # ========== Role Permissions ==========
-
-    async def get_role_permissions(self, role: str) -> Sequence[str]:
-        """Get all permissions for a role."""
-        stmt = select(RolePermission.permission).where(RolePermission.role == role)
-        return (await self.session.scalars(stmt)).all()
-
-    async def create_role_permission(
-        self,
-        role: str,
-        permission: str,
-    ) -> RolePermission:
-        """Create a role permission mapping."""
-        role_permission = RolePermission(role=role, permission=permission)
-        self.session.add(role_permission)
-        await self.session.flush()
-        return role_permission
-
-    async def delete_role_permission(
-        self,
-        role: str,
-        permission: str,
-    ) -> None:
-        """Delete a role permission mapping."""
-        stmt = delete(RolePermission).where(
-            RolePermission.role == role,
-            RolePermission.permission == permission,
-        )
-        await self.session.execute(stmt)
-        await self.session.flush()

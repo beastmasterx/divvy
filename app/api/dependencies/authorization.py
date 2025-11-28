@@ -1,5 +1,5 @@
 """
-Authorization dependencies for permission checking in routes.
+Authorization dependencies for role checking in routes.
 """
 
 from collections.abc import Awaitable, Callable

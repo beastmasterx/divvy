@@ -5,8 +5,6 @@ SQLAlchemy database models.
 from app.models.authorization import (
     GroupRole,
     GroupRoleBinding,
-    Permission,
-    RolePermission,
     SystemRole,
     SystemRoleBinding,
 )
@@ -36,9 +34,7 @@ __all__ = [
     # Authorization
     "SystemRole",
     "GroupRole",
-    "Permission",
     "SystemRoleBinding",
-    "RolePermission",
     "GroupRoleBinding",
     # User
     "User",
