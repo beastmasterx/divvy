@@ -7,8 +7,8 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
-from app.core.security import is_signed_state_token, verify_state_token
-from app.core.security.oauth import StateTokenPayload
+from app.core.identity_providers import IdentityProviderRegistry
+from app.core.security import StateTokenPayload, is_signed_state_token, verify_state_token
 from app.exceptions import UnauthorizedError, ValidationError
 from app.models import IdentityProviderName
 from app.schemas import (
@@ -20,7 +20,6 @@ from app.schemas import (
 )
 from app.services.account_link_request import AccountLinkRequestService
 from app.services.authentication import AuthenticationService
-from app.services.identity_providers.registry import IdentityProviderRegistry
 from app.services.user import UserService
 from app.services.user_identity import UserIdentityService
 
