@@ -7,11 +7,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_current_user, get_group_service, get_period_service
-from app.api.dependencies.authorization import require_permission, require_permission_in_group
+from app.api.dependencies import get_active_user, get_group_service, get_period_service
+from app.api.dependencies.authorization import require_group_role
 from app.core.i18n import _
 from app.exceptions import NotFoundError
-from app.models import Permission
+from app.models import GroupRole
 from app.schemas import (
     GroupRequest,
     GroupResponse,
@@ -24,13 +24,13 @@ from app.services import GroupService, PeriodService
 router = APIRouter(
     prefix="/groups",
     tags=["groups"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(get_active_user)],
 )
 
 
 @router.get("/", response_model=list[GroupResponse])
 async def get_groups_by_user_id(
-    current_user: Annotated[UserResponse, Depends(require_permission(Permission.GROUPS_READ))],
+    current_user: Annotated[UserResponse, Depends(get_active_user)],
     group_service: GroupService = Depends(get_group_service),
 ) -> Sequence[GroupResponse]:
     """
@@ -43,7 +43,7 @@ async def get_groups_by_user_id(
 @router.get("/{group_id}", response_model=GroupResponse)
 async def get_group_by_id(
     group_id: int,
-    _current_user: Annotated[UserResponse, Depends(require_permission_in_group(Permission.GROUPS_READ))],
+    _current_user: Annotated[UserResponse, Depends(require_group_role(GroupRole.MEMBER.value))],
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
@@ -59,7 +59,7 @@ async def get_group_by_id(
 @router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_group(
     group: GroupRequest,
-    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    current_user: Annotated[UserResponse, Depends(get_active_user)],
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
@@ -73,7 +73,7 @@ async def create_group(
 async def update_group(
     group_id: int,
     group: GroupRequest,
-    _current_user: Annotated[UserResponse, Depends(require_permission_in_group(Permission.GROUPS_WRITE))],
+    _current_user: Annotated[UserResponse, Depends(require_group_role(GroupRole.OWNER.value))],
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
@@ -88,7 +88,7 @@ async def assign_group_role(
     group_id: int,
     user_id: int,
     request: GroupRoleAssignmentRequest,
-    current_user: Annotated[UserResponse, Depends(require_permission_in_group(Permission.GROUPS_WRITE))],
+    current_user: Annotated[UserResponse, Depends(require_group_role(GroupRole.OWNER.value))],
     group_service: GroupService = Depends(get_group_service),
 ) -> None:
     """Assign a role to a user in a group, add them to the group, or remove them from the group.
@@ -111,7 +111,7 @@ async def assign_group_role(
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_group(
     group_id: int,
-    current_user: Annotated[UserResponse, Depends(require_permission_in_group(Permission.GROUPS_DELETE))],
+    current_user: Annotated[UserResponse, Depends(require_group_role(GroupRole.OWNER.value))],
     group_service: GroupService = Depends(get_group_service),
 ) -> None:
     """
@@ -124,6 +124,7 @@ async def delete_group(
 @router.get("/{group_id}/periods", response_model=list[PeriodResponse])
 async def get_periods(
     group_id: int,
+    _current_user: Annotated[UserResponse, Depends(require_group_role(GroupRole.MEMBER.value))],
     period_service: PeriodService = Depends(get_period_service),
 ) -> list[PeriodResponse]:
     """
@@ -136,6 +137,7 @@ async def get_periods(
 @router.get("/{group_id}/periods/current", response_model=PeriodResponse)
 async def get_current_period(
     group_id: int,
+    _current_user: Annotated[UserResponse, Depends(require_group_role(GroupRole.MEMBER.value))],
     period_service: PeriodService = Depends(get_period_service),
 ) -> PeriodResponse:
     """
