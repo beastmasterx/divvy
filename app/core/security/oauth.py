@@ -47,7 +47,7 @@ class StateTokenPayload(NamedTuple):
     user_id: int | None = None
 
 
-def generate_state_token(
+def create_state_token(
     user_id: int,
     operation: Literal["link", "login"] = "link",
     expires_delta: timedelta | None = None,
@@ -55,7 +55,7 @@ def generate_state_token(
     algorithm: str | None = None,
 ) -> str:
     """
-    Generates a cryptographically secure state token containing operation context,
+    Create a cryptographically secure state token containing operation context,
     user identification, and a random nonce for CSRF protection.
 
     Args:
@@ -85,13 +85,13 @@ def generate_state_token(
     return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
-def verify_state_token(
+def validate_state_token(
     token: str,
     secret_key: str | None = None,
     algorithm: str | None = None,
 ) -> StateTokenPayload:
     """
-    Verify and decode an OAuth state token.
+    Validate and decode an OAuth state token.
 
     Args:
         token: JWT state token string to verify.

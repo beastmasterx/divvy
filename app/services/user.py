@@ -3,7 +3,8 @@ from collections.abc import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
-from app.exceptions import BusinessRuleError, NotFoundError
+from app.core.security import check_password, hash_password
+from app.exceptions import BusinessRuleError, NotFoundError, UnauthorizedError
 from app.models import User
 from app.repositories import GroupRepository, UserRepository
 from app.schemas import ProfileRequest, UserRequest, UserResponse
@@ -54,20 +55,56 @@ class UserService:
         user = await self._user_repository.create_user(user)
         return UserResponse.model_validate(user)
 
-    async def reset_password(self, user_id: int, new_hashed_password: str) -> UserResponse:
+    async def check_password(self, email: str, password: str) -> bool:
+        """Check if a user's password is correct."""
+        user = await self._user_repository.get_user_by_email(email)
+        if not user or user.password is None:
+            return False
+        return check_password(password, user.password)
+
+    async def change_password(self, email: str, old_password: str, new_password: str) -> UserResponse:
+        """
+        Change a user's password.
+
+        Args:
+            email: Email of the user to change the password
+            old_password: Current password for verification
+            new_password: New password
+
+        Returns:
+            Updated User response DTO
+
+        Raises:
+            UnauthorizedError: If user not found or password is invalid or current password is incorrect
+        """
+        user = await self._user_repository.get_user_by_email(email)
+        if not user or not user.password:
+            raise UnauthorizedError("User not found or password is invalid")
+
+        if not check_password(old_password, user.password):
+            raise UnauthorizedError("Current password is incorrect")
+
+        user.password = hash_password(new_password)
+        updated_user = await self._user_repository.update_user(user)
+        return UserResponse.model_validate(updated_user)
+
+    async def reset_password(self, email: str, new_hashed_password: str) -> UserResponse:
         """
         Reset a user's password.
 
         Args:
-            user_id: ID of the user to reset the password
+            email: Email of the user to reset the password
             new_password: New password (should be hashed before calling this)
 
         Returns:
             Updated User response DTO
+
+        Raises:
+            NotFoundError: If user not found
         """
-        user = await self._user_repository.get_user_by_id(user_id)
+        user = await self._user_repository.get_user_by_email(email)
         if not user:
-            raise NotFoundError(_("User %s not found") % user_id)
+            raise NotFoundError(_("User not found"))
 
         user.password = new_hashed_password
         updated_user = await self._user_repository.update_user(user)

@@ -9,15 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import (
     AccessTokenResult,
     RefreshTokenResult,
-    check_password,
-    generate_access_token,
-    generate_refresh_token,
+    create_access_token,
+    create_refresh_token,
     hash_password,
-    verify_refresh_token,
+    validate_refresh_token,
 )
-from app.exceptions import InvalidRefreshTokenError, NotFoundError, UnauthorizedError
+from app.exceptions import InvalidRefreshTokenError, UnauthorizedError
 from app.models import RefreshToken
-from app.repositories import RefreshTokenRepository, UserRepository
+from app.repositories import RefreshTokenRepository
 from app.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserResponse
 from app.services.user import UserService
 
@@ -35,7 +34,6 @@ class AuthenticationService:
         """
         self._user_service = user_service
         self._refresh_token_repository = RefreshTokenRepository(session)
-        self._user_repository = UserRepository(session)
 
     async def register(
         self,
@@ -77,8 +75,8 @@ class AuthenticationService:
         user = await self._user_service.create_user(user_request)
 
         # Generate tokens
-        access_token, expires_in = await self._generate_access_token(user_id=user.id, email=user.email)
-        refresh_token, _ = await self._generate_refresh_token(user_id=user.id, device_info=device_info)
+        access_token, expires_in = await self._create_access_token(user_id=user.id, email=user.email)
+        refresh_token, _ = await self._create_refresh_token(user_id=user.id, device_info=device_info)
 
         return TokenResponse(
             access_token=access_token,
@@ -102,47 +100,14 @@ class AuthenticationService:
         Raises:
             UnauthorizedError: If email or password is incorrect or user is inactive
         """
-        user = await self.verify_password(email, password)
-        if not user:
-            raise UnauthorizedError("Invalid email or password or user is inactive")
+        if not await self._user_service.check_password(email, password):
+            raise UnauthorizedError("Invalid email or password")
 
-        return await self.generate_tokens(user.id, device_info)
-
-    async def verify_password(self, email: str, password: str) -> UserResponse | None:
-        """
-        Verify user credentials and return user if authentication succeeds.
-
-        Performs the following checks in order:
-        1. User exists with the given email
-        2. User has a password set
-        3. User account is active
-        4. Provided password matches the stored password hash
-
-        Args:
-            email: User's email address
-            password: Plain text password to verify
-
-        Returns:
-            UserResponse if all checks pass, None otherwise
-        """
-        user = await self._user_repository.get_user_by_email(email)
-        if user is None:
-            return None
-
-        if user.password is None:
-            return None
-
-        if not user.is_active:
-            return None
-
-        if not check_password(password, user.password):
-            return None
-
-        return UserResponse.model_validate(user)
+        return await self.issues_tokens(email, device_info)
 
     async def change_password(
         self,
-        user_id: int,
+        email: str,
         old_password: str,
         new_password: str,
     ) -> UserResponse:
@@ -158,28 +123,16 @@ class AuthenticationService:
             Updated User response DTO
 
         Raises:
-            NotFoundError: If user not found
-            UnauthorizedError: If old password is incorrect
+            UnauthorizedError: If user not found or email or old password is incorrect
         """
-        user = await self._user_repository.get_user_by_id(user_id)
-        if not user:
-            raise NotFoundError(f"User {user_id} not found")
+        return await self._user_service.change_password(email, old_password, new_password)
 
-        # Verify old password
-        if not user.password:
-            raise UnauthorizedError("User has no password set")
-
-        if not check_password(old_password, user.password):
-            raise UnauthorizedError("Current password is incorrect")
-
-        return await self._user_service.reset_password(user_id, hash_password(new_password))
-
-    async def reset_password(self, user_id: int, request: PasswordResetRequest) -> UserResponse:
+    async def reset_password(self, email: str, request: PasswordResetRequest) -> UserResponse:
         """
         Reset a user's password (admin operation, no old password required).
 
         Args:
-            user_id: ID of the user whose password to reset
+            email: Email of the user whose password to reset
             request: Password reset request containing new password
 
         Returns:
@@ -188,44 +141,32 @@ class AuthenticationService:
         Raises:
             NotFoundError: If user not found
         """
-        user = await self._user_service.get_user_by_id(user_id)
-        if not user:
-            raise NotFoundError(f"User {user_id} not found")
+        return await self._user_service.reset_password(email, hash_password(request.new_password))
 
-        return await self._user_service.reset_password(user_id, hash_password(request.new_password))
-
-    async def generate_tokens(self, user_id: int, device_info: str | None = None) -> TokenResponse:
+    async def issues_tokens(self, email: str, device_info: str | None = None) -> TokenResponse:
         """
-        Generate access and refresh tokens for an existing user.
+        Issue access and refresh tokens for an existing user.
 
         This is useful for OAuth flows where a user is already authenticated
         via an external provider and we need to issue tokens.
 
         Args:
-            user_id: ID of the user to generate tokens for
+            email: Email of the user to generate tokens for
             device_info: Optional device information (e.g., User-Agent string)
 
         Returns:
             TokenResponse containing access token and refresh token
 
         Raises:
-            NotFoundError: If user not found or inactive
+            UnauthorizedError: If user not found or inactive or email is incorrect
         """
-        user = await self._user_service.get_user_by_id(user_id)
+        user = await self._user_service.get_user_by_email(email)
         if not user or not user.is_active:
-            raise NotFoundError("User not found or inactive")
+            raise UnauthorizedError("User not found or inactive or email is incorrect")
 
-        access_token, expires_in = generate_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token, _ = await self._generate_refresh_token(user_id=user_id, device_info=device_info)
+        return await self._issues_tokens(user, device_info)
 
-        return TokenResponse(
-            access_token=access_token,
-            token_type="Bearer",
-            expires_in=expires_in,
-            refresh_token=refresh_token,
-        )
-
-    async def revoke_refresh_token(self, token: str) -> RefreshToken | None:
+    async def revoke_token(self, token: str) -> RefreshToken | None:
         """
         Revoke a refresh token by marking it as revoked.
 
@@ -235,7 +176,7 @@ class AuthenticationService:
         Returns:
             Revoked RefreshToken object if successful, None otherwise
         """
-        claims = verify_refresh_token(token)
+        claims = validate_refresh_token(token)
         jti, _ = self._get_refresh_token_jti_and_user_id(claims)
         return await self._refresh_token_repository.revoke_by_id(jti)
 
@@ -248,7 +189,7 @@ class AuthenticationService:
         """
         await self._refresh_token_repository.revoke_all(user_id)
 
-    async def rotate_refresh_token(self, token: str) -> TokenResponse:
+    async def rotate_token(self, token: str) -> TokenResponse:
         """
         Rotate a refresh token: invalidate the old one and create a new one.
 
@@ -264,7 +205,7 @@ class AuthenticationService:
         Raises:
             UnauthorizedError: If old token is invalid, expired, revoked, or user is not active
         """
-        old_refresh_token_claims = verify_refresh_token(token)
+        old_refresh_token_claims = validate_refresh_token(token)
         jti, user_id = self._get_refresh_token_jti_and_user_id(old_refresh_token_claims)
 
         user = await self._user_service.get_user_by_id(user_id)
@@ -277,7 +218,7 @@ class AuthenticationService:
             raise UnauthorizedError("Refresh token is revoked")
 
         await self._refresh_token_repository.revoke_by_id(jti)
-        return await self.generate_tokens(old_refresh_token.user_id, old_refresh_token.device_info)
+        return await self._issues_tokens(user, old_refresh_token.device_info)
 
     def _get_refresh_token_jti_and_user_id(self, claims: dict[str, Any]) -> tuple[str, int]:
         """
@@ -296,9 +237,36 @@ class AuthenticationService:
 
         return jti, int(user_id)
 
-    async def _generate_access_token(self, user_id: int, email: str) -> AccessTokenResult:
+    async def _issues_tokens(self, user: UserResponse, device_info: str | None = None) -> TokenResponse:
         """
-        Generate an access token for an existing user.
+        Issue access and refresh tokens for an existing user.
+
+        This is useful for OAuth flows where a user is already authenticated
+        via an external provider and we need to issue tokens.
+
+        Args:
+            user: User to generate tokens for
+            device_info: Optional device information (e.g., User-Agent string)
+
+        Returns:
+            TokenResponse containing access token and refresh token
+
+        Raises:
+            NotFoundError: If user not found or inactive
+        """
+        access_token, expires_in = create_access_token(data={"sub": str(user.id), "email": user.email})
+        refresh_token, _ = await self._create_refresh_token(user_id=user.id, device_info=device_info)
+
+        return TokenResponse(
+            access_token=access_token,
+            token_type="Bearer",
+            expires_in=expires_in,
+            refresh_token=refresh_token,
+        )
+
+    async def _create_access_token(self, user_id: int, email: str) -> AccessTokenResult:
+        """
+        Create an access token for an existing user.
 
         Args:
             user_id: ID of the user to generate an access token for
@@ -307,17 +275,17 @@ class AuthenticationService:
         Returns:
             AccessTokenResult: Contains the access token and the expiration time in seconds
         """
-        result = generate_access_token(data={"sub": str(user_id), "email": email})
+        result = create_access_token(data={"sub": str(user_id), "email": email})
         return AccessTokenResult(token=result.token, expires_in=result.expires_in)
 
-    async def _generate_refresh_token(self, user_id: int, device_info: str | None = None) -> RefreshTokenResult:
+    async def _create_refresh_token(self, user_id: int, device_info: str | None = None) -> RefreshTokenResult:
         """
-        Generate a refresh token for an existing user.
+        Create a refresh token for an existing user.
 
         Args:
             user_id: ID of the user to generate a refresh token for
             device_info: Optional device information (e.g., User-Agent string)
         """
-        result = generate_refresh_token(data={"sub": str(user_id)})
+        result = create_refresh_token(data={"sub": str(user_id)})
         await self._refresh_token_repository.create(id=result.jti, user_id=user_id, device_info=device_info)
         return result

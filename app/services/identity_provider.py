@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.core.identity_providers import IdentityProviderRegistry
-from app.core.security import StateTokenPayload, generate_state_token, is_signed_state_token, verify_state_token
-from app.exceptions import UnauthorizedError, ValidationError
+from app.core.security import StateTokenPayload, create_state_token, is_signed_state_token, validate_state_token
+from app.exceptions import UnauthorizedError
 from app.models import IdentityProviderName
 from app.schemas import (
     AccountLinkRequestCreateRequest,
@@ -89,7 +89,7 @@ class IdentityProviderService:
         """
 
         # Create signed state token for authenticated account linking
-        state_token = generate_state_token(operation="link", user_id=user_id)
+        state_token = create_state_token(operation="link", user_id=user_id)
         return self.get_authorization_url(provider_name, state_token)
 
     async def handle_oauth_callback(
@@ -152,9 +152,8 @@ class IdentityProviderService:
             TokenResponse if user is authenticated, or LinkingRequiredResponse if linking required
 
         Raises:
-            ValueError: If provider is not registered, or if signed state token is invalid/expired
-            UnauthorizedError: If OAuth flow fails
-            ValidationError: If signed state token validation fails
+            ValueError: If provider is not registered
+            UnauthorizedError: If OAuth flow fails (includes InvalidStateTokenError for invalid/expired state tokens)
         """
         provider = IdentityProviderRegistry.get_provider(provider_name.value)
 
@@ -162,14 +161,7 @@ class IdentityProviderService:
         state_payload: StateTokenPayload | None = None
         # Check if state is a backend-generated signed JWT token
         if state and is_signed_state_token(state):
-            try:
-                state_payload = verify_state_token(state)
-                logger.debug(
-                    f"Verified signed state token: operation={state_payload.operation}, "
-                    f"user_id={state_payload.user_id}"
-                )
-            except ValueError as e:
-                raise ValidationError(_("Invalid or expired state token: %s") % e) from e
+            state_payload = validate_state_token(state)
 
         # Exchange code for tokens
         tokens = await provider.exchange_code_for_tokens(code)
@@ -193,7 +185,7 @@ class IdentityProviderService:
             if not user or not user.is_active:
                 raise UnauthorizedError(_("User account not found or inactive"))
 
-            return await self._authentication_service.generate_tokens(user.id, device_info)
+            return await self._authentication_service.issues_tokens(user.email, device_info)
 
         # Identity doesn't exist - check if this is an authenticated link operation
         if state_payload and state_payload.operation == "link" and state_payload.user_id:
@@ -201,13 +193,6 @@ class IdentityProviderService:
             user = await self._user_service.get_user_by_id(state_payload.user_id)
             if not user or not user.is_active:
                 raise UnauthorizedError(_("User account not found or inactive"))
-
-            # Verify user_id matches (security check)
-            if user.id != state_payload.user_id:
-                raise ValidationError(
-                    _("User ID mismatch: state token user_id=%s, retrieved user_id=%s")
-                    % (state_payload.user_id, user.id)
-                )
 
             # Create and link the identity
             logger.info(f"Authenticated link: linking provider {provider_name.value} identity to user {user.id}")
@@ -220,7 +205,7 @@ class IdentityProviderService:
             )
             await self._user_identity_service.create_identity(user_identity_request)
 
-            return await self._authentication_service.generate_tokens(user.id, device_info)
+            return await self._authentication_service.issues_tokens(user.email, device_info)
 
         # Not an authenticated link - check if email exists
         existing_user = await self._user_service.get_user_by_email(email) if email else None
@@ -271,4 +256,4 @@ class IdentityProviderService:
         )
         await self._user_identity_service.create_identity(user_identity_request)
 
-        return await self._authentication_service.generate_tokens(user.id, device_info)
+        return await self._authentication_service.issues_tokens(user.email, device_info)

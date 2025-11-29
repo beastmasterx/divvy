@@ -62,14 +62,14 @@ class RefreshTokenResult(NamedTuple):
 # --- ACCESS TOKEN (JWT) UTILITIES ---
 
 
-def generate_access_token(
+def create_access_token(
     data: dict[str, Any],
     secret_key: str | None = None,
     algorithm: str | None = None,
     expires_delta: timedelta | None = None,
 ) -> AccessTokenResult:
     """
-    Generate a JWT access token.
+    Create a JWT access token.
 
     Args:
         data: Payload data (claims) to encode in the token (e.g., {'sub': user_id}).
@@ -94,14 +94,14 @@ def generate_access_token(
     return AccessTokenResult(token=token, expires_in=int(expires_delta.total_seconds()))
 
 
-def verify_access_token(
+def validate_access_token(
     token: str,
     options: dict[str, Any] | None = None,
     secret_key: str | None = None,
     algorithm: str | None = None,
 ) -> dict[str, Any]:
     """
-    Verify and decode a JWT access token.
+    Validate and decode a JWT access token.
 
     This performs standard checks (signature, expiry, claims) and is intended for
     stateless validation on resource access.
@@ -134,14 +134,14 @@ def verify_access_token(
 # --- REFRESH TOKEN (JWT) UTILITIES ---
 
 
-def generate_refresh_token(
+def create_refresh_token(
     data: dict[str, Any],
     secret_key: str | None = None,
     algorithm: str | None = None,
     expires_delta: timedelta | None = None,
 ) -> RefreshTokenResult:
     """
-    Generate a JWT refresh token, including a unique 'jti' (JWT ID) claim
+    Create a JWT refresh token, including a unique 'jti' (JWT ID) claim
     for database-based revocation and rotation.
 
     Args:
@@ -180,7 +180,7 @@ def generate_refresh_token(
     return RefreshTokenResult(token=token, jti=jti)
 
 
-def verify_refresh_token(
+def validate_refresh_token(
     token: str,
     options: dict[str, Any] | None = None,
     secret_key: str | None = None,

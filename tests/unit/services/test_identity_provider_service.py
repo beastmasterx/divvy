@@ -13,7 +13,7 @@ from app.core.identity_providers import (
     IdentityProviderTokenResponse,
     IdentityProviderUserInfo,
 )
-from app.core.security import generate_state_token, is_signed_state_token, verify_state_token
+from app.core.security import create_state_token, is_signed_state_token, validate_state_token
 from app.exceptions import InvalidStateTokenError, UnauthorizedError
 from app.models import AccountLinkRequestStatus, IdentityProviderName, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository
@@ -281,7 +281,7 @@ class TestIdentityProviderService:
         user = await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token for authenticated link
-        state_token = generate_state_token(operation="link", user_id=user.id)
+        state_token = create_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
@@ -332,7 +332,7 @@ class TestIdentityProviderService:
         user = await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token for authenticated link
-        state_token = generate_state_token(operation="link", user_id=user.id)
+        state_token = create_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider with different email
         mock_provider = MagicMock()
@@ -404,7 +404,7 @@ class TestIdentityProviderService:
 
         # Create signed state token with different user_id (simulating tampering)
         # This shouldn't happen in practice, but we test the validation
-        state_token = generate_state_token(operation="link", user_id=99999)  # Non-existent user ID
+        state_token = create_state_token(operation="link", user_id=99999)  # Non-existent user ID
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
@@ -443,7 +443,7 @@ class TestIdentityProviderService:
         user = await user_factory(email="user@example.com", name="Test User", is_active=False)
 
         # Create signed state token for authenticated link
-        state_token = generate_state_token(operation="link", user_id=user.id)
+        state_token = create_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
@@ -549,7 +549,7 @@ class TestIdentityProviderService:
         # Verify the state token contains correct user_id
         from app.core.security.oauth import StateTokenPayload
 
-        payload: StateTokenPayload = verify_state_token(state_arg)
+        payload: StateTokenPayload = validate_state_token(state_arg)
         assert payload.operation == "link"
         assert payload.user_id == user_id
 

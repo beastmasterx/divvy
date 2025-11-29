@@ -107,7 +107,7 @@ async def token(
     elif grant_type == "refresh_token":
         if not refresh_token:
             raise ValidationError("refresh_token is required for refresh_token grant")
-        return await authentication_service.rotate_refresh_token(refresh_token)
+        return await authentication_service.rotate_token(refresh_token)
 
     else:
         raise ValidationError(f"Unsupported grant_type: {grant_type}. Supported types: password, refresh_token")
@@ -140,7 +140,7 @@ async def revoke_token(
         the access token to expire naturally.
     """
     # Only refresh tokens can be revoked in this implementation
-    await authentication_service.revoke_refresh_token(token)
+    await authentication_service.revoke_token(token)
 
 
 @router.post("/logout-all", response_model=None)

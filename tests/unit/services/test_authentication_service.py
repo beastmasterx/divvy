@@ -126,7 +126,7 @@ class TestAuthenticationService:
         )
 
         updated_user = await authentication_service.change_password(
-            user_id=user.id,
+            email=user.email,
             old_password=old_password,
             new_password=new_password,
         )
@@ -158,16 +158,16 @@ class TestAuthenticationService:
 
         with pytest.raises(UnauthorizedError):
             await authentication_service.change_password(
-                user_id=user.id,
+                email=user.email,
                 old_password="wrongpassword",
                 new_password="newpass456",
             )
 
     async def test_change_password_user_not_found(self, authentication_service: AuthenticationService) -> None:
-        """Test changing password for non-existent user raises NotFoundError."""
-        with pytest.raises(NotFoundError):
+        """Test changing password for non-existent user raises UnauthorizedError."""
+        with pytest.raises(UnauthorizedError):
             await authentication_service.change_password(
-                user_id=99999,
+                email="nonexistent@example.com",
                 old_password="oldpass12",
                 new_password="newpass12",
             )
@@ -184,7 +184,7 @@ class TestAuthenticationService:
         )
 
         request = PasswordResetRequest(new_password=new_password)
-        updated_user = await authentication_service.reset_password(user_id=user.id, request=request)
+        updated_user = await authentication_service.reset_password(email=user.email, request=request)
 
         assert updated_user.id == user.id
 
@@ -200,7 +200,7 @@ class TestAuthenticationService:
         """Test resetting password for non-existent user raises NotFoundError."""
         request = PasswordResetRequest(new_password="newpassword")
         with pytest.raises(NotFoundError):
-            await authentication_service.reset_password(user_id=99999, request=request)
+            await authentication_service.reset_password(email="nonexistent@example.com", request=request)
 
     async def test_generate_refresh_token(
         self, authentication_service: AuthenticationService, user_factory: Callable[..., Awaitable[User]]
@@ -226,12 +226,12 @@ class TestAuthenticationService:
         refresh_token = (await authentication_service.authenticate(email=user.email, password=password)).refresh_token
 
         # Revoke it
-        revoked_token = await authentication_service.revoke_refresh_token(refresh_token)
+        revoked_token = await authentication_service.revoke_token(refresh_token)
 
         assert revoked_token is not None
         assert revoked_token.is_revoked is True
         with pytest.raises(UnauthorizedError):
-            await authentication_service.rotate_refresh_token(refresh_token)
+            await authentication_service.rotate_token(refresh_token)
 
     async def test_rotate_refresh_token(
         self, authentication_service: AuthenticationService, user_factory: Callable[..., Awaitable[User]]
@@ -246,7 +246,7 @@ class TestAuthenticationService:
         old_token: str = (await authentication_service.authenticate(email=user.email, password=password)).refresh_token
 
         # Rotate it
-        token_response = await authentication_service.rotate_refresh_token(old_token)
+        token_response = await authentication_service.rotate_token(old_token)
 
         assert token_response.access_token is not None
         assert token_response.refresh_token is not None
@@ -254,9 +254,9 @@ class TestAuthenticationService:
 
         # Verify old token is revoked
         with pytest.raises(UnauthorizedError):
-            await authentication_service.rotate_refresh_token(old_token)
+            await authentication_service.rotate_token(old_token)
 
     async def test_rotate_refresh_token_invalid_token(self, authentication_service: AuthenticationService) -> None:
         """Test rotating an invalid refresh token raises UnauthorizedError."""
         with pytest.raises(UnauthorizedError):
-            await authentication_service.rotate_refresh_token("invalid_token")
+            await authentication_service.rotate_token("invalid_token")

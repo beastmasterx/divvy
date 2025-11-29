@@ -30,7 +30,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 
 from app.core.i18n import _
-from app.core.security import verify_access_token
+from app.core.security import validate_access_token
 from app.exceptions import UnauthorizedError
 
 # The OAuth2PasswordBearer instance
@@ -59,7 +59,7 @@ def get_claims_payload(
         Synchronous dependency for token claims. Runs in FastAPI's internal threadpool.
         """
         try:
-            return verify_access_token(token, options)
+            return validate_access_token(token, options)
         except (JWTError, ValueError) as e:
             raise UnauthorizedError(_("Invalid authentication token")) from e
 
