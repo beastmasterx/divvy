@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_transaction_service
+from app.api.dependencies.services import get_transaction_service
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.schemas import TransactionRequest, TransactionResponse

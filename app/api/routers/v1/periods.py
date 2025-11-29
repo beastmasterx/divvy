@@ -7,9 +7,9 @@ from collections.abc import Sequence
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import (
+from app.api.dependencies.db import get_serializable_db
+from app.api.dependencies.services import (
     get_period_service,
-    get_serializable_db,
     get_serializable_settlement_service,
     get_settlement_service,
 )

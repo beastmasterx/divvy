@@ -2,49 +2,32 @@
 FastAPI dependencies for dependency injection.
 
 This module provides a unified interface for all dependencies.
-Individual dependencies are organized in submodules:
+Individual dependencies are organized in sub-packages:
+- authn: Authentication dependencies (identity provision)
+- authz: Authorization dependencies (permission enforcement)
 - db: Database session dependencies
 - services: Service dependencies
-- auth: Authentication dependencies
-- authorization: Authorization and permission dependencies
+
+Common dependencies are re-exported here for convenience.
+For advanced use cases, import directly from sub-packages:
+    from app.api.dependencies.authz import requires_group_role
+    from app.api.dependencies.services import get_user_service
 """
 
+# Re-export most commonly used dependencies
 from app.api.dependencies.authn import get_current_user
-from app.api.dependencies.authz import requires_group_role, requires_system_role
-from app.api.dependencies.db import get_db, get_serializable_db
-from app.api.dependencies.services import (
-    get_account_link_request_service,
-    get_authentication_service,
-    get_authorization_service,
-    get_category_service,
-    get_group_service,
-    get_identity_provider_service,
-    get_period_service,
-    get_serializable_settlement_service,
-    get_settlement_service,
-    get_transaction_service,
-    get_user_service,
-)
+from app.api.dependencies.db import get_db
+
+# Expose sub-packages for direct access
+from . import authn, authz, db, services
 
 __all__ = [
-    # Database
-    "get_db",
-    "get_serializable_db",
-    # Services
-    "get_account_link_request_service",
-    "get_user_service",
-    "get_authentication_service",
-    "get_authorization_service",
-    "get_category_service",
-    "get_period_service",
-    "get_transaction_service",
-    "get_group_service",
-    "get_settlement_service",
-    "get_identity_provider_service",
-    "get_serializable_settlement_service",
-    # Auth
+    # Common dependencies (re-exported for convenience)
     "get_current_user",
-    # Authorization
-    "requires_group_role",
-    "requires_system_role",
+    "get_db",
+    # Sub-packages (for direct access to all dependencies)
+    "authn",
+    "authz",
+    "db",
+    "services",
 ]

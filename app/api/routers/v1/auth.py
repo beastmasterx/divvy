@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, Form, Query, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import Discriminator
 
-from app.api.dependencies import (
+from app.api.dependencies import get_current_user
+from app.api.dependencies.services import (
     get_account_link_request_service,
     get_authentication_service,
-    get_current_user,
     get_identity_provider_service,
 )
 from app.exceptions import ValidationError

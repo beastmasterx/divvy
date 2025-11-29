@@ -7,8 +7,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_active_user, get_group_service, get_period_service
-from app.api.dependencies.authorization import requires_group_role
+from app.api.dependencies import get_current_user
+from app.api.dependencies.authz import requires_group_role
+from app.api.dependencies.services import get_group_service, get_period_service
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import GroupRole
@@ -24,13 +25,13 @@ from app.services import GroupService, PeriodService
 router = APIRouter(
     prefix="/groups",
     tags=["groups"],
-    dependencies=[Depends(get_active_user)],
+    dependencies=[Depends(get_current_user)],
 )
 
 
 @router.get("/", response_model=list[GroupResponse])
 async def get_groups_by_user_id(
-    current_user: Annotated[UserResponse, Depends(get_active_user)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     group_service: GroupService = Depends(get_group_service),
 ) -> Sequence[GroupResponse]:
     """
@@ -42,7 +43,7 @@ async def get_groups_by_user_id(
 @router.get("/{group_id}", response_model=GroupResponse)
 async def get_group_by_id(
     group_id: int,
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER.value))],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
@@ -58,7 +59,7 @@ async def get_group_by_id(
 @router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_group(
     group: GroupRequest,
-    current_user: Annotated[UserResponse, Depends(get_active_user)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
