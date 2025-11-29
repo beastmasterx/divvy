@@ -12,7 +12,9 @@ from typing import Any
 
 from jose import jwt
 
-from ..config import JWT_ALGORITHM, get_jwt_access_token_expire_seconds, get_jwt_secret_key
+from app.config import get_jwt_access_token_expire_delta, get_jwt_algorithm, get_jwt_secret_key
+
+_JWT_ALGORITHM = get_jwt_algorithm()
 
 
 def generate_refresh_token() -> tuple[str, str]:
@@ -103,10 +105,10 @@ def generate_access_token(data: dict[str, Any], expires_delta: timedelta | None 
     if expires_delta:
         expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(seconds=get_jwt_access_token_expire_seconds())
+        expire = datetime.now(UTC) + get_jwt_access_token_expire_delta()
 
     to_encode.update({"exp": expire, "iat": datetime.now(UTC)})
-    encoded_jwt = jwt.encode(to_encode, get_jwt_secret_key(), algorithm=JWT_ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, get_jwt_secret_key(), algorithm=_JWT_ALGORITHM)
     return encoded_jwt
 
 
@@ -136,7 +138,7 @@ def verify_access_token(token: str, options: dict[str, Any] | None = None) -> di
             has an invalid signature, uses an unsupported algorithm, or is malformed.
         ValueError: If the token cannot be decoded or parsed.
     """
-    return jwt.decode(token, get_jwt_secret_key(), algorithms=[JWT_ALGORITHM], options=options)
+    return jwt.decode(token, get_jwt_secret_key(), algorithms=[_JWT_ALGORITHM], options=options)
 
 
 def get_access_token_expires_in(token: str) -> int:
@@ -160,9 +162,8 @@ def get_access_token_expires_in(token: str) -> int:
     payload: dict[str, Any] = verify_access_token(token, {"verify_exp": False})
     exp: float | int | None = payload.get("exp")
 
-    if exp is not None:
-        now: float = datetime.now(UTC).timestamp()
-        expires_in = int(exp - now)
-        return max(0, expires_in)
-
-    return get_jwt_access_token_expire_seconds()
+    if exp is None:
+        raise ValueError("Token does not contain an 'exp' claim")
+    now: float = datetime.now(UTC).timestamp()
+    expires_in = int(exp - now)
+    return max(0, expires_in)

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routers.v1 import api_router
-from app.core.config import load_env_files
+from app.config import load_env_files
 
 # Load environment variables
 load_env_files()

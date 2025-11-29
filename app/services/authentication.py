@@ -2,15 +2,13 @@
 Authentication service for password hashing, JWT token management, and user authentication.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import (
-    get_jwt_refresh_token_expire_days,
-)
+from app.config import get_jwt_refresh_token_expire_delta
 from app.core.security import (
     check_password,
     generate_access_token,
@@ -229,7 +227,7 @@ class AuthenticationService:
             Plain text refresh token (only returned once, immediately after generation)
         """
         token, hash = generate_refresh_token()
-        expires_at = datetime.now(UTC) + timedelta(days=get_jwt_refresh_token_expire_days())
+        expires_at = datetime.now(UTC) + get_jwt_refresh_token_expire_delta()
 
         await self._refresh_token_repository.create(
             hashed_token=hash,

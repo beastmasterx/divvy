@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.core.config import (
+from app.config import (
     get_google_client_id,
     get_google_client_secret,
     get_google_redirect_uri,

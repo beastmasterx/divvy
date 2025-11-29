@@ -7,7 +7,7 @@ from sqlalchemy.pool import NullPool
 
 from alembic import context
 from app import models  # pyright: ignore[reportUnusedImport] # noqa: F401
-from app.core.config import load_env_files
+from app.config import load_env_files
 from app.db import get_database_url
 from app.models import Base
 

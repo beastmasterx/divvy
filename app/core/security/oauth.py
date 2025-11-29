@@ -33,8 +33,11 @@ from typing import Any, Literal, NamedTuple
 
 from jose import JWTError, jwt
 
-from ..config import JWT_ALGORITHM, get_jwt_secret_key
+from app.config import get_jwt_algorithm, get_jwt_secret_key
+
 from ..datetime import utc_now
+
+_JWT_ALGORITHM = get_jwt_algorithm()
 
 
 class StateTokenPayload(NamedTuple):
@@ -105,7 +108,7 @@ def create_state_token(
     if user_id is not None:
         payload["user_id"] = user_id
 
-    return jwt.encode(payload, get_jwt_secret_key(), algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, get_jwt_secret_key(), algorithm=_JWT_ALGORITHM)
 
 
 def verify_state_token(token: str) -> StateTokenPayload:
@@ -144,7 +147,7 @@ def verify_state_token(token: str) -> StateTokenPayload:
         payload = jwt.decode(
             token,
             get_jwt_secret_key(),
-            algorithms=[JWT_ALGORITHM],
+            algorithms=[_JWT_ALGORITHM],
         )
         # Extract fields from JWT payload
         # JWT timestamps (exp, iat) are already floats

@@ -4,11 +4,10 @@ Service for managing account link requests.
 
 import logging
 import secrets
-from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_account_link_request_expiration_hours
+from app.config import get_account_link_request_expiration_delta
 from app.core.datetime import utc, utc_now
 from app.core.i18n import _
 from app.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
@@ -35,7 +34,7 @@ class AccountLinkRequestService:
         self._account_link_request_repository = AccountLinkRequestRepository(session)
         self._user_identity_repository = UserIdentityRepository(session)
         self._user_service = user_service
-        self._account_link_request_expiration_hours = get_account_link_request_expiration_hours()
+        self._account_link_request_expiration_delta = get_account_link_request_expiration_delta()
 
     async def get_request_by_id(self, request_id: int) -> AccountLinkRequestResponse | None:
         """
@@ -119,7 +118,7 @@ class AccountLinkRequestService:
         request_token = secrets.token_urlsafe(32)
 
         # Set expiration to 24 hours from now
-        expires_at = utc_now() + timedelta(hours=self._account_link_request_expiration_hours)
+        expires_at = utc_now() + self._account_link_request_expiration_delta
 
         link_request = AccountLinkRequest(
             user_id=request.user_id,

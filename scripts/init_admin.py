@@ -15,7 +15,7 @@ import string
 import sys
 from pathlib import Path
 
-from app.core.config import load_env_files
+from app.config import load_env_files
 from app.core.security.password import hash_password
 from app.db.session import get_session
 from app.exceptions import ConflictError

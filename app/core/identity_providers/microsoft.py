@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.core.config import (
+from app.config import (
     get_microsoft_client_id,
     get_microsoft_client_secret,
     get_microsoft_redirect_uri,
