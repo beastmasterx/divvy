@@ -2,6 +2,13 @@
 SQLAlchemy database models.
 """
 
+from app.models.auth import (
+    AccountLinkRequest,
+    AccountLinkRequestStatus,
+    IdentityProviderName,
+    RefreshToken,
+    UserIdentity,
+)
 from app.models.authorization import (
     GroupRole,
     GroupRoleBinding,
@@ -12,14 +19,7 @@ from app.models.base import AuditMixin, Base, TimestampMixin
 from app.models.group import Group
 from app.models.period import Period
 from app.models.transaction import Category, ExpenseShare, SplitKind, Transaction, TransactionKind
-from app.models.user import (
-    AccountLinkRequest,
-    AccountLinkRequestStatus,
-    IdentityProviderName,
-    RefreshToken,
-    User,
-    UserIdentity,
-)
+from app.models.user import User
 
 __all__ = [
     # Base

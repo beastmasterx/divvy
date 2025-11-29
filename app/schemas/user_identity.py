@@ -4,7 +4,7 @@ Pydantic schemas for user identity requests and responses.
 
 from pydantic import BaseModel, Field
 
-from app.models.user import IdentityProviderName
+from app.models import IdentityProviderName
 
 
 class UserIdentityRequest(BaseModel):

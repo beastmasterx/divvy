@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.user import AccountLinkRequestStatus, IdentityProviderName
+from app.models import AccountLinkRequestStatus, IdentityProviderName
 
 
 class AccountLinkRequestCreateRequest(BaseModel):
