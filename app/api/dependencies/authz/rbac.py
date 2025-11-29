@@ -14,7 +14,7 @@ FAILURE:
 If the user's role does not satisfy the requirements, a 403 ForbiddenError is raised.
 """
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, Path
@@ -23,44 +23,10 @@ from app.api.dependencies.authn import get_current_user
 from app.api.dependencies.services import get_authorization_service
 from app.core.i18n import _
 from app.exceptions import ForbiddenError
-from app.models import GroupRole, SystemRole  # Assumed Enums are imported
 from app.schemas import UserResponse
 from app.services import AuthorizationService
 
-# Type alias for the acceptable role types (Enum or str)
-RoleType = SystemRole | GroupRole | str
-
-
-def _normalize_roles(roles: Sequence[RoleType]) -> list[str]:
-    """
-    Converts a sequence of Role Enums (SystemRole/GroupRole) or strings into
-    a list of standardized role string values for authorization checks.
-    """
-    normalized: list[str] = []
-    for role in roles:
-        # Use isinstance() for robust type checking against the Enum types
-        if isinstance(role, (SystemRole, GroupRole)):
-            # Enums must provide a .value attribute
-            normalized.append(role.value)
-        else:
-            # Assume it's a string, or convert non-Enum/non-string to string
-            normalized.append(str(role))
-    return normalized
-
-
-def _get_display_role_name(role_value: str) -> str:
-    """
-    Returns the translated, display-friendly name for an internal role value.
-
-    This prepares the string (e.g., "system:admin" -> "System Admin") and wraps
-    it in the translation marker (`_()`) for i18n tooling.
-    """
-    # 1. Clean the role value: remove prefix (if exists) and replace underscores
-    clean_name = role_value.split(":")[-1].replace("_", " ")
-
-    # 2. Translate the title-cased, cleaned string
-    # E.g., translates "System Admin"
-    return _(clean_name.title())
+from .utils import RoleType, get_display_role_name, normalize_roles
 
 
 def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[UserResponse]]:
@@ -76,10 +42,10 @@ def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespon
     Returns:
         A callable FastAPI dependency that raises ForbiddenError on failure.
     """
-    required_role_values = _normalize_roles(roles)
+    required_role_values = normalize_roles(roles)
 
     # Get the list of translated display names for the error message
-    display_names = [_get_display_role_name(r) for r in required_role_values]
+    display_names = [get_display_role_name(r) for r in required_role_values]
     role_list_display = ", ".join(display_names)
 
     async def _verify_system_role(
@@ -113,10 +79,10 @@ def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespons
     Returns:
         A callable FastAPI dependency that raises ForbiddenError on failure.
     """
-    required_role_values = _normalize_roles(roles)
+    required_role_values = normalize_roles(roles)
 
     # Get the list of translated display names for the error message
-    display_names = [_get_display_role_name(r) for r in required_role_values]
+    display_names = [get_display_role_name(r) for r in required_role_values]
     role_list_display = ", ".join(display_names)
 
     async def _verify_group_role(
