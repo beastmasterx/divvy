@@ -82,7 +82,7 @@ def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespon
     display_names = [_get_display_role_name(r) for r in required_role_values]
     role_list_display = ", ".join(display_names)
 
-    async def _check_system_role(
+    async def _verify_system_role(
         current_user: Annotated[UserResponse, Depends(get_current_user)],
         authorization_service: AuthorizationService = Depends(get_authorization_service),
     ) -> UserResponse:
@@ -97,7 +97,7 @@ def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespon
             )
         return current_user
 
-    return _check_system_role
+    return _verify_system_role
 
 
 def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[UserResponse]]:
@@ -119,7 +119,7 @@ def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespons
     display_names = [_get_display_role_name(r) for r in required_role_values]
     role_list_display = ", ".join(display_names)
 
-    async def _check_group_role(
+    async def _verify_group_role(
         # The Path(...) dependency ensures group_id is provided in the route
         group_id: Annotated[int, Path(description=_("The unique ID of the target group."))],
         current_user: Annotated[UserResponse, Depends(get_current_user)],
@@ -137,4 +137,4 @@ def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespons
             )
         return current_user
 
-    return _check_group_role
+    return _verify_group_role
