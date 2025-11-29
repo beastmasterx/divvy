@@ -73,12 +73,12 @@ async def create_group(
 async def update_group(
     group_id: int,
     group: GroupRequest,
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER.value))],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
     group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
     Update a specific group by its ID.
-    Requires group owner role.
+    Requires group owner or admin role.
     """
     return await group_service.update_group(group_id, group)
 
@@ -88,7 +88,7 @@ async def assign_group_role(
     group_id: int,
     user_id: int,
     request: GroupRoleAssignmentRequest,
-    current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER.value))],
+    current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
     group_service: GroupService = Depends(get_group_service),
 ) -> None:
     """Assign a role to a user in a group, add them to the group, or remove them from the group.
@@ -111,7 +111,7 @@ async def assign_group_role(
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_group(
     group_id: int,
-    current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER.value))],
+    current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
     group_service: GroupService = Depends(get_group_service),
 ) -> None:
     """
@@ -124,7 +124,7 @@ async def delete_group(
 @router.get("/{group_id}/periods", response_model=list[PeriodResponse])
 async def get_periods(
     group_id: int,
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER.value))],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
     period_service: PeriodService = Depends(get_period_service),
 ) -> list[PeriodResponse]:
     """
@@ -137,7 +137,7 @@ async def get_periods(
 @router.get("/{group_id}/periods/current", response_model=PeriodResponse)
 async def get_current_period(
     group_id: int,
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER.value))],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
     period_service: PeriodService = Depends(get_period_service),
 ) -> PeriodResponse:
     """
