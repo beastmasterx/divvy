@@ -9,6 +9,11 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_current_user
 from app.api.dependencies.authz import requires_group_role
+from app.api.dependencies.authz.group import (
+    requires_non_owner_role_assignment,
+    requires_settled_active_period,
+    verifies_target_user_membership,
+)
 from app.api.dependencies.services import get_group_service, get_period_service
 from app.core.i18n import _
 from app.exceptions import NotFoundError
@@ -16,7 +21,6 @@ from app.models import GroupRole
 from app.schemas import (
     GroupRequest,
     GroupResponse,
-    GroupRoleAssignmentRequest,
     PeriodResponse,
     UserResponse,
 )
@@ -43,8 +47,8 @@ async def get_groups_by_user_id(
 @router.get("/{group_id}", response_model=GroupResponse)
 async def get_group_by_id(
     group_id: int,
+    group_service: Annotated[GroupService, Depends(get_group_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
-    group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
     Get a specific group by its ID.
@@ -59,8 +63,8 @@ async def get_group_by_id(
 @router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_group(
     group: GroupRequest,
+    group_service: Annotated[GroupService, Depends(get_group_service)],
     current_user: Annotated[UserResponse, Depends(get_current_user)],
-    group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
     Create a new group.
@@ -72,60 +76,74 @@ async def create_group(
 @router.put("/{group_id}", response_model=GroupResponse)
 async def update_group(
     group_id: int,
-    group: GroupRequest,
+    request: GroupRequest,
+    group_service: Annotated[GroupService, Depends(get_group_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
-    group_service: GroupService = Depends(get_group_service),
 ) -> GroupResponse:
     """
     Update a specific group by its ID.
     Requires group owner or admin role.
     """
-    return await group_service.update_group(group_id, group)
+    return await group_service.update_group(group_id, request)
 
 
-@router.put("/{group_id}/users/{user_id}/role", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("/{group_id}/users/{user_id}", response_model=GroupResponse)
+async def transfer_group_owner(
+    group_id: int,
+    user_id: int,
+    group_service: Annotated[GroupService, Depends(get_group_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
+    _verifies_target_user_membership: Annotated[None, Depends(verifies_target_user_membership)],
+) -> GroupResponse:
+    """Transfer the ownership of a specific group by its ID to a new owner."""
+    return await group_service.transfer_group_owner(group_id, user_id)
+
+
+@router.delete("/{group_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_user_from_group(
+    group_id: int,
+    user_id: int,
+    group_service: Annotated[GroupService, Depends(get_group_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
+    _verifies_target_user_membership: Annotated[None, Depends(verifies_target_user_membership)],
+    _requires_settled_active_period: Annotated[None, Depends(requires_settled_active_period)],
+) -> None:
+    """Remove a user from a group."""
+    await group_service.remove_user_from_group(group_id, user_id)
+
+
+@router.put("/{group_id}/users/{user_id}/{role}", status_code=status.HTTP_204_NO_CONTENT)
 async def assign_group_role(
     group_id: int,
     user_id: int,
-    request: GroupRoleAssignmentRequest,
-    current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
-    group_service: GroupService = Depends(get_group_service),
+    role: GroupRole,
+    group_service: Annotated[GroupService, Depends(get_group_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
+    _requires_non_owner_role_assignment: Annotated[None, Depends(requires_non_owner_role_assignment)],
 ) -> None:
-    """Assign a role to a user in a group, add them to the group, or remove them from the group.
-
-    Requires group owner role. Special rules:
-    - Assigning owner role: Only current owner can transfer (ABAC)
-    - Assigning owner role: Automatically demotes old owner to member
-    - Assigning member role: Adds user to group (if not already a member)
-    - Assigning null role: Removes user from group (validates active period is settled)
-    - Other roles: Only owner can assign roles
-    """
-    await group_service.assign_group_role(
-        group_id=group_id,
-        user_id=user_id,
-        role=request.role,
-        assigned_by_user_id=current_user.id,
-    )
+    """Assign a role to a user in a group."""
+    await group_service.assign_group_role(group_id=group_id, user_id=user_id, role=role)
 
 
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_group(
     group_id: int,
-    current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
-    group_service: GroupService = Depends(get_group_service),
+    group_service: Annotated[GroupService, Depends(get_group_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
+    _requires_settled_active_period: Annotated[None, Depends(requires_settled_active_period)],
 ) -> None:
     """
     Delete a specific group by its ID.
     Requires group owner role.
     """
-    await group_service.delete_group(group_id, current_user_id=current_user.id)
+    await group_service.delete_group(group_id)
 
 
 @router.get("/{group_id}/periods", response_model=list[PeriodResponse])
 async def get_periods(
     group_id: int,
+    period_service: Annotated[PeriodService, Depends(get_period_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
-    period_service: PeriodService = Depends(get_period_service),
 ) -> list[PeriodResponse]:
     """
     Get all periods for a specific group.
@@ -137,8 +155,8 @@ async def get_periods(
 @router.get("/{group_id}/periods/current", response_model=PeriodResponse)
 async def get_current_period(
     group_id: int,
+    period_service: Annotated[PeriodService, Depends(get_period_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
-    period_service: PeriodService = Depends(get_period_service),
 ) -> PeriodResponse:
     """
     Get the current active period for a specific group.

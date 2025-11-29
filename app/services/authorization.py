@@ -52,12 +52,11 @@ class AuthorizationService:
         """Get user's role in a specific group."""
         return await self._auth_repository.get_group_role(user_id, group_id)
 
-    async def assign_group_role(
-        self,
-        user_id: int,
-        group_id: int,
-        role: str | GroupRole | None,
-    ) -> None:
+    async def get_group_owner(self, group_id: int) -> int | None:
+        """Get the owner user_id for a group."""
+        return await self._auth_repository.get_group_owner(group_id)
+
+    async def assign_group_role(self, user_id: int, group_id: int, role: GroupRole | None) -> None:
         """Assign a group role to a user, or remove them from the group if role is None.
 
         Creates a new binding if it doesn't exist, updates the existing one,
@@ -67,15 +66,7 @@ class AuthorizationService:
             user_id: ID of the user
             group_id: ID of the group
             role: Group role to assign, or None to remove user from group
-
-        Raises:
-            ValidationError: If role is invalid (when not None)
         """
-        role_str = role.value if isinstance(role, GroupRole) else role
-
-        # Validate role if provided
-        if role_str is not None and role_str not in [r.value for r in GroupRole]:
-            raise ValidationError(_("Invalid group role: %s") % role_str)
-
         # Upsert or delete
+        role_str = role.value if role else None
         await self._auth_repository.assign_group_role(user_id, group_id, role_str)

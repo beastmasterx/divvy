@@ -174,31 +174,3 @@ class TestAuthorizationService:
         role = await authorization_service.get_group_role(user.id, group.id)
 
         assert role is None
-
-    async def test_assign_group_role_invalid(
-        self,
-        authorization_service: AuthorizationService,
-        user_factory: Callable[..., Awaitable[User]],
-        group_factory: Callable[..., Awaitable[Group]],
-    ):
-        """Test assigning invalid group role raises ValidationError."""
-        user = await user_factory(email="user@example.com", name="User")
-        group = await group_factory(name="Test Group")
-
-        with pytest.raises(ValidationError, match="Invalid group role"):
-            await authorization_service.assign_group_role(user.id, group.id, "invalid:role")
-
-    async def test_assign_group_role_string_value(
-        self,
-        authorization_service: AuthorizationService,
-        user_factory: Callable[..., Awaitable[User]],
-        group_factory: Callable[..., Awaitable[Group]],
-    ):
-        """Test assigning group role using string value."""
-        user = await user_factory(email="user@example.com", name="User")
-        group = await group_factory(name="Test Group")
-
-        await authorization_service.assign_group_role(user.id, group.id, GroupRole.ADMIN.value)
-
-        role = await authorization_service.get_group_role(user.id, group.id)
-        assert role == GroupRole.ADMIN.value

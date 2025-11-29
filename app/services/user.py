@@ -32,10 +32,6 @@ class UserService:
         user = await self._user_repository.get_user_by_email(email)
         return UserResponse.model_validate(user) if user else None
 
-    async def get_users_by_group_id(self, group_id: int) -> Sequence[User]:
-        """Retrieve all users associated with a specific group."""
-        return await self._group_repository.get_users_by_group_id(group_id)
-
     async def create_user(self, request: UserRequest) -> UserResponse:
         """
         Create a new user.

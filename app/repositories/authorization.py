@@ -71,6 +71,16 @@ class AuthorizationRepository:
         )
         return await self.session.scalar(stmt)
 
+    async def get_group_owner(self, group_id: int) -> int | None:
+        """Get the owner user_id for a group."""
+        from app.models import GroupRole
+
+        stmt = select(GroupRoleBinding.user_id).where(
+            GroupRoleBinding.group_id == group_id,
+            GroupRoleBinding.role == GroupRole.OWNER.value,
+        )
+        return await self.session.scalar(stmt)
+
     async def assign_group_role(
         self,
         user_id: int,
