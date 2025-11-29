@@ -7,8 +7,6 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
-    AccessTokenResult,
-    RefreshTokenResult,
     create_access_token,
     create_refresh_token,
     hash_password,
@@ -73,17 +71,7 @@ class AuthenticationService:
             avatar=None,
         )
         user = await self._user_service.create_user(user_request)
-
-        # Generate tokens
-        access_token, expires_in = await self._create_access_token(user_id=user.id, email=user.email)
-        refresh_token, _ = await self._create_refresh_token(user_id=user.id, device_info=device_info)
-
-        return TokenResponse(
-            access_token=access_token,
-            token_type="Bearer",
-            expires_in=expires_in,
-            refresh_token=refresh_token,
-        )
+        return await self._issues_tokens(user, device_info)
 
     async def authenticate(self, email: str, password: str, device_info: str | None = None) -> TokenResponse:
         """
@@ -255,7 +243,9 @@ class AuthenticationService:
             NotFoundError: If user not found or inactive
         """
         access_token, expires_in = create_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token, _ = await self._create_refresh_token(user_id=user.id, device_info=device_info)
+        refresh_token, jti = create_refresh_token(data={"sub": str(user.id)})
+
+        await self._refresh_token_repository.create(id=jti, user_id=user.id, device_info=device_info)
 
         return TokenResponse(
             access_token=access_token,
@@ -263,29 +253,3 @@ class AuthenticationService:
             expires_in=expires_in,
             refresh_token=refresh_token,
         )
-
-    async def _create_access_token(self, user_id: int, email: str) -> AccessTokenResult:
-        """
-        Create an access token for an existing user.
-
-        Args:
-            user_id: ID of the user to generate an access token for
-            email: User's email address
-
-        Returns:
-            AccessTokenResult: Contains the access token and the expiration time in seconds
-        """
-        result = create_access_token(data={"sub": str(user_id), "email": email})
-        return AccessTokenResult(token=result.token, expires_in=result.expires_in)
-
-    async def _create_refresh_token(self, user_id: int, device_info: str | None = None) -> RefreshTokenResult:
-        """
-        Create a refresh token for an existing user.
-
-        Args:
-            user_id: ID of the user to generate a refresh token for
-            device_info: Optional device information (e.g., User-Agent string)
-        """
-        result = create_refresh_token(data={"sub": str(user_id)})
-        await self._refresh_token_repository.create(id=result.jti, user_id=user_id, device_info=device_info)
-        return result
