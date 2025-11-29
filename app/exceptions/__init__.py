@@ -1,63 +1,44 @@
-from fastapi import HTTPException, status
+"""
+Exception Registry and Public Interface 🗃️
 
+This module serves as the public interface for the application's custom exceptions,
+re-exporting classes defined in sub-modules like 'http' and 'auth'.
 
-class ValidationError(HTTPException):
-    """Raised when validation fails."""
+This allows consuming modules to import all necessary exceptions from a single, clean path:
+    from app.exceptions import ValidationError, InvalidAccessTokenError
 
-    def __init__(self, detail: str):
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+The structure groups exceptions by their area of concern (HTTP status, Auth domain, etc.).
+"""
 
-
-class UnauthorizedError(HTTPException):
-    """Raised when a user is not authorized to access a resource."""
-
-    def __init__(self, detail: str):
-        super().__init__(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=detail, headers={"WWW-Authenticate": "Bearer"}
-        )
-
-
-class ForbiddenError(HTTPException):
-    """Raised when a user is forbidden to access a resource."""
-
-    def __init__(self, detail: str):
-        super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-
-
-class NotFoundError(HTTPException):
-    """Raised when a resource is not found."""
-
-    def __init__(self, detail: str):
-        super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
-class ConflictError(HTTPException):
-    """Raised when there's a conflict (e.g., duplicate resource)."""
-
-    def __init__(self, detail: str):
-        super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
-
-
-class BusinessRuleError(HTTPException):
-    """Raised when a business rule is violated."""
-
-    def __init__(self, detail: str):
-        super().__init__(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail)
-
-
-class InternalServerError(HTTPException):
-    """Raised when an internal server error occurs."""
-
-    def __init__(self, detail: str):
-        super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
-
+# Import all exceptions from domain-specific modules for centralized access.
+from .auth import (
+    InvalidAccessTokenError,
+    InvalidRefreshTokenError,
+    InvalidStateTokenError,
+)
+from .http import (
+    BusinessRuleError,  # Alias for UnprocessableContentError
+    ConflictError,
+    ForbiddenError,
+    InternalServerError,
+    NotFoundError,
+    UnauthorizedError,
+    UnprocessableContentError,
+    ValidationError,
+)
 
 __all__ = [
-    "ValidationError",
-    "UnauthorizedError",
-    "ForbiddenError",
-    "NotFoundError",
-    "ConflictError",
-    "BusinessRuleError",
-    "InternalServerError",
+    # Core HTTP Errors (Alphabetical by HTTP Status)
+    "ValidationError",  # 400
+    "UnauthorizedError",  # 401 (Base)
+    "ForbiddenError",  # 403
+    "NotFoundError",  # 404
+    "ConflictError",  # 409
+    "UnprocessableContentError",  # 422
+    "BusinessRuleError",  # 422 (Alias)
+    "InternalServerError",  # 500
+    # Auth Domain Errors (Inherit from UnauthorizedError)
+    "InvalidStateTokenError",
+    "InvalidAccessTokenError",
+    "InvalidRefreshTokenError",
 ]

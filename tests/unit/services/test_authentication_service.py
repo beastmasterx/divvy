@@ -3,11 +3,10 @@ Unit tests for AuthenticationService.
 """
 
 from collections.abc import Awaitable, Callable
-from datetime import timedelta
 
 import pytest
 
-from app.core.security import generate_access_token, hash_password
+from app.core.security import hash_password
 from app.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.models import User
 from app.schemas.user import PasswordResetRequest
@@ -202,42 +201,6 @@ class TestAuthenticationService:
         request = PasswordResetRequest(new_password="newpassword")
         with pytest.raises(NotFoundError):
             await authentication_service.reset_password(user_id=99999, request=request)
-
-    async def test_verify_token_valid(
-        self, authentication_service: AuthenticationService, user_factory: Callable[..., Awaitable[User]]
-    ) -> None:
-        """Test verifying a valid JWT token."""
-        password = "password"
-        user = await user_factory(email="user@example.com", name="Test User", password=hash_password(password))
-
-        # Create a token
-        token = (await authentication_service.authenticate(email=user.email, password=password)).access_token
-
-        # Verify it
-        payload = await authentication_service.verify_token(token)
-
-        assert payload["sub"] == str(user.id)
-        assert payload["email"] == user.email
-        assert "exp" in payload
-        assert "iat" in payload
-
-    async def test_verify_token_invalid(self, authentication_service: AuthenticationService) -> None:
-        """Test verifying an invalid JWT token raises UnauthorizedError."""
-        with pytest.raises(UnauthorizedError):
-            await authentication_service.verify_token("invalid.token.here")
-
-    async def test_verify_token_expired(
-        self, authentication_service: AuthenticationService, user_factory: Callable[..., Awaitable[User]]
-    ) -> None:
-        """Test verifying an expired token raises UnauthorizedError."""
-        password = "password"
-        user = await user_factory(email="user@example.com", name="Test User", password=hash_password(password))
-
-        token = generate_access_token(
-            data={"sub": str(user.id), "email": user.email}, expires_delta=timedelta(seconds=-1)
-        )
-        with pytest.raises(UnauthorizedError):
-            await authentication_service.verify_token(token)
 
     async def test_generate_refresh_token(
         self, authentication_service: AuthenticationService, user_factory: Callable[..., Awaitable[User]]

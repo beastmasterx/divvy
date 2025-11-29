@@ -77,25 +77,18 @@ class RefreshToken(TimestampMixin, Base):
     """RefreshToken model for managing refresh tokens."""
 
     __tablename__ = "refresh_tokens"
-    __table_args__ = (
-        Index("ix_refresh_token_token", "token"),
-        Index("ix_refresh_token_user_expires", "user_id", "expires_at"),
-        Index("ix_refresh_token_user_revoked", "user_id", "is_revoked"),
-    )
+    __table_args__ = (Index("ix_refresh_token_user_revoked", "user_id", "is_revoked"),)
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     device_info: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     # Relationships
     user: Mapped[User] = relationship("User", back_populates="refresh_tokens")
 
     def __repr__(self) -> str:
-        return f"<RefreshToken(id={self.id}, user_id={self.user_id}, is_revoked={self.is_revoked})>"
+        return f"<RefreshToken(id='{self.id}', user_id={self.user_id}, is_revoked={self.is_revoked})>"
 
 
 class UserIdentity(TimestampMixin, Base):

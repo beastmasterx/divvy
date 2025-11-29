@@ -2,23 +2,20 @@
 Authentication service for password hashing, JWT token management, and user authentication.
 """
 
-from datetime import UTC, datetime
 from typing import Any
 
-from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_jwt_refresh_token_expire_delta
 from app.core.security import (
+    AccessTokenResult,
+    RefreshTokenResult,
     check_password,
     generate_access_token,
     generate_refresh_token,
-    get_access_token_expires_in,
     hash_password,
-    hash_refresh_token,
-    verify_access_token,
+    verify_refresh_token,
 )
-from app.exceptions import NotFoundError, UnauthorizedError
+from app.exceptions import InvalidRefreshTokenError, NotFoundError, UnauthorizedError
 from app.models import RefreshToken
 from app.repositories import RefreshTokenRepository, UserRepository
 from app.schemas import PasswordResetRequest, TokenResponse, UserRequest, UserResponse
@@ -80,13 +77,13 @@ class AuthenticationService:
         user = await self._user_service.create_user(user_request)
 
         # Generate tokens
-        access_token = generate_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token = await self._generate_refresh_token(user_id=user.id, device_info=device_info)
+        access_token, expires_in = await self._generate_access_token(user_id=user.id, email=user.email)
+        refresh_token, _ = await self._generate_refresh_token(user_id=user.id, device_info=device_info)
 
         return TokenResponse(
             access_token=access_token,
             token_type="Bearer",
-            expires_in=get_access_token_expires_in(access_token),
+            expires_in=expires_in,
             refresh_token=refresh_token,
         )
 
@@ -197,46 +194,36 @@ class AuthenticationService:
 
         return await self._user_service.reset_password(user_id, hash_password(request.new_password))
 
-    async def verify_token(self, token: str) -> dict[str, Any]:
+    async def generate_tokens(self, user_id: int, device_info: str | None = None) -> TokenResponse:
         """
-        Verify and decode a JWT token.
+        Generate access and refresh tokens for an existing user.
+
+        This is useful for OAuth flows where a user is already authenticated
+        via an external provider and we need to issue tokens.
 
         Args:
-            token: JWT token string to verify
-
-        Returns:
-            Decoded token payload as dictionary
-
-        Raises:
-            UnauthorizedError: If token is invalid, expired, or malformed
-        """
-        try:
-            return verify_access_token(token)
-        except JWTError as e:
-            raise UnauthorizedError(f"Invalid authentication token: {str(e)}") from e
-
-    async def _generate_refresh_token(self, user_id: int, device_info: str | None = None) -> str:
-        """
-        Generate a new refresh token for a user.
-
-        Args:
-            user_id: ID of the user to generate token for
+            user_id: ID of the user to generate tokens for
             device_info: Optional device information (e.g., User-Agent string)
 
         Returns:
-            Plain text refresh token (only returned once, immediately after generation)
+            TokenResponse containing access token and refresh token
+
+        Raises:
+            NotFoundError: If user not found or inactive
         """
-        token, hash = generate_refresh_token()
-        expires_at = datetime.now(UTC) + get_jwt_refresh_token_expire_delta()
+        user = await self._user_service.get_user_by_id(user_id)
+        if not user or not user.is_active:
+            raise NotFoundError("User not found or inactive")
 
-        await self._refresh_token_repository.create(
-            hashed_token=hash,
-            user_id=user_id,
-            expires_at=expires_at,
-            device_info=device_info,
+        access_token, expires_in = generate_access_token(data={"sub": str(user.id), "email": user.email})
+        refresh_token, _ = await self._generate_refresh_token(user_id=user_id, device_info=device_info)
+
+        return TokenResponse(
+            access_token=access_token,
+            token_type="Bearer",
+            expires_in=expires_in,
+            refresh_token=refresh_token,
         )
-
-        return token
 
     async def revoke_refresh_token(self, token: str) -> RefreshToken | None:
         """
@@ -248,8 +235,9 @@ class AuthenticationService:
         Returns:
             Revoked RefreshToken object if successful, None otherwise
         """
-        hashed_refresh_token = hash_refresh_token(token)
-        return await self._refresh_token_repository.revoke(hashed_refresh_token)
+        claims = verify_refresh_token(token)
+        jti, _ = self._get_refresh_token_jti_and_user_id(claims)
+        return await self._refresh_token_repository.revoke_by_id(jti)
 
     async def revoke_all_user_refresh_tokens(self, user_id: int) -> None:
         """
@@ -276,67 +264,60 @@ class AuthenticationService:
         Raises:
             UnauthorizedError: If old token is invalid, expired, revoked, or user is not active
         """
-        old_refresh_token = await self._verify_refresh_token(token)
-        if not old_refresh_token:
-            raise UnauthorizedError("Invalid or expired refresh token")
+        old_refresh_token_claims = verify_refresh_token(token)
+        jti, user_id = self._get_refresh_token_jti_and_user_id(old_refresh_token_claims)
 
-        user = await self._user_service.get_user_by_id(old_refresh_token.user_id)
-        if not user or not user.is_active:
-            raise UnauthorizedError("User not found or inactive")
-
-        await self._refresh_token_repository.revoke_by_id(old_refresh_token.id)
-        return await self.generate_tokens(old_refresh_token.user_id, old_refresh_token.device_info)
-
-    async def generate_tokens(self, user_id: int, device_info: str | None = None) -> TokenResponse:
-        """
-        Generate access and refresh tokens for an existing user.
-
-        This is useful for OAuth flows where a user is already authenticated
-        via an external provider and we need to issue tokens.
-
-        Args:
-            user_id: ID of the user to generate tokens for
-            device_info: Optional device information (e.g., User-Agent string)
-
-        Returns:
-            TokenResponse containing access token and refresh token
-
-        Raises:
-            NotFoundError: If user not found or inactive
-        """
         user = await self._user_service.get_user_by_id(user_id)
         if not user or not user.is_active:
-            raise NotFoundError("User not found or inactive")
+            raise UnauthorizedError("User not found or inactive")
+        old_refresh_token = await self._refresh_token_repository.get_by_id(jti)
+        if not old_refresh_token:
+            raise UnauthorizedError("Refresh token not found")
+        if old_refresh_token.is_revoked:
+            raise UnauthorizedError("Refresh token is revoked")
 
-        access_token = generate_access_token(data={"sub": str(user.id), "email": user.email})
-        refresh_token = await self._generate_refresh_token(user_id=user_id, device_info=device_info)
+        await self._refresh_token_repository.revoke_by_id(jti)
+        return await self.generate_tokens(old_refresh_token.user_id, old_refresh_token.device_info)
 
-        return TokenResponse(
-            access_token=access_token,
-            token_type="Bearer",
-            expires_in=get_access_token_expires_in(access_token),
-            refresh_token=refresh_token,
-        )
-
-    async def _verify_refresh_token(self, token: str) -> RefreshToken | None:
+    def _get_refresh_token_jti_and_user_id(self, claims: dict[str, Any]) -> tuple[str, int]:
         """
-        Verify a refresh token is valid, not revoked, and not expired.
+        Get the JWT ID and user ID from a refresh token claims.
 
         Args:
-            token: Plain text refresh token to verify
+            token: JWT token string to get JWT ID from
+        """
+        jti = claims.get("jti")
+        if jti is None:
+            raise InvalidRefreshTokenError("Refresh token is missing the required 'jti' claim.")
+
+        user_id = claims.get("sub")
+        if user_id is None:
+            raise InvalidRefreshTokenError("Refresh token is missing the required 'sub' claim.")
+
+        return jti, int(user_id)
+
+    async def _generate_access_token(self, user_id: int, email: str) -> AccessTokenResult:
+        """
+        Generate an access token for an existing user.
+
+        Args:
+            user_id: ID of the user to generate an access token for
+            email: User's email address
 
         Returns:
-            Valid RefreshToken object if successful, None otherwise
+            AccessTokenResult: Contains the access token and the expiration time in seconds
         """
-        hashed_refresh_token = hash_refresh_token(token)
-        refresh_token = await self._refresh_token_repository.lookup(hashed_refresh_token)
-        if not refresh_token or refresh_token.is_revoked:
-            return None
+        result = generate_access_token(data={"sub": str(user_id), "email": email})
+        return AccessTokenResult(token=result.token, expires_in=result.expires_in)
 
-        expires_at = refresh_token.expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=UTC)
-        if expires_at < datetime.now(UTC):
-            return None
+    async def _generate_refresh_token(self, user_id: int, device_info: str | None = None) -> RefreshTokenResult:
+        """
+        Generate a refresh token for an existing user.
 
-        return refresh_token
+        Args:
+            user_id: ID of the user to generate a refresh token for
+            device_info: Optional device information (e.g., User-Agent string)
+        """
+        result = generate_refresh_token(data={"sub": str(user_id)})
+        await self._refresh_token_repository.create(id=result.jti, user_id=user_id, device_info=device_info)
+        return result

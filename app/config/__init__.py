@@ -12,20 +12,24 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# Import settings helpers from sub-modules
 from .app import get_frontend_url, get_google_redirect_uri, get_microsoft_redirect_uri
-
-# Import settings helpers
 from .auth import (
+    get_access_token_expire_delta,
+    get_access_token_secret_key,
     get_account_link_request_expiration_delta,
+    get_core_jwt_secret_key,
     get_google_client_id,
     get_google_client_secret,
-    get_jwt_access_token_expire_delta,
     get_jwt_algorithm,
-    get_jwt_refresh_token_expire_delta,
-    get_jwt_secret_key,
     get_microsoft_client_id,
     get_microsoft_client_secret,
     get_microsoft_tenant_id,
+    get_refresh_token_expire_delta,
+    get_refresh_token_secret_key,
+    get_state_token_algorithm,
+    get_state_token_expire_delta,
+    get_state_token_secret_key,
 )
 from .log import setup_logging
 
@@ -75,8 +79,9 @@ def load_env_files(project_root: Path | None = None) -> None:
         env_files_to_load.append(cwd_base_env)
 
     # Load all .env files in order (later files override earlier ones)
+    # override=False ensures shell env vars take precedence over .env file contents
     for env_file in env_files_to_load:
-        load_dotenv(env_file, override=False)  # override=False ensures shell env vars take precedence
+        load_dotenv(env_file, override=False)
 
     # Configure logging after .env files are loaded (so LOG_LEVEL is available)
     setup_logging()
@@ -88,31 +93,42 @@ def load_env_files(project_root: Path | None = None) -> None:
         logger.info("Environment: (not set)")
 
     for env_file in env_files_to_load:
-        logger.info(
-            f"Loaded config: {env_file.relative_to(project_root) if project_root in env_file.parents else env_file.name}"
-        )
+        # Use relative path if possible for cleaner logging
+        try:
+            log_path = env_file.relative_to(project_root)
+        except ValueError:
+            log_path = env_file.name
+
+        logger.info(f"Loaded config: {log_path}")
 
 
 # --- Re-export all necessary configuration getters for simple consumption ---
+# This list is the public interface for configuration.
 
 __all__ = [
-    # JWT Configuration
+    # Initialization
+    "load_env_files",
+    # Core JWT (Access/Refresh Tokens)
     "get_jwt_algorithm",
-    "get_jwt_secret_key",
-    "get_jwt_access_token_expire_delta",
-    "get_jwt_refresh_token_expire_delta",
+    "get_core_jwt_secret_key",
+    "get_access_token_secret_key",
+    "get_refresh_token_secret_key",
+    "get_access_token_expire_delta",
+    "get_refresh_token_expire_delta",
+    # State Token (OAuth Flow Security)
+    "get_state_token_algorithm",
+    "get_state_token_secret_key",
+    "get_state_token_expire_delta",
+    # Other Auth / Account Management
     "get_account_link_request_expiration_delta",
-    # Google OAuth
+    # Application Configuration (URLs)
+    "get_frontend_url",
+    "get_google_redirect_uri",
+    "get_microsoft_redirect_uri",
+    # Identity Providers (Credentials)
     "get_google_client_id",
     "get_google_client_secret",
-    "get_google_redirect_uri",
-    # Microsoft OAuth
     "get_microsoft_client_id",
     "get_microsoft_client_secret",
     "get_microsoft_tenant_id",
-    "get_microsoft_redirect_uri",
-    # Application Configuration
-    "get_frontend_url",
-    # Initialization
-    "load_env_files",
 ]
