@@ -47,45 +47,68 @@ class StateTokenPayload(NamedTuple):
     user_id: int | None = None
 
 
-def create_state_token(
-    operation: str,
-    user_id: int | None = None,
-    expires_delta: timedelta = get_state_token_expire_delta(),
-    secret_key: str = get_state_token_secret_key(),
-    algorithm: str = get_state_token_algorithm(),
+def generate_state_token(
+    user_id: int,
+    operation: Literal["link", "login"] = "link",
+    expires_delta: timedelta | None = None,
+    secret_key: str | None = None,
+    algorithm: str | None = None,
 ) -> str:
     """
-    Create a signed JWT state token for OAuth flow.
+    Generates a cryptographically secure state token containing operation context,
+    user identification, and a random nonce for CSRF protection.
+
+    Args:
+        operation: Operation type to identify the OAuth flow. Defaults to "link".
+        user_id: User ID associated with the operation.
+        expires_delta: Token expiration time. If None, uses configured default.
+        secret_key: Secret key for signing. If None, uses configured default.
+        algorithm: JWT signing algorithm. If None, uses configured default.
+
+    Returns:
+        Encoded JWT string containing the state token.
     """
-    if operation == "link" and user_id is None:
-        raise ValueError("user_id is required for 'link' operation")
+
+    expires_delta = expires_delta or get_state_token_expire_delta()
+    secret_key = secret_key or get_state_token_secret_key()
+    algorithm = algorithm or get_state_token_algorithm()
 
     nonce = secrets.token_urlsafe(16)
-
     payload: dict[str, Any] = {
+        "user_id": user_id,
         "operation": operation,
         "nonce": nonce,
         "iat": utc_now().timestamp(),  # 💡 Use timestamp for IAT/EXP claims
         "exp": (utc_now() + expires_delta).timestamp(),  # 💡 Use timestamp for IAT/EXP claims
     }
 
-    if user_id is not None:
-        payload["user_id"] = user_id
-
     return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
 def verify_state_token(
     token: str,
-    secret_key: str = get_state_token_secret_key(),
-    algorithm: str = get_state_token_algorithm(),
+    secret_key: str | None = None,
+    algorithm: str | None = None,
 ) -> StateTokenPayload:
     """
     Verify and decode an OAuth state token.
 
+    Args:
+        token: JWT state token string to verify.
+        secret_key: Secret key for verification. If None, uses configured default.
+        algorithm: JWT signing algorithm. If None, uses configured default.
+
+    Returns:
+        StateTokenPayload containing decoded token data (operation, nonce, timestamps, user_id).
+
     Raises:
-        InvalidStateTokenError: If the token is invalid (expired, bad signature, malformed).
+        InvalidStateTokenError: If the token is invalid, expired, has a bad signature,
+            is malformed, or contains an invalid operation type.
     """
+
+    secret_key = secret_key or get_state_token_secret_key()
+    algorithm = algorithm or get_state_token_algorithm()
+
     try:
         payload = jwt.decode(
             token,
@@ -120,6 +143,17 @@ def verify_state_token(
 def is_signed_state_token(state: str) -> bool:
     """
     Check if a state string is a signed JWT token.
+
+    Performs a simple format check by verifying the string has the JWT structure
+    (three parts separated by dots: header.payload.signature). This is a quick
+    heuristic and does not validate the token signature or contents.
+
+    Args:
+        state: String to check for JWT token format.
+
+    Returns:
+        True if the string appears to be a JWT token (has 3 dot-separated parts),
+        False otherwise.
     """
     # JWT tokens have 3 parts separated by dots: header.payload.signature
     parts = state.split(".")

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.core.identity_providers import IdentityProviderRegistry
-from app.core.security import StateTokenPayload, create_state_token, is_signed_state_token, verify_state_token
+from app.core.security import StateTokenPayload, generate_state_token, is_signed_state_token, verify_state_token
 from app.exceptions import UnauthorizedError, ValidationError
 from app.models import IdentityProviderName
 from app.schemas import (
@@ -89,7 +89,7 @@ class IdentityProviderService:
         """
 
         # Create signed state token for authenticated account linking
-        state_token = create_state_token(operation="link", user_id=user_id)
+        state_token = generate_state_token(operation="link", user_id=user_id)
         return self.get_authorization_url(provider_name, state_token)
 
     async def handle_oauth_callback(

@@ -34,8 +34,6 @@ from app.config import (
 )
 from app.exceptions import InvalidAccessTokenError, InvalidRefreshTokenError
 
-# Define the NamedTuple for the return type
-
 
 class AccessTokenResult(NamedTuple):
     """
@@ -64,13 +62,27 @@ class RefreshTokenResult(NamedTuple):
 
 def generate_access_token(
     data: dict[str, Any],
-    secret_key: str = get_core_jwt_secret_key(),
-    algorithm: str = get_jwt_algorithm(),
-    expires_delta: timedelta = get_access_token_expire_delta(),
+    secret_key: str | None = None,
+    algorithm: str | None = None,
+    expires_delta: timedelta | None = None,
 ) -> AccessTokenResult:
     """
     Generate a JWT access token.
+
+    Args:
+        data: Payload data (claims) to encode in the token (e.g., {'sub': user_id}).
+        secret_key: Secret key for signing. If None, uses the default configured key.
+        algorithm: JWT signing algorithm. If None, uses the configured default.
+        expires_delta: Token expiration time (timedelta). If None, uses the configured default.
+
+    Returns:
+        AccessTokenResult: Contains the encoded token string and the
+        expires_in (lifetime in seconds) for the OAuth 2.0 response.
     """
+    secret_key = secret_key or get_core_jwt_secret_key()
+    algorithm = algorithm or get_jwt_algorithm()
+    expires_delta = expires_delta or get_access_token_expire_delta()
+
     to_encode = data.copy()
     expire = datetime.now(UTC) + expires_delta
     to_encode.update({"exp": expire.timestamp(), "iat": datetime.now(UTC).timestamp()})
@@ -83,15 +95,30 @@ def generate_access_token(
 def verify_access_token(
     token: str,
     options: dict[str, Any] | None = None,
-    secret_key: str = get_core_jwt_secret_key(),
-    algorithm: str = get_jwt_algorithm(),
+    secret_key: str | None = None,
+    algorithm: str | None = None,
 ) -> dict[str, Any]:
     """
     Verify and decode a JWT access token.
 
+    This performs standard checks (signature, expiry, claims) and is intended for
+    stateless validation on resource access.
+
+    Args:
+        token: JWT access token string to verify.
+        options: Options for verification (e.g., {"leeway": 10}). If None, uses default leeway.
+        secret_key: Secret key for verification. If None, uses the default configured key.
+        algorithm: JWT signing algorithm. If None, uses the configured default.
+
+    Returns:
+        dict[str, Any]: The decoded token claims (payload).
+
     Raises:
-        InvalidAccessTokenError: If the token is invalid (expired, bad signature, etc.).
+        InvalidAccessTokenError: If the token is invalid (expired, bad signature, malformed claim, etc.).
     """
+    secret_key = secret_key or get_core_jwt_secret_key()
+    algorithm = algorithm or get_jwt_algorithm()
+
     default_options = {"leeway": 5}
     if options:
         default_options.update(options)
@@ -107,18 +134,28 @@ def verify_access_token(
 
 def generate_refresh_token(
     data: dict[str, Any],
-    secret_key: str = get_core_jwt_secret_key(),
-    algorithm: str = get_jwt_algorithm(),
-    expires_delta: timedelta = get_refresh_token_expire_delta(),
+    secret_key: str | None = None,
+    algorithm: str | None = None,
+    expires_delta: timedelta | None = None,
 ) -> RefreshTokenResult:
     """
     Generate a JWT refresh token, including a unique 'jti' (JWT ID) claim
-    for database-based revocation.
+    for database-based revocation and rotation.
+
+    Args:
+        data: Payload data (claims) to encode in the token (e.g., {'sub': user_id}).
+        secret_key: Secret key for signing. If None, uses the default configured key.
+        algorithm: JWT signing algorithm. If None, uses the configured default.
+        expires_delta: Token expiration time (timedelta). If None, uses the configured default.
 
     Returns:
         RefreshTokenResult: Contains the JTI (jti) which MUST be saved in the
         database and the encoded token (token) for the user.
     """
+    secret_key = secret_key or get_core_jwt_secret_key()
+    algorithm = algorithm or get_jwt_algorithm()
+    expires_delta = expires_delta or get_refresh_token_expire_delta()
+
     to_encode = data.copy()
     expire = datetime.now(UTC) + expires_delta
 
@@ -144,17 +181,38 @@ def generate_refresh_token(
 def verify_refresh_token(
     token: str,
     options: dict[str, Any] | None = None,
-    secret_key: str = get_core_jwt_secret_key(),
-    algorithm: str = get_jwt_algorithm(),
+    secret_key: str | None = None,
+    algorithm: str | None = None,
 ) -> dict[str, Any]:
     """
     Verify and decode a JWT refresh token.
 
+    This performs cryptographic and expiry validation, ensuring the token
+    structure and claims are valid before the service layer checks against
+    the database (revocation/rotation).
+
+    Args:
+        token: JWT refresh token string to verify.
+        options: Options for verification (e.g., {"leeway": 10}). If None, uses default leeway.
+        secret_key: Secret key for verification. If None, uses the default configured key.
+        algorithm: JWT signing algorithm. If None, uses the configured default.
+
+    Returns:
+        dict[str, Any]: The decoded token claims (payload), including the mandatory 'jti'.
+
     Raises:
-        InvalidRefreshTokenError: If the token is invalid (expired, wrong signature, bad claim).
+        InvalidRefreshTokenError: If the token fails cryptographic validation
+                                  (expired, wrong signature, missing/bad claim, etc.).
     """
-    default_options = {"leeway": 5}
-    if options:
+
+    secret_key = secret_key or get_core_jwt_secret_key()
+    algorithm = algorithm or get_jwt_algorithm()
+
+    default_options: dict[str, Any] = {"leeway": 5}
+    # Ensure JTI is present, as it is mandatory for refresh token revocation
+    if options is None:
+        default_options["require"] = ["jti", "exp", "iat"]
+    else:
         default_options.update(options)
 
     try:
