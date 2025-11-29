@@ -16,6 +16,7 @@ from app.models import (
     GroupRoleBinding,
     IdentityProviderName,
     Period,
+    RefreshToken,
     SystemRoleBinding,
     Transaction,
     User,
@@ -27,6 +28,7 @@ from tests.fixtures.factories import (
     create_test_category,
     create_test_group,
     create_test_period,
+    create_test_refresh_token,
     create_test_transaction,
     create_test_user,
     create_test_user_identity,
@@ -127,6 +129,27 @@ async def account_link_request_factory(db_session: AsyncSession) -> Callable[...
         return account_link_request
 
     return _create_account_link_request
+
+
+@pytest.fixture
+async def refresh_token_factory(db_session: AsyncSession) -> Callable[..., Awaitable[RefreshToken]]:
+    """Factory fixture for creating refresh tokens."""
+
+    async def _create_refresh_token(
+        id: str = "test_token_123",
+        user_id: int = 1,
+        device_info: str | None = "Test Device",
+        is_revoked: bool = False,
+        **kwargs: Any
+    ) -> RefreshToken:
+        refresh_token = create_test_refresh_token(
+            id=id, user_id=user_id, device_info=device_info, is_revoked=is_revoked, **kwargs
+        )
+        db_session.add(refresh_token)
+        await db_session.commit()
+        return refresh_token
+
+    return _create_refresh_token
 
 
 @pytest.fixture

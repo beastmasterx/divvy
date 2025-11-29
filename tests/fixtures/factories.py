@@ -12,6 +12,7 @@ from app.models import (
     Group,
     IdentityProviderName,
     Period,
+    RefreshToken,
     SplitKind,
     Transaction,
     TransactionKind,
@@ -216,3 +217,26 @@ def create_test_account_link_request(
         expires_at=expires_at,
         **kwargs
     )
+
+
+def create_test_refresh_token(
+    id: str = "test_token_123",
+    user_id: int = 1,
+    device_info: str | None = "Test Device",
+    is_revoked: bool = False,
+    **kwargs: Any
+) -> RefreshToken:
+    """
+    Factory for creating test refresh tokens.
+
+    Args:
+        id: Unique token ID (JWT ID claim)
+        user_id: ID of the user this token belongs to
+        device_info: Device information (optional)
+        is_revoked: Whether the token is revoked
+        **kwargs: Additional RefreshToken model fields
+
+    Returns:
+        RefreshToken instance (not persisted to database)
+    """
+    return RefreshToken(id=id, user_id=user_id, device_info=device_info, is_revoked=is_revoked, **kwargs)

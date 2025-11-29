@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.api.dependencies.authentication import get_current_user
+from app.api.dependencies import get_current_user
 from app.api.routers.v1 import api_router
 from app.models import User
 from app.schemas import UserResponse

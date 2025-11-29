@@ -8,8 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AccountLinkRequestStatus, IdentityProviderName
-from app.models.user import AccountLinkRequest, User
+from app.models import AccountLinkRequest, AccountLinkRequestStatus, IdentityProviderName, User
 from app.repositories import AccountLinkRequestRepository
 from tests.fixtures.factories import create_test_account_link_request
 

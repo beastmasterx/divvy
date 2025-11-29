@@ -49,12 +49,14 @@ class AccessTokenResult(NamedTuple):
 class RefreshTokenResult(NamedTuple):
     """
     A container for the results of refresh token generation.
-    jti: The unique JWT ID claim, required for database storage and revocation checks.
-    token: The fully encoded JWT string to be sent to the user.
+
+    Attributes:
+        token: The fully encoded JWT string to be sent to the user.
+        jti: The unique JWT ID claim, required for database storage and revocation checks.
     """
 
-    jti: str
     token: str
+    jti: str
 
 
 # --- ACCESS TOKEN (JWT) UTILITIES ---
@@ -174,8 +176,8 @@ def generate_refresh_token(
     # 3. Encode the token
     token = jwt.encode(to_encode, secret_key, algorithm=algorithm)
 
-    # 4. Return both the JTI and the token using the NamedTuple
-    return RefreshTokenResult(jti=jti, token=token)
+    # 4. Return both the token and the JTI using the NamedTuple
+    return RefreshTokenResult(token=token, jti=jti)
 
 
 def verify_refresh_token(

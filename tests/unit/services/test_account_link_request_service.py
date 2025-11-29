@@ -424,17 +424,17 @@ class TestAccountLinkRequestService:
         with pytest.raises(ConflictError, match="Identity already exists"):
             await account_link_request_service.approve_request(pending_request.request_token, user.id)
 
-    @patch("app.services.account_link_request.get_account_link_request_expiration_hours")
+    @patch("app.services.account_link_request.get_account_link_request_expiration_delta")
     async def test_create_request_uses_config_expiration(
         self,
-        mock_get_expiration_hours: MagicMock,
+        mock_get_expiration_delta: MagicMock,
         db_session: AsyncSession,
         user_service: UserService,
         user_factory: Callable[..., Awaitable[User]],
     ):
-        """Test that create_request uses configured expiration hours."""
-        # Mock the config function to return 48 hours
-        mock_get_expiration_hours.return_value = 48
+        """Test that create_request uses configured expiration delta."""
+        # Mock the config function to return 48 hours as a timedelta
+        mock_get_expiration_delta.return_value = timedelta(hours=48)
 
         # Create service after patching (so __init__ uses the mocked value)
         account_link_request_service = AccountLinkRequestService(session=db_session, user_service=user_service)
@@ -455,4 +455,4 @@ class TestAccountLinkRequestService:
         assert time_diff < 5  # Allow 5 seconds difference for test execution time
 
         # Verify the mock was called during service initialization
-        mock_get_expiration_hours.assert_called_once()
+        mock_get_expiration_delta.assert_called_once()

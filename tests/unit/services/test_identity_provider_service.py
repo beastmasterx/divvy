@@ -13,8 +13,8 @@ from app.core.identity_providers import (
     IdentityProviderTokenResponse,
     IdentityProviderUserInfo,
 )
-from app.core.security import create_state_token, is_signed_state_token, verify_state_token
-from app.exceptions import UnauthorizedError, ValidationError
+from app.core.security import generate_state_token, is_signed_state_token, verify_state_token
+from app.exceptions import InvalidStateTokenError, UnauthorizedError
 from app.models import AccountLinkRequestStatus, IdentityProviderName, User, UserIdentity
 from app.repositories import AccountLinkRequestRepository, UserIdentityRepository
 from app.schemas import TokenResponse as TokenResponseSchema
@@ -281,7 +281,7 @@ class TestIdentityProviderService:
         user = await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token for authenticated link
-        state_token = create_state_token(operation="link", user_id=user.id)
+        state_token = generate_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
@@ -332,7 +332,7 @@ class TestIdentityProviderService:
         user = await user_factory(email="user@example.com", name="Test User", is_active=True)
 
         # Create signed state token for authenticated link
-        state_token = create_state_token(operation="link", user_id=user.id)
+        state_token = generate_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider with different email
         mock_provider = MagicMock()
@@ -372,7 +372,7 @@ class TestIdentityProviderService:
         assert identity.user_id == user.id
 
     async def test_handle_oauth_callback_authenticated_link_invalid_state_token(
-        self, identity_provider_service: IdentityProviderService, db_session: AsyncSession
+        self, identity_provider_service: IdentityProviderService
     ):
         """Test that handle_oauth_callback raises ValidationError for invalid signed state token."""
         # Create and register a mock OAuth provider
@@ -384,7 +384,7 @@ class TestIdentityProviderService:
         # Use an invalid signed state token (expired or malformed)
         invalid_state_token = "invalid.jwt.token"
 
-        with pytest.raises(ValidationError, match="Invalid or expired state token"):
+        with pytest.raises(InvalidStateTokenError):
             await identity_provider_service.handle_oauth_callback(
                 provider_name=IdentityProviderName.MICROSOFT,
                 code="test_code",
@@ -404,7 +404,7 @@ class TestIdentityProviderService:
 
         # Create signed state token with different user_id (simulating tampering)
         # This shouldn't happen in practice, but we test the validation
-        state_token = create_state_token(operation="link", user_id=99999)  # Non-existent user ID
+        state_token = generate_state_token(operation="link", user_id=99999)  # Non-existent user ID
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()
@@ -443,7 +443,7 @@ class TestIdentityProviderService:
         user = await user_factory(email="user@example.com", name="Test User", is_active=False)
 
         # Create signed state token for authenticated link
-        state_token = create_state_token(operation="link", user_id=user.id)
+        state_token = generate_state_token(operation="link", user_id=user.id)
 
         # Create and register a mock OAuth provider
         mock_provider = MagicMock()

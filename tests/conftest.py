@@ -39,6 +39,7 @@ def test_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     # JWT Configuration (required - must be at least 32 characters)
     monkeypatch.setenv("DIVVY_JWT_SECRET_KEY", "2SZCrD1OkZ9mmzpXeCwITRiLiIblMFa96l4-jyArzRE")
+    monkeypatch.setenv("DIVVY_STATE_TOKEN_SECRET_KEY", "2SZCrD1OkZ9mmzpXeCwITRiLiIblMFa96l4-jyArzRE")
 
     # Application URLs (with safe test defaults)
     monkeypatch.setenv("DIVVY_FRONTEND_URL", "http://localhost:3000")
