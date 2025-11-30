@@ -22,10 +22,11 @@ class TransactionService:
         transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
         return TransactionResponse.model_validate(transaction) if transaction else None
 
-    async def create_transaction(self, request: TransactionRequest) -> TransactionResponse:
+    async def create_transaction(self, period_id: int, request: TransactionRequest) -> TransactionResponse:
         """Create a new transaction.
 
         Args:
+            period_id: ID of the period of the transaction
             request: Transaction request schema containing transaction data
 
         Returns:
@@ -56,7 +57,7 @@ class TransactionService:
             amount=request.amount,
             payer_id=request.payer_id,
             category_id=request.category_id,
-            period_id=request.period_id,
+            period_id=period_id,
             transaction_kind=request.transaction_kind,
             split_kind=request.split_kind,
             expense_shares=expense_shares,
@@ -85,6 +86,7 @@ class TransactionService:
 
         expense_shares = [
             ExpenseShare(
+                transaction_id=transaction_id,
                 user_id=s.user_id,
                 share_amount=s.share_amount,
                 share_percentage=s.share_percentage,
@@ -105,9 +107,9 @@ class TransactionService:
         transaction.amount = request.amount
         transaction.payer_id = request.payer_id
         transaction.category_id = request.category_id
-        transaction.period_id = request.period_id
         transaction.transaction_kind = request.transaction_kind
         transaction.split_kind = request.split_kind
+        transaction.status = TransactionStatus.DRAFT
         transaction.expense_shares = expense_shares
 
         updated_transaction = await self.transaction_repository.update_transaction(transaction)

@@ -20,7 +20,14 @@ from app.api.dependencies.services import (
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import GroupRole
-from app.schemas import PeriodRequest, PeriodResponse, SettlementResponse, TransactionResponse, UserResponse
+from app.schemas import (
+    PeriodRequest,
+    PeriodResponse,
+    SettlementResponse,
+    TransactionRequest,
+    TransactionResponse,
+    UserResponse,
+)
 from app.services import PeriodService, SettlementService, TransactionService
 
 router = APIRouter(prefix="/periods", tags=["periods"], dependencies=[Depends(get_current_user)])
@@ -42,19 +49,6 @@ async def get_period(
     return period
 
 
-@router.put("/{period_id}/close", response_model=PeriodResponse)
-async def close_period(
-    period_id: int,
-    period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
-) -> PeriodResponse:
-    """
-    Close a specific period by its ID.
-    Requires owner or admin role in the period's group.
-    """
-    return await period_service.close_period(period_id)
-
-
 @router.put("/{period_id}", response_model=PeriodResponse)
 async def update_period(
     period_id: int,
@@ -69,6 +63,19 @@ async def update_period(
     return await period_service.update_period_name(period_id, request.name)
 
 
+@router.put("/{period_id}/close", response_model=PeriodResponse)
+async def close_period(
+    period_id: int,
+    period_service: Annotated[PeriodService, Depends(get_period_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
+) -> PeriodResponse:
+    """
+    Close a specific period by its ID.
+    Requires owner or admin role in the period's group.
+    """
+    return await period_service.close_period(period_id)
+
+
 @router.get("/{period_id}/transactions", response_model=list[TransactionResponse])
 async def get_transactions(
     period_id: int,
@@ -80,6 +87,19 @@ async def get_transactions(
     Requires group membership for the period's group.
     """
     return await transaction_service.get_transactions_by_period_id(period_id)
+
+
+@router.post("/{period_id}/transactions", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+async def create_transaction(
+    period_id: int,
+    request: TransactionRequest,
+    transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
+) -> TransactionResponse:
+    """
+    Create a new transaction.
+    """
+    return await transaction_service.create_transaction(period_id, request)
 
 
 @router.get("/{period_id}/balances", response_model=dict[int, int])

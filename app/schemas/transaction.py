@@ -12,7 +12,6 @@ class TransactionRequest(BaseModel):
     amount: int = Field(..., description="Transaction amount in cents")
     payer_id: int = Field(..., description="ID of the user who paid the transaction")
     category_id: int = Field(..., description="ID of the category of the transaction")
-    period_id: int = Field(..., description="ID of the period of the transaction")
     transaction_kind: TransactionKind = Field(..., description="Kind of transaction")
     split_kind: SplitKind = Field(..., description="Kind of split")
     expense_shares: list[ExpenseShareRequest] | None = Field(
