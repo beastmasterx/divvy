@@ -2,19 +2,20 @@
 Transaction-related models.
 """
 
+from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
-    CheckConstraint,
+    DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
     String,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import AuditMixin, Base, TimestampMixin
 
@@ -24,20 +25,53 @@ if TYPE_CHECKING:
 
 
 class TransactionKind(str, Enum):
-    """Types of transactions in the expense splitting system."""
+    """
+    Enumeration of transaction types in the expense splitting system.
+
+    Attributes:
+        EXPENSE: Standard expense transaction where a user pays for something
+                 shared with others.
+        DEPOSIT: Money deposited into the group's shared pool.
+        REFUND: Money returned or refunded to participants.
+    """
 
     EXPENSE = "expense"
     DEPOSIT = "deposit"
     REFUND = "refund"
 
 
-class SplitKind(str, Enum):
-    """Methods for splitting transaction costs among users."""
+class TransactionStatus(str, Enum):
+    """
+    Enumeration of transaction lifecycle states.
 
-    PERSONAL = "personal"  # Only the payer (no split)
-    EQUAL = "equal"  # Split equally among all participants
-    AMOUNT = "amount"  # Custom amounts per person (in cents)
-    PERCENTAGE = "percentage"  # Custom percentages per person
+    Attributes:
+        DRAFT: Transaction is being created or edited. Not yet finalized.
+        PENDING: Transaction is submitted and awaiting approval.
+        APPROVED: Transaction has been approved and is active in the period.
+        REJECTED: Transaction has been rejected and will not be processed.
+    """
+
+    DRAFT = "draft"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class SplitKind(str, Enum):
+    """
+    Enumeration of methods for splitting transaction costs among users.
+
+    Attributes:
+        PERSONAL: Only the payer bears the cost (no split among participants).
+        EQUAL: Split equally among all participants in the transaction.
+        AMOUNT: Custom fixed amounts per person (specified in cents).
+        PERCENTAGE: Custom percentage allocation per person (0.0 to 100.0).
+    """
+
+    PERSONAL = "personal"
+    EQUAL = "equal"
+    AMOUNT = "amount"
+    PERCENTAGE = "percentage"
 
 
 class Category(TimestampMixin, Base):
@@ -69,19 +103,25 @@ class Transaction(AuditMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    transaction_kind: Mapped[str] = mapped_column(
+    transaction_kind: Mapped[TransactionKind] = mapped_column(
         String(50),
-        CheckConstraint("transaction_kind IN ('expense', 'deposit', 'refund')"),
         nullable=False,
     )
-    split_kind: Mapped[str] = mapped_column(
+    split_kind: Mapped[SplitKind] = mapped_column(
         String(20),
-        CheckConstraint("split_kind IN ('personal', 'equal', 'amount', 'percentage')"),
-        default="equal",
+        default=SplitKind.PERSONAL,
+        nullable=True,
+    )
+    status: Mapped[TransactionStatus] = mapped_column(
+        default=TransactionStatus.DRAFT,
         nullable=False,
+        index=True,
     )
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)  # Stored in cents
+    date_incurred: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
     payer_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     category_id: Mapped[int] = mapped_column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
     period_id: Mapped[int] = mapped_column(Integer, ForeignKey("periods.id"), nullable=False, index=True)
@@ -99,26 +139,6 @@ class Transaction(AuditMixin, Base):
         back_populates="transaction",
         cascade="all, delete-orphan",
     )
-
-    @validates("transaction_kind")
-    def validate_transaction_kind(self, key: str, value: str | TransactionKind) -> str:
-        """Ensure transaction_kind is a valid TransactionKind value."""
-        if isinstance(value, TransactionKind):
-            return value.value
-        valid_values = [k.value for k in TransactionKind]
-        if value not in valid_values:
-            raise ValueError(f"Invalid transaction_kind: {value}. Must be one of {valid_values}")
-        return value
-
-    @validates("split_kind")
-    def validate_split_kind(self, key: str, value: str | SplitKind) -> str:
-        """Ensure split_kind is a valid SplitKind value."""
-        if isinstance(value, SplitKind):
-            return value.value
-        valid_values = [k.value for k in SplitKind]
-        if value not in valid_values:
-            raise ValueError(f"Invalid split_kind: {value}. Must be one of {valid_values}")
-        return value
 
     @property
     def payer_name(self) -> str | None:
@@ -166,3 +186,49 @@ class ExpenseShare(AuditMixin, Base):
 
     def __repr__(self) -> str:
         return f"<ExpenseShare(transaction_id={self.transaction_id}, user_id={self.user_id})>"
+
+
+class Settlement(AuditMixin, Base):
+    """
+    Settlement model representing actual money transfers between users to balance a period's debt.
+    """
+
+    __tablename__ = "settlements"
+    __table_args__ = (Index("ix_settlement_period_payer_payee", "period_id", "payer_id", "payee_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    period_id: Mapped[int] = mapped_column(Integer, ForeignKey("periods.id"), nullable=False, index=True)
+    payer_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    payee_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)  # Stored in cents
+    date_paid: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+
+    # Relationships
+    period: Mapped[Period] = relationship("Period", back_populates="settlements")
+    payer: Mapped[User] = relationship("User", foreign_keys="Settlement.payer_id")
+    payee: Mapped[User] = relationship("User", foreign_keys="Settlement.payee_id")
+
+    @property
+    def period_name(self) -> str | None:
+        """Get period name from relationship."""
+        return self.period.name if self.period else None
+
+    @property
+    def payer_name(self) -> str | None:
+        """Get payer name from relationship."""
+        return self.payer.name if self.payer else None
+
+    @property
+    def payee_name(self) -> str | None:
+        """Get payee name from relationship."""
+        return self.payee.name if self.payee else None
+
+    def __repr__(self) -> str:
+        return (
+            f"<Settlement(id={self.id}, period_id={self.period_id}, "
+            f"payer={self.payer_id} -> payee={self.payee_id}, amount={self.amount})>"
+        )
