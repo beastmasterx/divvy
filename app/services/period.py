@@ -7,7 +7,7 @@ from app.core.i18n import _
 from app.exceptions import BusinessRuleError, NotFoundError
 from app.models import Period
 from app.repositories import PeriodRepository
-from app.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest
+from app.schemas import PeriodRequest, PeriodResponse
 
 
 class PeriodService:
@@ -34,34 +34,20 @@ class PeriodService:
         """Retrieve the current unsettled period for a specific group."""
         return await self.period_repository.get_current_period_by_group_id(group_id)
 
-    async def _validate_start_date(self, start_date: datetime | None) -> datetime:
-        date: datetime = start_date if start_date else datetime.now(UTC)
-
-        if date > datetime.now(UTC):
-            raise BusinessRuleError(_("Period start date cannot be in the future"))
-
-        return date
-
-    async def create_period(self, request: PeriodCreateRequest) -> PeriodResponse:
+    async def create_period(self, group_id: int, request: PeriodRequest) -> PeriodResponse:
         """Create a new period."""
-        period = Period(name=request.name, group_id=request.group_id)
-        period.start_date = await self._validate_start_date(request.start_date)
+        period = Period(name=request.name, group_id=group_id)
         period = await self.period_repository.create_period(period)
         return PeriodResponse.model_validate(period)
 
-    async def update_period(self, period_id: int, request: PeriodUpdateRequest) -> PeriodResponse:
+    async def update_period(self, period_id: int, request: PeriodRequest) -> PeriodResponse:
         """Update an existing period."""
         # Fetch from repository (need ORM for modification)
         period = await self.period_repository.get_period_by_id(period_id)
         if not period:
             raise NotFoundError(_("Period %s not found") % period_id)
 
-        if request.name:
-            period.name = request.name
-
-        if request.start_date:
-            period.start_date = await self._validate_start_date(request.start_date)
-
+        period.name = request.name
         updated_period = await self.period_repository.update_period(period)
         return PeriodResponse.model_validate(updated_period)
 

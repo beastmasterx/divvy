@@ -16,7 +16,7 @@ from .authentication import (
 )
 from .category import CategoryRequest, CategoryResponse
 from .group import GroupRequest, GroupResponse, GroupRoleAssignmentRequest
-from .period import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest
+from .period import PeriodRequest, PeriodResponse
 from .transaction import (
     ExpenseShareRequest,
     ExpenseShareResponse,
@@ -38,8 +38,7 @@ __all__ = [
     "GroupRoleAssignmentRequest",
     "LinkingRequiredResponse",
     "OAuthAuthorizeResponse",
-    "PeriodCreateRequest",
-    "PeriodUpdateRequest",
+    "PeriodRequest",
     "PeriodResponse",
     "TransactionRequest",
     "TransactionResponse",

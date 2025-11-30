@@ -3,19 +3,10 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class PeriodCreateRequest(BaseModel):
+class PeriodRequest(BaseModel):
     """Schema for period request."""
 
-    group_id: int = Field(..., description="Group ID")
     name: str = Field(..., description="Period name")
-    start_date: datetime | None = Field(default=None, description="Period start date")
-
-
-class PeriodUpdateRequest(BaseModel):
-    """Schema for period update request."""
-
-    name: str | None = Field(default=None, description="Period name")
-    start_date: datetime | None = Field(default=None, description="Period start date")
 
 
 class PeriodResponse(BaseModel):

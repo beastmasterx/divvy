@@ -9,7 +9,7 @@ import pytest
 
 from app.exceptions import NotFoundError
 from app.models import Group, Period, User
-from app.schemas import PeriodCreateRequest, PeriodUpdateRequest
+from app.schemas import PeriodRequest
 from app.services import PeriodService
 
 
@@ -57,9 +57,9 @@ class TestPeriodService:
     ):
         """Test creating a new period."""
         group = await group_factory(name="Test Group")
-        request = PeriodCreateRequest(name="New Period", group_id=group.id)
+        request = PeriodRequest(name="New Period")
 
-        created = await period_service.create_period(request)
+        created = await period_service.create_period(group.id, request)
 
         assert created.name == "New Period"
         assert created.group_id == group.id
@@ -74,15 +74,11 @@ class TestPeriodService:
         group = await group_factory(name="Test Group")
         period = await period_factory(group_id=group.id, name="Original Name")
 
-        new_start = datetime.now(UTC)
-        request = PeriodUpdateRequest(name="Updated Name", start_date=new_start)
+        request = PeriodRequest(name="Updated Name")
 
         updated = await period_service.update_period(period.id, request)
 
         assert updated.name == "Updated Name"
-        # Compare dates without timezone (database may store without tzinfo)
-        time_diff = abs((updated.start_date.replace(tzinfo=None) - new_start.replace(tzinfo=None)).total_seconds())
-        assert time_diff < 1.0
 
         # Verify the update persisted
         retrieved = await period_service.get_period_by_id(period.id)
@@ -92,7 +88,7 @@ class TestPeriodService:
 
     async def test_update_period_not_exists(self, period_service: PeriodService):
         """Test updating a non-existent period raises NotFoundError."""
-        request = PeriodUpdateRequest(name="Updated Name", start_date=datetime.now(UTC))
+        request = PeriodRequest(name="Updated Name")
 
         with pytest.raises(NotFoundError):
             await period_service.update_period(99999, request)

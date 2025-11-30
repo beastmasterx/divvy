@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
-from app.api.dependencies.authz.period import requires_group_role_for_period, requires_group_role_for_period_creation
+from app.api.dependencies.authz import requires_group_role, requires_group_role_for_period
 from app.api.dependencies.db import get_serializable_db
 from app.api.dependencies.services import (
     get_period_service,
@@ -18,7 +18,7 @@ from app.api.dependencies.services import (
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import GroupRole
-from app.schemas import PeriodCreateRequest, PeriodResponse, PeriodUpdateRequest, SettlementPlanResponse, UserResponse
+from app.schemas import PeriodRequest, PeriodResponse, SettlementPlanResponse, UserResponse
 from app.services import PeriodService, SettlementService
 
 router = APIRouter(prefix="/periods", tags=["periods"], dependencies=[Depends(get_current_user)])
@@ -42,23 +42,22 @@ async def get_period(
 
 @router.post("/", response_model=PeriodResponse, status_code=status.HTTP_201_CREATED)
 async def create_period(
-    period: PeriodCreateRequest,
-    _current_user: Annotated[
-        UserResponse, Depends(requires_group_role_for_period_creation(GroupRole.OWNER, GroupRole.ADMIN))
-    ],
+    group_id: int,
+    period: PeriodRequest,
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
     period_service: Annotated[PeriodService, Depends(get_period_service)],
 ) -> PeriodResponse:
     """
     Create a new period.
     Requires owner or admin role in the group specified in the request.
     """
-    return await period_service.create_period(period)
+    return await period_service.create_period(group_id, period)
 
 
 @router.put("/{period_id}", response_model=PeriodResponse)
 async def update_period(
     period_id: int,
-    period: PeriodUpdateRequest,
+    period: PeriodRequest,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
 ) -> PeriodResponse:
