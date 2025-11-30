@@ -20,7 +20,7 @@ class TestSettlementService:
 
     async def test_get_all_balances_empty_period(
         self,
-        settlement_service: SettlementService,
+        transaction_service: TransactionService,
         user_factory: Callable[..., Awaitable[User]],
         group_factory: Callable[..., Awaitable[Group]],
         period_factory: Callable[..., Awaitable[Period]],
@@ -32,7 +32,7 @@ class TestSettlementService:
 
         period = await period_factory(group_id=group.id, name="Empty Period", created_by=user.id)
 
-        balances = await settlement_service.get_all_balances(period.id)
+        balances = await transaction_service.get_all_balances(period.id)
 
         assert isinstance(balances, dict)
         assert len(balances) == 0
@@ -61,7 +61,6 @@ class TestSettlementService:
             amount=10000,  # $100.00
             payer_id=user1.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.DEPOSIT,
             split_kind=SplitKind.PERSONAL,
             expense_shares=[],
@@ -71,15 +70,14 @@ class TestSettlementService:
             amount=5000,  # $50.00
             payer_id=user2.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.DEPOSIT,
             split_kind=SplitKind.PERSONAL,
             expense_shares=[],
         )
-        await transaction_service.create_transaction(deposit1)
-        await transaction_service.create_transaction(deposit2)
+        await transaction_service.create_transaction(period.id, deposit1)
+        await transaction_service.create_transaction(period.id, deposit2)
 
-        balances = await settlement_service.get_all_balances(period.id)
+        balances = await transaction_service.get_all_balances(period.id)
 
         assert balances[user1.id] == 10000  # User 1 is owed $100
         assert balances[user2.id] == 5000  # User 2 is owed $50
@@ -108,7 +106,6 @@ class TestSettlementService:
             amount=10000,  # $100.00
             payer_id=user1.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[
@@ -116,9 +113,9 @@ class TestSettlementService:
                 ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
             ],
         )
-        await transaction_service.create_transaction(expense)
+        await transaction_service.create_transaction(period.id, expense)
 
-        balances = await settlement_service.get_all_balances(period.id)
+        balances = await transaction_service.get_all_balances(period.id)
 
         # User 1 paid $100, owes $50 share = +$50
         # User 2 owes $50 share = -$50
@@ -148,23 +145,31 @@ class TestSettlementService:
     async def test_get_settlement_plan_no_settlement_category(
         self,
         settlement_service: SettlementService,
+        period_service: PeriodService,
         group_factory: Callable[..., Awaitable[Group]],
         period_factory: Callable[..., Awaitable[Period]],
     ):
-        """Test getting settlement plan when Settlement category doesn't exist raises NotFoundError."""
+        """Test getting settlement plan for a period with no transactions returns empty plan."""
         # Create required dependencies
         group = await group_factory(name="Test Group")
 
         period = await period_factory(group_id=group.id, name="Test Period")
 
-        # Settlement category doesn't exist
-        with pytest.raises(NotFoundError):
-            await settlement_service.get_settlement_plan(period.id)
+        # Close the period first (required for settlement plan)
+        await period_service.close_period(period.id)
+
+        # Get settlement plan for period with no transactions
+        plan = await settlement_service.get_settlement_plan(period.id)
+
+        # Should return empty plan when there are no balances
+        assert isinstance(plan, list)
+        assert len(plan) == 0
 
     async def test_get_settlement_plan_with_balances(
         self,
         settlement_service: SettlementService,
         transaction_service: TransactionService,
+        period_service: PeriodService,
         user_factory: Callable[..., Awaitable[User]],
         group_factory: Callable[..., Awaitable[Group]],
         category_factory: Callable[..., Awaitable[Category]],
@@ -186,7 +191,6 @@ class TestSettlementService:
             amount=10000,  # $100.00
             payer_id=user1.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[
@@ -194,25 +198,23 @@ class TestSettlementService:
                 ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
             ],
         )
-        await transaction_service.create_transaction(expense)
+        await transaction_service.create_transaction(period.id, expense)
+
+        # Close the period first (required for settlement plan)
+        await period_service.close_period(period.id)
 
         plan = await settlement_service.get_settlement_plan(period.id)
 
         assert isinstance(plan, list)
         # User 1 is owed $50, User 2 owes $50
-        # So plan should have transactions for both
-        assert len(plan) == 2
-        # Find transactions for each user
-        user1_tx = next((t for t in plan if t.payer_id == user1.id), None)
-        user2_tx = next((t for t in plan if t.payer_id == user2.id), None)
-        assert user1_tx is not None
-        assert user2_tx is not None
-        # User 1 should receive deposit (positive balance)
-        assert user1_tx.transaction_kind == TransactionKind.DEPOSIT
-        assert user1_tx.amount > 0
-        # User 2 should make payment (negative balance)
-        assert user2_tx.transaction_kind == TransactionKind.REFUND
-        assert user2_tx.amount < 0
+        # Settlement algorithm minimizes transfers, so there should be 1 transfer: User 2 pays User 1 $50
+        assert len(plan) == 1
+        # Find the settlement entry
+        settlement = plan[0]
+        # User 2 should pay User 1
+        assert settlement.payer_id == user2.id
+        assert settlement.payee_id == user1.id
+        assert settlement.amount == 5000  # $50.00
 
     async def test_apply_settlement_plan(
         self,
@@ -241,7 +243,6 @@ class TestSettlementService:
             amount=10000,  # $100.00
             payer_id=user1.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[
@@ -249,7 +250,10 @@ class TestSettlementService:
                 ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
             ],
         )
-        await transaction_service.create_transaction(expense)
+        await transaction_service.create_transaction(period.id, expense)
+
+        # Close the period first (required for settlement)
+        await period_service.close_period(period.id)
 
         # Apply settlement
         await settlement_service.apply_settlement_plan(period.id, db_session)
@@ -257,9 +261,14 @@ class TestSettlementService:
         # Verify period is settled
         settled_period = await period_service.get_period_by_id(period.id)
         assert settled_period is not None
-        assert settled_period.is_closed is True
+        assert settled_period.status.value == "settled"
 
-        # Verify settlement transactions were created
-        settlement_transactions = await transaction_service.get_transactions_by_period_id(period.id)
-        settlement_txs = [tx for tx in settlement_transactions if "Settlement" in (tx.description or "")]
-        assert len(settlement_txs) > 0
+        # Verify settlement entities were created
+        settlements = await settlement_service.get_settlements_by_period_id(period.id)
+        assert len(settlements) > 0
+        # Verify settlement structure
+        for settlement in settlements:
+            assert settlement.payer_id is not None
+            assert settlement.payee_id is not None
+            assert settlement.amount > 0
+            assert settlement.period_id == period.id

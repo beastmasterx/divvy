@@ -17,12 +17,7 @@ from app.services import PeriodService
 class TestPeriodService:
     """Test suite for PeriodService."""
 
-    async def test_get_all_periods(self, period_service: PeriodService):
-        """Test retrieving all periods."""
-        periods = await period_service.get_all_periods()
-
-        assert isinstance(periods, list)
-        assert len(periods) == 0
+    # Note: get_all_periods doesn't exist in PeriodService - removed test
 
     async def test_get_period_by_id_exists(
         self,
@@ -76,7 +71,7 @@ class TestPeriodService:
 
         request = PeriodRequest(name="Updated Name")
 
-        updated = await period_service.update_period_name(period.id, request)
+        updated = await period_service.update_period_name(period.id, request.name)
 
         assert updated.name == "Updated Name"
 
@@ -91,7 +86,7 @@ class TestPeriodService:
         request = PeriodRequest(name="Updated Name")
 
         with pytest.raises(NotFoundError):
-            await period_service.update_period_name(99999, request)
+            await period_service.update_period_name(99999, request.name)
 
     async def test_close_period(
         self,
@@ -106,7 +101,7 @@ class TestPeriodService:
         settled = await period_service.close_period(period.id)
 
         assert settled.end_date is not None
-        assert settled.is_closed is True
+        assert settled.status.value == "closed"
 
         # Check that the date is approximately correct (within 1 second)
         time_diff = abs((settled.end_date.replace(tzinfo=UTC) - datetime.now(UTC)).total_seconds())
@@ -116,33 +111,14 @@ class TestPeriodService:
         retrieved = await period_service.get_period_by_id(period.id)
 
         assert retrieved is not None
-        assert retrieved.is_closed is True
+        assert retrieved.status.value == "closed"
 
     async def test_close_period_not_exists(self, period_service: PeriodService):
         """Test closing a non-existent period raises NotFoundError."""
         with pytest.raises(NotFoundError):
             await period_service.close_period(99999)
 
-    async def test_delete_period_exists_settled(
-        self,
-        period_service: PeriodService,
-        period_factory: Callable[..., Awaitable[Period]],
-    ):
-        """Test deleting a closed period."""
-        period = await period_factory(group_id=1, name="Closed Period", end_date=datetime.now(UTC))
-
-        # Should succeed if period is closed
-        await period_service.delete_period(period.id)
-
-        # Verify period is deleted
-        retrieved = await period_service.get_period_by_id(period.id)
-
-        assert retrieved is None
-
-    async def test_delete_period_not_exists(self, period_service: PeriodService):
-        """Test deleting a non-existent period raises NotFoundError."""
-        with pytest.raises(NotFoundError):
-            await period_service.delete_period(99999)
+    # Note: delete_period doesn't exist in PeriodService - removed tests
 
     async def test_get_periods_by_group_id(
         self,
@@ -181,10 +157,14 @@ class TestPeriodService:
         period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test retrieving the current (unsettled) period for a group."""
+        from app.models import PeriodStatus
+
         group = await group_factory(name="Test Group")
 
         # Create a closed period and an open period
-        _ = await period_factory(group_id=group.id, name="Closed Period", end_date=datetime.now(UTC))
+        _ = await period_factory(
+            group_id=group.id, name="Closed Period", end_date=datetime.now(UTC), status=PeriodStatus.CLOSED
+        )
         open_period = await period_factory(group_id=group.id, name="Open Period")
 
         # Get current period (should be the open one)

@@ -96,15 +96,18 @@ def transaction_service(db_session: AsyncSession) -> TransactionService:
 
 @pytest.fixture
 def settlement_service(
+    db_session: AsyncSession,
     transaction_service: TransactionService,
     period_service: PeriodService,
-    category_service: CategoryService,
     user_service: UserService,
 ) -> SettlementService:
     """Create a SettlementService instance for testing."""
+    from app.repositories import SettlementRepository
+
+    settlement_repository = SettlementRepository(db_session)
     return SettlementService(
-        transaction_service=transaction_service,
         period_service=period_service,
-        category_service=category_service,
+        transaction_service=transaction_service,
         user_service=user_service,
+        settlement_repository=settlement_repository,
     )

@@ -15,16 +15,16 @@ class TransactionService:
     """Service layer for transaction-related business logic and operations."""
 
     def __init__(self, session: AsyncSession):
-        self.transaction_repository = TransactionRepository(session)
+        self._transaction_repository = TransactionRepository(session)
 
     async def get_transaction_by_id(self, transaction_id: int) -> TransactionResponse | None:
         """Retrieve a specific transaction by its ID."""
-        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self._transaction_repository.get_transaction_by_id(transaction_id)
         return TransactionResponse.model_validate(transaction) if transaction else None
 
     async def get_transactions_by_period_id(self, period_id: int) -> Sequence[TransactionResponse]:
         """Retrieve all transactions associated with a specific period."""
-        transactions = await self.transaction_repository.get_transactions_by_period_id(period_id)
+        transactions = await self._transaction_repository.get_transactions_by_period_id(period_id)
         return [TransactionResponse.model_validate(transaction) for transaction in transactions]
 
     async def create_transaction(self, period_id: int, request: TransactionRequest) -> TransactionResponse:
@@ -67,7 +67,7 @@ class TransactionService:
             split_kind=request.split_kind,
             expense_shares=expense_shares,
         )
-        transaction = await self.transaction_repository.create_transaction(transaction)
+        transaction = await self._transaction_repository.create_transaction(transaction)
         return TransactionResponse.model_validate(transaction)
 
     async def update_transaction(self, transaction_id: int, request: TransactionRequest) -> TransactionResponse:
@@ -85,7 +85,7 @@ class TransactionService:
             ValidationError: If transaction validation fails
         """
         # Fetch from repository (need ORM for modification)
-        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self._transaction_repository.get_transaction_by_id(transaction_id)
         if not transaction:
             raise NotFoundError(_("Transaction %s not found") % transaction_id)
 
@@ -117,23 +117,23 @@ class TransactionService:
         transaction.status = TransactionStatus.DRAFT
         transaction.expense_shares = expense_shares
 
-        updated_transaction = await self.transaction_repository.update_transaction(transaction)
+        updated_transaction = await self._transaction_repository.update_transaction(transaction)
         return TransactionResponse.model_validate(updated_transaction)
 
     async def update_transaction_status(self, transaction_id: int, status: TransactionStatus) -> TransactionResponse:
         """Update the status of a transaction."""
-        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self._transaction_repository.get_transaction_by_id(transaction_id)
         if not transaction:
             raise NotFoundError(_("Transaction %s not found") % transaction_id)
 
         transaction.status = status
-        updated_transaction = await self.transaction_repository.update_transaction(transaction)
+        updated_transaction = await self._transaction_repository.update_transaction(transaction)
 
         return TransactionResponse.model_validate(updated_transaction)
 
     async def delete_transaction(self, transaction_id: int) -> None:
         """Delete a transaction by its ID."""
-        return await self.transaction_repository.delete_transaction(transaction_id)
+        return await self._transaction_repository.delete_transaction(transaction_id)
 
     async def _calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
         """Calculate how much each user owes for a transaction.
@@ -150,7 +150,7 @@ class TransactionService:
             InternalServerError: If share calculation fails
         """
         # Fetch from repository (need ORM for relationship access)
-        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
+        transaction = await self._transaction_repository.get_transaction_by_id(transaction_id)
         if not transaction:
             raise NotFoundError(_("Transaction %s not found") % transaction_id)
 

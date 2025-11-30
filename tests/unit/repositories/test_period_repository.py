@@ -21,30 +21,7 @@ class TestPeriodRepository:
     def period_repository(self, db_session: AsyncSession) -> PeriodRepository:
         return PeriodRepository(db_session)
 
-    async def test_get_all_periods_empty(self, period_repository: PeriodRepository):
-        """Test retrieving all periods when database is empty."""
-        periods = await period_repository.get_all_periods()
-        assert isinstance(periods, list)
-        assert len(periods) == 0
-
-    async def test_get_all_periods_multiple(
-        self,
-        period_repository: PeriodRepository,
-        group_factory: Callable[..., Awaitable[Group]],
-        period_factory: Callable[..., Awaitable[Period]],
-    ):
-        """Test retrieving all periods when multiple exist."""
-        # Create multiple periods (requires group_id)
-        group = await group_factory(name="Test Group")
-        period1 = await period_factory(group_id=group.id, name="Period 1")
-        period2 = await period_factory(group_id=group.id, name="Period 2")
-
-        periods = await period_repository.get_all_periods()
-
-        assert len(periods) >= 2
-        period_names = {p.name for p in periods}
-        assert period1.name in period_names
-        assert period2.name in period_names
+    # Note: get_all_periods doesn't exist in PeriodRepository - removed tests
 
     async def test_get_period_by_id_exists(
         self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
@@ -69,7 +46,7 @@ class TestPeriodRepository:
 
         assert created.id is not None
         assert created.name == "New Period"
-        assert created.is_closed is False
+        assert created.status.value == "open"
         assert created.group_id == 1
 
         # Verify it's in the database
@@ -90,14 +67,14 @@ class TestPeriodRepository:
         updated = await period_repository.update_period(period)
 
         assert updated.name == "Updated Name"
-        assert updated.is_closed is True
+        assert updated.end_date is not None
 
         # Verify the update persisted
         retrieved = await period_repository.get_period_by_id(period.id)
 
         assert retrieved is not None
         assert retrieved.name == "Updated Name"
-        assert retrieved.is_closed is True
+        assert retrieved.end_date is not None
 
     async def test_delete_period_exists(
         self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
@@ -152,17 +129,28 @@ class TestPeriodRepository:
         assert len(periods) == 0
 
     async def test_get_current_period_by_group_id(
-        self, period_repository: PeriodRepository, period_factory: Callable[..., Awaitable[Period]]
+        self,
+        period_repository: PeriodRepository,
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
     ):
         """Test retrieving the current (unsettled) period for a group."""
         from datetime import UTC, datetime
 
+        from app.models import PeriodStatus
+
+        # Create groups
+        group1 = await group_factory(name="Group 1")
+        group2 = await group_factory(name="Group 2")
+
         # Create a closed period and an open period for group 1
-        _ = await period_factory(group_id=1, name="Closed Period", end_date=datetime.now(UTC))
-        open_period = await period_factory(group_id=1, name="Open Period")
+        _ = await period_factory(
+            group_id=group1.id, name="Closed Period", end_date=datetime.now(UTC), status=PeriodStatus.CLOSED
+        )
+        open_period = await period_factory(group_id=group1.id, name="Open Period")
 
         # Get current period for group 1 (should be the open one)
-        current = await period_repository.get_active_period_by_group_id(1)
+        current = await period_repository.get_active_period_by_group_id(group1.id)
 
         assert current is not None
         assert current.id == open_period.id
@@ -170,6 +158,6 @@ class TestPeriodRepository:
         assert current.end_date is None
 
         # Get current period for group with no open periods
-        current = await period_repository.get_active_period_by_group_id(2)
+        current = await period_repository.get_active_period_by_group_id(group2.id)
 
         assert current is None

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import NotFoundError
-from app.models import Group, GroupRole
+from app.models import Group, GroupRole, PeriodStatus
 from app.repositories import GroupRepository, UserRepository
 from app.schemas import GroupRequest, GroupResponse
 from app.services.authorization import AuthorizationService
@@ -183,6 +183,6 @@ class GroupService:
     async def has_active_period_with_transactions(self, group_id: int) -> bool:
         """Check if a group has an active period with transactions."""
         active_period = await self._period_service.get_active_period_by_group_id(group_id)
-        if not active_period or active_period.is_closed:
+        if not active_period or active_period.status != PeriodStatus.OPEN:
             return False
         return len(active_period.transactions) > 0

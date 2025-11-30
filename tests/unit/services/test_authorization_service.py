@@ -98,7 +98,7 @@ class TestAuthorizationService:
         # Assign group role
         await authorization_service.assign_group_role(user.id, group.id, GroupRole.ADMIN)
 
-        role = await authorization_service.get_group_role(user.id, group.id)
+        role = await authorization_service.get_group_role_by_group_id(user.id, group.id)
 
         assert role == GroupRole.ADMIN.value
 
@@ -112,7 +112,7 @@ class TestAuthorizationService:
         user = await user_factory(email="user@example.com", name="User")
         group = await group_factory(name="Test Group")
 
-        role = await authorization_service.get_group_role(user.id, group.id)
+        role = await authorization_service.get_group_role_by_group_id(user.id, group.id)
 
         assert role is None
 
@@ -128,7 +128,7 @@ class TestAuthorizationService:
 
         await authorization_service.assign_group_role(user.id, group.id, GroupRole.MEMBER)
 
-        role = await authorization_service.get_group_role(user.id, group.id)
+        role = await authorization_service.get_group_role_by_group_id(user.id, group.id)
 
         assert role == GroupRole.MEMBER.value
 
@@ -145,12 +145,12 @@ class TestAuthorizationService:
         # Assign member role
         await authorization_service.assign_group_role(user.id, group.id, GroupRole.MEMBER)
 
-        assert await authorization_service.get_group_role(user.id, group.id) == GroupRole.MEMBER.value
+        assert await authorization_service.get_group_role_by_group_id(user.id, group.id) == GroupRole.MEMBER.value
 
         # Update to admin
         await authorization_service.assign_group_role(user.id, group.id, GroupRole.ADMIN)
 
-        assert await authorization_service.get_group_role(user.id, group.id) == GroupRole.ADMIN.value
+        assert await authorization_service.get_group_role_by_group_id(user.id, group.id) == GroupRole.ADMIN.value
 
     async def test_assign_group_role_remove(
         self,
@@ -165,12 +165,12 @@ class TestAuthorizationService:
         # Assign role
         await authorization_service.assign_group_role(user.id, group.id, GroupRole.MEMBER)
 
-        assert await authorization_service.get_group_role(user.id, group.id) == GroupRole.MEMBER.value
+        assert await authorization_service.get_group_role_by_group_id(user.id, group.id) == GroupRole.MEMBER.value
 
         # Remove role
         await authorization_service.assign_group_role(user.id, group.id, None)
 
         # Verify it's removed
-        role = await authorization_service.get_group_role(user.id, group.id)
+        role = await authorization_service.get_group_role_by_group_id(user.id, group.id)
 
         assert role is None

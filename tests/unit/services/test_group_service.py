@@ -175,7 +175,7 @@ class TestGroupService:
         assert is_member is True
 
         # Verify role is member
-        role = await authorization_service.get_group_role(member_user.id, group_with_owner.id)
+        role = await authorization_service.get_group_role_by_group_id(member_user.id, group_with_owner.id)
         assert role == GroupRole.MEMBER.value
 
     async def test_assign_group_role_add_member_already_member(
@@ -228,7 +228,7 @@ class TestGroupService:
         )
 
         # Verify role is admin
-        role = await authorization_service.get_group_role(member_user.id, group_with_owner.id)
+        role = await authorization_service.get_group_role_by_group_id(member_user.id, group_with_owner.id)
         assert role == GroupRole.ADMIN.value
 
     async def test_assign_group_role_assign_admin_not_member(
@@ -277,7 +277,7 @@ class TestGroupService:
         assert owner_id == member_user.id
 
         # Verify old owner is now member
-        old_owner_role = await authorization_service.get_group_role(owner_user.id, group_with_owner.id)
+        old_owner_role = await authorization_service.get_group_role_by_group_id(owner_user.id, group_with_owner.id)
         assert old_owner_role == GroupRole.MEMBER.value
 
     async def test_transfer_group_owner_to_non_member(
@@ -418,7 +418,7 @@ class TestGroupService:
         )
 
         # Verify user is removed
-        role = await authorization_service.get_group_role(member_user.id, group_with_owner.id)
+        role = await authorization_service.get_group_role_by_group_id(member_user.id, group_with_owner.id)
         assert role is None
 
     async def test_remove_user_from_group_no_active_period(
@@ -444,7 +444,7 @@ class TestGroupService:
         )
 
         # Verify user is removed
-        role = await authorization_service.get_group_role(member_user.id, group_with_owner.id)
+        role = await authorization_service.get_group_role_by_group_id(member_user.id, group_with_owner.id)
         assert role is None
 
     async def test_delete_group_with_unsettled_period(
