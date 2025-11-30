@@ -15,17 +15,17 @@ If the user's role does not satisfy the requirements, a 403 ForbiddenError is ra
 """
 
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import Depends, Path
+from fastapi import Depends
 
 from app.api.dependencies.authn import get_current_user
-from app.api.dependencies.services import get_authorization_service, get_period_service
+from app.api.dependencies.services import get_authorization_service
 from app.core.i18n import _
 from app.exceptions import ForbiddenError, NotFoundError
 from app.models import GroupRole, SystemRole
 from app.schemas import UserResponse
-from app.services import AuthorizationService, PeriodService
+from app.services import AuthorizationService
 
 # Type alias for the acceptable role types (Enum or str)
 RoleType = SystemRole | GroupRole | str
@@ -75,7 +75,7 @@ def _get_display_role_name(role_value: str) -> str:
     return _(clean_name.title())
 
 
-def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[UserResponse]]:
+def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[Any]]:
     """
     Factory function to create a dependency that requires a specific system role.
 
@@ -112,7 +112,7 @@ def requires_system_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespon
     return _verify_system_role
 
 
-def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[UserResponse]]:
+def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[Any]]:
     """
     Factory function to create a dependency that requires a specific group role
     for the resource identified by 'group_id' in the path.
@@ -132,17 +132,16 @@ def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[UserRespons
     role_list_display = ", ".join(display_names)
 
     async def _verify_group_role(
-        # The Path(...) dependency ensures group_id is provided in the route
-        group_id: Annotated[int, Path(description=_("The unique ID of the target group."))],
+        group_id: int,
         current_user: Annotated[UserResponse, Depends(get_current_user)],
         authorization_service: AuthorizationService = Depends(get_authorization_service),
     ) -> UserResponse:
+        role = await authorization_service.get_group_role_by_group_id(current_user.id, group_id)
 
-        # Check if the user has a role in the context of the provided group_id
-        user_role = await authorization_service.get_group_role(current_user.id, group_id)
+        if role is None:
+            raise NotFoundError(_("Group not found"))
 
-        if user_role is None or user_role not in required_role_values:
-            # Use the translated display names in the Forbidden error
+        if role not in required_role_values:
             raise ForbiddenError(
                 _("Access denied. You do not have the required role (%(roles)s) for this resource.")
                 % {"roles": role_list_display}
@@ -172,23 +171,20 @@ def requires_group_role_for_period(*roles: RoleType) -> Callable[..., Awaitable[
     display_names = [_get_display_role_name(r) for r in required_role_values]
     role_list_display = ", ".join(display_names)
 
-    async def _check_user_group_role(
-        period_id: Annotated[int, Path(description=_("The unique ID of the target period."))],
+    async def _check_group_role_for_period(
+        period_id: int,
         current_user: Annotated[UserResponse, Depends(get_current_user)],
-        period_service: PeriodService = Depends(get_period_service),
         authorization_service: AuthorizationService = Depends(get_authorization_service),
     ) -> UserResponse:
         """
         Internal PEP check: Retrieves period details and verifies the user's role within that context.
         """
-        period = await period_service.get_period_by_id(period_id)
+        role = await authorization_service.get_group_role_by_period_id(current_user.id, period_id)
 
-        if not period:
-            raise NotFoundError(_("Period %s not found") % period_id)
+        if role is None:
+            raise NotFoundError(_("Period not found"))
 
-        user_role = await authorization_service.get_group_role(current_user.id, period.group_id)
-
-        if user_role is None or user_role not in required_role_values:
+        if role not in required_role_values:
             raise ForbiddenError(
                 _(
                     "Access denied. You do not have the required role (%(roles)s) for the group associated with this period."
@@ -198,4 +194,52 @@ def requires_group_role_for_period(*roles: RoleType) -> Callable[..., Awaitable[
 
         return current_user
 
-    return _check_user_group_role
+    return _check_group_role_for_period
+
+
+def requires_group_role_for_transaction(*roles: RoleType) -> Callable[..., Awaitable[Any]]:
+    """
+    Factory function to create a dependency that requires a specific group role
+    for the group associated with the transaction identified by 'transaction_id' in the path.
+
+    This function first retrieves the transaction to extract its period_id, then retrieves
+    the period to get its group_id, and finally checks if the user has the required role
+    in that group.
+
+    Args:
+        *roles: A variable number of required GroupRole objects or string values.
+                Access is granted if the user possesses ANY of the provided roles
+                within the context of the transaction's period's group.
+
+    Returns:
+        A callable FastAPI dependency that raises ForbiddenError on failure.
+    """
+    required_role_values = _normalize_roles(roles)
+    display_names = [_get_display_role_name(r) for r in required_role_values]
+    role_list_display = ", ".join(display_names)
+
+    async def _check_group_role_for_transaction(
+        transaction_id: int,
+        current_user: Annotated[UserResponse, Depends(get_current_user)],
+        authorization_service: AuthorizationService = Depends(get_authorization_service),
+    ) -> UserResponse:
+        """
+        Internal PEP check: Retrieves transaction and period details, then verifies
+        the user's role within the period's group context.
+        """
+        role = await authorization_service.get_group_role_by_transaction_id(current_user.id, transaction_id)
+
+        if role is None:
+            raise NotFoundError(_("Transaction not found"))
+
+        if role not in required_role_values:
+            raise ForbiddenError(
+                _(
+                    "Access denied. You do not have the required role (%(roles)s) for the group associated with this transaction."
+                )
+                % {"roles": role_list_display}
+            )
+
+        return current_user
+
+    return _check_group_role_for_transaction

@@ -48,9 +48,17 @@ class AuthorizationService:
 
     # ========== Group Role Management ==========
 
-    async def get_group_role(self, user_id: int, group_id: int) -> str | None:
+    async def get_group_role_by_group_id(self, user_id: int, group_id: int) -> str | None:
         """Get user's role in a specific group."""
-        return await self._auth_repository.get_group_role(user_id, group_id)
+        return await self._auth_repository.get_group_role_by_group_id(user_id, group_id)
+
+    async def get_group_role_by_period_id(self, user_id: int, period_id: int) -> str | None:
+        """Get user's role in a specific period."""
+        return await self._auth_repository.get_group_role_by_period_id(user_id, period_id)
+
+    async def get_group_role_by_transaction_id(self, user_id: int, transaction_id: int) -> str | None:
+        """Get user's role in a specific transaction."""
+        return await self._auth_repository.get_group_role_by_transaction_id(user_id, transaction_id)
 
     async def get_group_owner(self, group_id: int) -> int | None:
         """Get the owner user_id for a group."""

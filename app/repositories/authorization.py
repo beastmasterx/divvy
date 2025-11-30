@@ -5,7 +5,7 @@ Repository for authorization-related data access.
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import GroupRoleBinding, SystemRoleBinding
+from app.models import GroupRoleBinding, Period, SystemRoleBinding, Transaction
 
 
 class AuthorizationRepository:
@@ -63,11 +63,36 @@ class AuthorizationRepository:
 
     # ========== Group Role Bindings ==========
 
-    async def get_group_role(self, user_id: int, group_id: int) -> str | None:
+    async def get_group_role_by_group_id(self, user_id: int, group_id: int) -> str | None:
         """Get user's role in a specific group."""
         stmt = select(GroupRoleBinding.role).where(
             GroupRoleBinding.user_id == user_id,
             GroupRoleBinding.group_id == group_id,
+        )
+        return await self.session.scalar(stmt)
+
+    async def get_group_role_by_period_id(self, user_id: int, period_id: int) -> str | None:
+        """Get user's role in a specific period's group."""
+        stmt = (
+            select(GroupRoleBinding.role)
+            .join(Period, Period.group_id == GroupRoleBinding.group_id)
+            .where(
+                GroupRoleBinding.user_id == user_id,
+                Period.id == period_id,
+            )
+        )
+        return await self.session.scalar(stmt)
+
+    async def get_group_role_by_transaction_id(self, user_id: int, transaction_id: int) -> str | None:
+        """Get user's role in a specific transaction's period's group."""
+        stmt = (
+            select(GroupRoleBinding.role)
+            .join(Period, Period.group_id == GroupRoleBinding.group_id)
+            .join(Transaction, Transaction.period_id == Period.id)
+            .where(
+                GroupRoleBinding.user_id == user_id,
+                Transaction.id == transaction_id,
+            )
         )
         return await self.session.scalar(stmt)
 

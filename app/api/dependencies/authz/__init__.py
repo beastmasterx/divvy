@@ -25,10 +25,16 @@ while Data Integrity failures result in a **422 Unprocessable Entity** error.
 
 """
 
-from .rbac import requires_group_role, requires_group_role_for_period, requires_system_role
+from .rbac import (
+    requires_group_role,
+    requires_group_role_for_period,
+    requires_group_role_for_transaction,
+    requires_system_role,
+)
 
 __all__ = [
     "requires_group_role",
     "requires_group_role_for_period",
+    "requires_group_role_for_transaction",
     "requires_system_role",
 ]

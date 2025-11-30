@@ -127,7 +127,7 @@ class TestAuthorizationRepository:
         # Assign group role
         await group_role_binding_factory(user_id=user.id, group_id=group.id, role=GroupRole.ADMIN.value)
 
-        role = await authorization_repository.get_group_role(user.id, group.id)
+        role = await authorization_repository.get_group_role_by_group_id(user.id, group.id)
         assert role == GroupRole.ADMIN.value
 
     async def test_get_group_role_not_exists(
@@ -140,7 +140,7 @@ class TestAuthorizationRepository:
         user = await user_factory(email="user@example.com", name="User")
         group = await group_factory(name="Test Group")
 
-        role = await authorization_repository.get_group_role(user.id, group.id)
+        role = await authorization_repository.get_group_role_by_group_id(user.id, group.id)
 
         assert role is None
 
@@ -163,7 +163,7 @@ class TestAuthorizationRepository:
         assert binding.role == GroupRole.MEMBER.value
 
         # Verify it's in the database
-        role = await authorization_repository.get_group_role(user.id, group.id)
+        role = await authorization_repository.get_group_role_by_group_id(user.id, group.id)
 
         assert role == GroupRole.MEMBER.value
 
@@ -193,7 +193,7 @@ class TestAuthorizationRepository:
         assert binding2.role == GroupRole.ADMIN.value
 
         # Verify update persisted
-        role = await authorization_repository.get_group_role(user.id, group.id)
+        role = await authorization_repository.get_group_role_by_group_id(user.id, group.id)
 
         assert role == GroupRole.ADMIN.value
 
@@ -210,14 +210,14 @@ class TestAuthorizationRepository:
 
         # Create role
         await authorization_repository.assign_group_role(user.id, group.id, GroupRole.MEMBER.value)
-        assert await authorization_repository.get_group_role(user.id, group.id) == GroupRole.MEMBER.value
+        assert await authorization_repository.get_group_role_by_group_id(user.id, group.id) == GroupRole.MEMBER.value
 
         # Remove role
         result = await authorization_repository.assign_group_role(user.id, group.id, None)
         assert result is None
 
         # Verify it's removed
-        role = await authorization_repository.get_group_role(user.id, group.id)
+        role = await authorization_repository.get_group_role_by_group_id(user.id, group.id)
         assert role is None
 
     async def test_assign_group_role_multiple_groups(
@@ -237,8 +237,8 @@ class TestAuthorizationRepository:
         await authorization_repository.assign_group_role(user.id, group2.id, GroupRole.ADMIN.value)
 
         # Verify different roles
-        role1 = await authorization_repository.get_group_role(user.id, group1.id)
-        role2 = await authorization_repository.get_group_role(user.id, group2.id)
+        role1 = await authorization_repository.get_group_role_by_group_id(user.id, group1.id)
+        role2 = await authorization_repository.get_group_role_by_group_id(user.id, group2.id)
 
         assert role1 == GroupRole.MEMBER.value
         assert role2 == GroupRole.ADMIN.value
