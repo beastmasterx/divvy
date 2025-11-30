@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 import pytest
 
 from app.exceptions import NotFoundError, ValidationError
-from app.models import Category, Period, SplitKind, Transaction, TransactionKind, TransactionStatus, User
+from app.models import Category, Group, Period, SplitKind, Transaction, TransactionKind, TransactionStatus, User
 from app.schemas import ExpenseShareRequest, TransactionRequest
 from app.services import TransactionService
 
@@ -92,7 +92,6 @@ class TestTransactionService:
             amount=10000,  # $100.00
             payer_id=user1.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[
@@ -101,7 +100,7 @@ class TestTransactionService:
             ],
         )
 
-        created = await transaction_service.create_transaction(request)
+        created = await transaction_service.create_transaction(period.id, request)
 
         assert created.id is not None
         assert created.description == "Dinner"
@@ -128,13 +127,12 @@ class TestTransactionService:
             amount=50000,  # $500.00
             payer_id=user.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.DEPOSIT,
             split_kind=SplitKind.PERSONAL,
             expense_shares=[],
         )
 
-        created = await transaction_service.create_transaction(request)
+        created = await transaction_service.create_transaction(period.id, request)
 
         assert created.id is not None
         assert created.description == "Monthly deposit"
@@ -159,14 +157,13 @@ class TestTransactionService:
             amount=10000,
             payer_id=user.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[],  # Empty shares should raise error
         )
 
         with pytest.raises(ValidationError):
-            await transaction_service.create_transaction(request)
+            await transaction_service.create_transaction(period.id, request)
 
     async def test_create_transaction_deposit_with_shares_raises_error(
         self,
@@ -186,7 +183,6 @@ class TestTransactionService:
             amount=10000,
             payer_id=user.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.DEPOSIT,
             split_kind=SplitKind.PERSONAL,
             expense_shares=[
@@ -195,7 +191,7 @@ class TestTransactionService:
         )
 
         with pytest.raises(ValidationError):
-            await transaction_service.create_transaction(request)
+            await transaction_service.create_transaction(period.id, request)
 
     async def test_update_transaction_exists(
         self,
@@ -224,7 +220,6 @@ class TestTransactionService:
             amount=20000,
             payer_id=user.id,
             category_id=category.id,
-            period_id=period.id,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[
@@ -251,7 +246,6 @@ class TestTransactionService:
             amount=10000,
             payer_id=1,
             category_id=1,
-            period_id=1,
             transaction_kind=TransactionKind.EXPENSE,
             split_kind=SplitKind.EQUAL,
             expense_shares=[
@@ -289,115 +283,591 @@ class TestTransactionService:
 
         assert retrieved is None
 
-    async def test_calculate_shares_equal_split(
+    # ============================================================================
+    # get_all_balances tests (indirectly tests _calculate_shares_for_transaction)
+    # ============================================================================
+
+    async def test_get_all_balances_empty_period(
+        self,
+        transaction_service: TransactionService,
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test getting balances for a period with no transactions."""
+        # Create required dependencies
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Empty Period")
+
+        balances = await transaction_service.get_all_balances(period.id)
+
+        assert isinstance(balances, dict)
+        assert len(balances) == 0
+
+    async def test_get_all_balances_with_deposits(
         self,
         transaction_service: TransactionService,
         user_factory: Callable[..., Awaitable[User]],
         category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
         period_factory: Callable[..., Awaitable[Period]],
-        transaction_factory: Callable[..., Awaitable[Transaction]],
     ):
-        """Test calculating shares for equal split transaction."""
+        """Test getting balances with deposit transactions."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Deposit")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        # Create deposits
+        deposit1 = TransactionRequest(
+            description="User 1 deposit",
+            amount=10000,  # $100.00
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.DEPOSIT,
+            split_kind=SplitKind.PERSONAL,
+            expense_shares=[],
+        )
+        deposit2 = TransactionRequest(
+            description="User 2 deposit",
+            amount=5000,  # $50.00
+            payer_id=user2.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.DEPOSIT,
+            split_kind=SplitKind.PERSONAL,
+            expense_shares=[],
+        )
+        await transaction_service.create_transaction(period.id, deposit1)
+        await transaction_service.create_transaction(period.id, deposit2)
+
+        balances = await transaction_service.get_all_balances(period.id)
+
+        assert balances[user1.id] == 10000  # User 1 is owed $100
+        assert balances[user2.id] == 5000  # User 2 is owed $50
+
+    async def test_get_all_balances_with_expenses_equal_split(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test getting balances with expense transactions using equal split."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        # Create expense: User 1 pays $100, split equally between User 1 and User 2
+        expense = TransactionRequest(
+            description="Dinner",
+            amount=10000,  # $100.00
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.EQUAL,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+                ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+            ],
+        )
+        await transaction_service.create_transaction(period.id, expense)
+
+        balances = await transaction_service.get_all_balances(period.id)
+
+        # User 1 paid $100, owes $50 share = +$50
+        # User 2 owes $50 share = -$50
+        assert balances[user1.id] == 5000
+        assert balances[user2.id] == -5000
+
+    async def test_get_all_balances_with_expenses_equal_split_three_users(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test getting balances with equal split transaction (3 users, tests remainder distribution)."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        user3 = await user_factory(email="user3@example.com", name="User 3")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        # Create expense: $10.00 / 3 = $3.33 each with 1 cent remainder
+        expense = TransactionRequest(
+            description="Split bill",
+            amount=1000,  # $10.00
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.EQUAL,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=333, share_percentage=33.33),
+                ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=333, share_percentage=33.33),
+                ExpenseShareRequest(user_id=user3.id, transaction_id=0, share_amount=334, share_percentage=33.34),
+            ],
+        )
+        await transaction_service.create_transaction(period.id, expense)
+
+        balances = await transaction_service.get_all_balances(period.id)
+
+        # User 1 paid $10.00, owes share (333 or 334 cents depending on remainder distribution)
+        # Total shares must equal 1000 cents
+        total_shares = abs(balances[user1.id] - 1000) + abs(balances[user2.id]) + abs(balances[user3.id])
+        assert total_shares == 1000
+
+        # User 1 should have positive balance (paid more than owed)
+        assert balances[user1.id] > 0
+        # Users 2 and 3 should have negative balances (owe money)
+        assert balances[user2.id] < 0
+        assert balances[user3.id] < 0
+
+    async def test_get_all_balances_with_personal_split(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test getting balances with personal split transaction."""
+        # Create required dependencies
+        user = await user_factory(email="user@example.com", name="User")
+        group = await group_factory(name="Test Group")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        # Create expense: User pays $50, personal expense
+        expense = TransactionRequest(
+            description="Personal expense",
+            amount=5000,  # $50.00
+            payer_id=user.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.PERSONAL,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user.id, transaction_id=0, share_amount=5000, share_percentage=100.0)
+            ],
+        )
+        await transaction_service.create_transaction(period.id, expense)
+
+        balances = await transaction_service.get_all_balances(period.id)
+
+        # User paid $50, owes $50 share = $0 balance
+        assert balances[user.id] == 0
+
+    async def test_get_all_balances_with_mixed_transactions(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test getting balances with mixed transactions (deposits, expenses, refunds)."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        group = await group_factory(name="Test Group")
+        deposit_category = await category_factory(name="Deposit")
+        expense_category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        # Create deposit: User 1 deposits $100
+        deposit = TransactionRequest(
+            description="User 1 deposit",
+            amount=10000,  # $100.00
+            payer_id=user1.id,
+            category_id=deposit_category.id,
+            transaction_kind=TransactionKind.DEPOSIT,
+            split_kind=SplitKind.PERSONAL,
+            expense_shares=[],
+        )
+        await transaction_service.create_transaction(period.id, deposit)
+
+        # Create expense: User 1 pays $50, split equally
+        expense = TransactionRequest(
+            description="Dinner",
+            amount=5000,  # $50.00
+            payer_id=user1.id,
+            category_id=expense_category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.EQUAL,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=2500, share_percentage=50.0),
+                ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=2500, share_percentage=50.0),
+            ],
+        )
+        await transaction_service.create_transaction(period.id, expense)
+
+        balances = await transaction_service.get_all_balances(period.id)
+
+        # User 1: +$100 (deposit) + $50 (paid) - $25 (share) = +$125
+        # User 2: -$25 (share)
+        assert balances[user1.id] == 12500
+        assert balances[user2.id] == -2500
+
+    # ============================================================================
+    # Split Kind Tests: AMOUNT and PERCENTAGE
+    # ============================================================================
+
+    async def test_create_transaction_expense_amount_split(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test creating an expense transaction with amount-based split."""
         # Create required dependencies
         user1 = await user_factory(email="user1@example.com", name="User 1")
         user2 = await user_factory(email="user2@example.com", name="User 2")
         user3 = await user_factory(email="user3@example.com", name="User 3")
         category = await category_factory(name="Groceries")
-        period = await period_factory(group_id=1, name="Test Period")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
 
-        # Create transaction with equal split: $10.00 / 3 = $3.33 each with 1 cent remainder
-        from app.models import ExpenseShare
+        request = TransactionRequest(
+            description="Custom split dinner",
+            amount=10000,  # $100.00
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.AMOUNT,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=4000, share_percentage=40.0),
+                ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=3500, share_percentage=35.0),
+                ExpenseShareRequest(user_id=user3.id, transaction_id=0, share_amount=2500, share_percentage=25.0),
+            ],
+        )
+
+        created = await transaction_service.create_transaction(period.id, request)
+
+        assert created.id is not None
+        assert created.description == "Custom split dinner"
+        assert created.amount == 10000
+        assert created.transaction_kind == TransactionKind.EXPENSE
+        assert created.split_kind == SplitKind.AMOUNT
+        assert len(created.expense_shares or []) == 3
+
+        # Verify balances reflect the amount split
+        balances = await transaction_service.get_all_balances(period.id)
+        # User 1 paid $100, owes $40 = +$60
+        # User 2 owes $35 = -$35
+        # User 3 owes $25 = -$25
+        assert balances[user1.id] == 6000
+        assert balances[user2.id] == -3500
+        assert balances[user3.id] == -2500
+
+    async def test_create_transaction_expense_percentage_split(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test creating an expense transaction with percentage-based split."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        user3 = await user_factory(email="user3@example.com", name="User 3")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Percentage split dinner",
+            amount=10000,  # $100.00
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.PERCENTAGE,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+                ExpenseShareRequest(user_id=user2.id, transaction_id=0, share_amount=3000, share_percentage=30.0),
+                ExpenseShareRequest(user_id=user3.id, transaction_id=0, share_amount=2000, share_percentage=20.0),
+            ],
+        )
+
+        created = await transaction_service.create_transaction(period.id, request)
+
+        assert created.id is not None
+        assert created.description == "Percentage split dinner"
+        assert created.amount == 10000
+        assert created.transaction_kind == TransactionKind.EXPENSE
+        assert created.split_kind == SplitKind.PERCENTAGE
+        assert len(created.expense_shares or []) == 3
+
+        # Verify balances reflect the percentage split
+        balances = await transaction_service.get_all_balances(period.id)
+        # User 1 paid $100, owes $50 (50%) = +$50
+        # User 2 owes $30 (30%) = -$30
+        # User 3 owes $20 (20%) = -$20
+        assert balances[user1.id] == 5000
+        assert balances[user2.id] == -3000
+        assert balances[user3.id] == -2000
+
+    # ============================================================================
+    # Validation Error Tests (tests _validate_transaction indirectly)
+    # ============================================================================
+
+    async def test_create_transaction_amount_split_missing_share_amount_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test that creating amount split without share_amount raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Invalid amount split",
+            amount=10000,
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.AMOUNT,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=0, share_amount=None, share_percentage=50.0
+                ),  # Missing share_amount
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="share_amount"):
+            await transaction_service.create_transaction(period.id, request)
+
+    async def test_create_transaction_amount_split_totals_mismatch_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test that creating amount split with totals not matching transaction amount raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Invalid amount split",
+            amount=10000,  # $100.00
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.AMOUNT,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=6000, share_percentage=60.0),
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=50.0
+                ),  # Total = 11000, should be 10000
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="share amounts total"):
+            await transaction_service.create_transaction(period.id, request)
+
+    async def test_create_transaction_percentage_split_missing_share_percentage_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test that creating percentage split without share_percentage raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Invalid percentage split",
+            amount=10000,
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.PERCENTAGE,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=None
+                ),  # Missing share_percentage
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="share_percentage"):
+            await transaction_service.create_transaction(period.id, request)
+
+    async def test_create_transaction_percentage_split_not_100_percent_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test that creating percentage split with percentages not totaling 100% raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Invalid percentage split",
+            amount=10000,
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.PERCENTAGE,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=0, share_amount=3000, share_percentage=30.0
+                ),  # Total = 80%, should be 100%
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="must equal 100"):
+            await transaction_service.create_transaction(period.id, request)
+
+    async def test_create_transaction_personal_split_multiple_shares_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test that creating personal split with multiple shares raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Invalid personal split",
+            amount=10000,
+            payer_id=user1.id,
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.PERSONAL,
+            expense_shares=[
+                ExpenseShareRequest(user_id=user1.id, transaction_id=0, share_amount=5000, share_percentage=50.0),
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=0, share_amount=5000, share_percentage=50.0
+                ),  # Personal should have only 1 share
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="exactly 1 share"):
+            await transaction_service.create_transaction(period.id, request)
+
+    async def test_create_transaction_personal_split_wrong_user_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test that creating personal split with share for non-payer raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
+
+        request = TransactionRequest(
+            description="Invalid personal split",
+            amount=10000,
+            payer_id=user1.id,  # User 1 is payer
+            category_id=category.id,
+            transaction_kind=TransactionKind.EXPENSE,
+            split_kind=SplitKind.PERSONAL,
+            expense_shares=[
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=0, share_amount=10000, share_percentage=100.0
+                ),  # Share for user2, but payer is user1
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="share is not for the payer"):
+            await transaction_service.create_transaction(period.id, request)
+
+    async def test_update_transaction_invalid_amount_split_raises_error(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+        transaction_factory: Callable[..., Awaitable[Transaction]],
+    ):
+        """Test that updating transaction with invalid amount split raises ValidationError."""
+        # Create required dependencies
+        user1 = await user_factory(email="user1@example.com", name="User 1")
+        user2 = await user_factory(email="user2@example.com", name="User 2")
+        category = await category_factory(name="Groceries")
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Test Period")
 
         transaction = await transaction_factory(
             payer_id=user1.id,
             category_id=category.id,
             period_id=period.id,
-            amount=1000,  # $10.00
+            description="Original Transaction",
+            amount=10000,
+        )
+
+        request = TransactionRequest(
+            description="Updated Transaction",
+            amount=10000,
+            payer_id=user1.id,
+            category_id=category.id,
             transaction_kind=TransactionKind.EXPENSE,
-            split_kind=SplitKind.EQUAL,
+            split_kind=SplitKind.AMOUNT,
             expense_shares=[
-                ExpenseShare(user_id=user1.id),
-                ExpenseShare(user_id=user2.id),
-                ExpenseShare(user_id=user3.id),
+                ExpenseShareRequest(
+                    user_id=user1.id, transaction_id=transaction.id, share_amount=6000, share_percentage=60.0
+                ),
+                ExpenseShareRequest(
+                    user_id=user2.id, transaction_id=transaction.id, share_amount=5000, share_percentage=50.0
+                ),  # Total = 11000, should be 10000
             ],
         )
 
-        shares = await transaction_service._calculate_shares_for_transaction(transaction.id)
-
-        assert len(shares) == 3
-
-        # Base share: 1000 / 3 = 333 cents each
-        # Remainder: 1 cent goes to first user (sorted by user_id)
-        total = sum(shares.values())
-
-        assert total == 1000  # Should sum to transaction amount
-
-        # One user should have 334 cents, others 333 cents
-        share_values = sorted(shares.values())
-
-        assert share_values == [333, 333, 334]
-
-    async def test_calculate_shares_personal_split(
-        self,
-        transaction_service: TransactionService,
-        user_factory: Callable[..., Awaitable[User]],
-        category_factory: Callable[..., Awaitable[Category]],
-        period_factory: Callable[..., Awaitable[Period]],
-        transaction_factory: Callable[..., Awaitable[Transaction]],
-    ):
-        """Test calculating shares for personal split transaction."""
-        # Create required dependencies
-        user = await user_factory(email="user@example.com", name="User")
-        category = await category_factory(name="Groceries")
-        period = await period_factory(group_id=1, name="Test Period")
-
-        from app.models import ExpenseShare
-
-        transaction = await transaction_factory(
-            payer_id=user.id,
-            category_id=category.id,
-            period_id=period.id,
-            amount=5000,  # $50.00
-            transaction_kind=TransactionKind.EXPENSE,
-            split_kind=SplitKind.PERSONAL,
-            expense_shares=[ExpenseShare(user_id=user.id)],
-        )
-
-        shares = await transaction_service._calculate_shares_for_transaction(transaction.id)
-
-        assert len(shares) == 1
-        assert shares[user.id] == 5000  # Personal expense - payer owes full amount
-
-    async def test_calculate_shares_not_expense_returns_empty(
-        self,
-        transaction_service: TransactionService,
-        user_factory: Callable[..., Awaitable[User]],
-        category_factory: Callable[..., Awaitable[Category]],
-        period_factory: Callable[..., Awaitable[Period]],
-        transaction_factory: Callable[..., Awaitable[Transaction]],
-    ):
-        """Test that calculating shares for non-expense returns empty dict."""
-        # Create required dependencies
-        user = await user_factory(email="user@example.com", name="User")
-        category = await category_factory(name="Deposit")
-        period = await period_factory(group_id=1, name="Test Period")
-
-        transaction = await transaction_factory(
-            payer_id=user.id,
-            category_id=category.id,
-            period_id=period.id,
-            transaction_kind=TransactionKind.DEPOSIT,
-            split_kind=SplitKind.PERSONAL,
-        )
-
-        shares = await transaction_service._calculate_shares_for_transaction(transaction.id)
-
-        assert shares == {}
-
-    async def test_calculate_shares_transaction_not_exists(self, transaction_service: TransactionService):
-        """Test calculating shares for non-existent transaction raises NotFoundError."""
-        with pytest.raises(NotFoundError):
-            await transaction_service._calculate_shares_for_transaction(99999)
+        with pytest.raises(ValidationError, match="share amounts total"):
+            await transaction_service.update_transaction(transaction.id, request)
 
     async def test_update_transaction_status_approve(
         self,

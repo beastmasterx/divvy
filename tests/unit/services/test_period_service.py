@@ -201,3 +201,63 @@ class TestPeriodService:
         current = await period_service.get_active_period_by_group_id(empty_group.id)
 
         assert current is None
+
+    # ============================================================================
+    # settle_period tests
+    # ============================================================================
+
+    async def test_settle_period_exists_closed(
+        self,
+        period_service: PeriodService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test settling a closed period."""
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Closed Period")
+
+        # Close the period first
+        closed_period = await period_service.close_period(period.id)
+        assert closed_period.status.value == "closed"
+
+        # Verify period is closed before settling
+        retrieved = await period_service.get_period_by_id(period.id)
+        assert retrieved is not None
+        assert retrieved.status.value == "closed"
+
+        settled = await period_service.settle_period(period.id)
+
+        assert settled.id == period.id
+        assert settled.status.value == "settled"
+
+        # Verify the update persisted
+        retrieved = await period_service.get_period_by_id(period.id)
+        assert retrieved is not None
+        assert retrieved.status.value == "settled"
+
+    async def test_settle_period_not_exists(self, period_service: PeriodService):
+        """Test settling a non-existent period raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            await period_service.settle_period(99999)
+
+    async def test_settle_period_not_closed_raises_error(
+        self,
+        period_service: PeriodService,
+        user_factory: Callable[..., Awaitable[User]],
+        group_factory: Callable[..., Awaitable[Group]],
+        period_factory: Callable[..., Awaitable[Period]],
+    ):
+        """Test settling an active (not closed) period raises BusinessRuleError."""
+        from app.exceptions import BusinessRuleError
+
+        group = await group_factory(name="Test Group")
+        period = await period_factory(group_id=group.id, name="Active Period")  # Active period (no end_date)
+
+        # Verify period is open (active) before settling
+        retrieved = await period_service.get_period_by_id(period.id)
+        assert retrieved is not None
+        assert retrieved.status.value == "open"
+
+        with pytest.raises(BusinessRuleError, match="not closed"):
+            await period_service.settle_period(period.id)
