@@ -21,6 +21,7 @@ from app.models import GroupRole
 from app.schemas import (
     GroupRequest,
     GroupResponse,
+    PeriodRequest,
     PeriodResponse,
     UserResponse,
 )
@@ -165,3 +166,17 @@ async def get_current_period(
     if not period:
         raise NotFoundError(_("No current active period found for group %s") % group_id)
     return PeriodResponse.model_validate(period)
+
+
+@router.post("/{group_id}/periods", response_model=PeriodResponse, status_code=status.HTTP_201_CREATED)
+async def create_period(
+    group_id: int,
+    period: PeriodRequest,
+    period_service: Annotated[PeriodService, Depends(get_period_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
+) -> PeriodResponse:
+    """
+    Create a new period.
+    Requires owner or admin role in the group specified in the request.
+    """
+    return await period_service.create_period(group_id, period)

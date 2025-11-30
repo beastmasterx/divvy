@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
-from app.api.dependencies.authz import requires_group_role, requires_group_role_for_period
+from app.api.dependencies.authz import requires_group_role_for_period
 from app.api.dependencies.db import get_serializable_db
 from app.api.dependencies.services import (
     get_period_service,
@@ -40,20 +40,6 @@ async def get_period(
     if not period:
         raise NotFoundError(_("Period %s not found") % period_id)
     return period
-
-
-@router.post("/", response_model=PeriodResponse, status_code=status.HTTP_201_CREATED)
-async def create_period(
-    group_id: int,
-    period: PeriodRequest,
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
-    period_service: Annotated[PeriodService, Depends(get_period_service)],
-) -> PeriodResponse:
-    """
-    Create a new period.
-    Requires owner or admin role in the group specified in the request.
-    """
-    return await period_service.create_period(group_id, period)
 
 
 @router.put("/{period_id}/close", response_model=PeriodResponse)
