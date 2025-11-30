@@ -1,8 +1,8 @@
 """init
 
-Revision ID: a79f2b07347e
+Revision ID: 31e7a71b93c7
 Revises:
-Create Date: 2025-11-29 17:21:45.176372
+Create Date: 2025-11-30 20:46:00.297790
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a79f2b07347e"
+revision: str = "31e7a71b93c7"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -47,7 +47,6 @@ def upgrade() -> None:
     from seeding import seed_categories
 
     seed_categories()
-
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -216,8 +215,10 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("group_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("start_date", sa.DateTime(timezone=True), nullable=False),
         sa.Column("end_date", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_by", sa.Integer(), nullable=True),
         sa.Column("updated_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -243,12 +244,60 @@ def upgrade() -> None:
     op.create_index(op.f("ix_periods_updated_at"), "periods", ["updated_at"], unique=False)
     op.create_index(op.f("ix_periods_updated_by"), "periods", ["updated_by"], unique=False)
     op.create_table(
+        "settlements",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("period_id", sa.Integer(), nullable=False),
+        sa.Column("payer_id", sa.Integer(), nullable=False),
+        sa.Column("payee_id", sa.Integer(), nullable=False),
+        sa.Column("amount", sa.Integer(), nullable=False),
+        sa.Column("date_paid", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_by", sa.Integer(), nullable=True),
+        sa.Column("updated_by", sa.Integer(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["created_by"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["payee_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["payer_id"],
+            ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["period_id"],
+            ["periods.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["updated_by"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_settlement_period_payer_payee", "settlements", ["period_id", "payer_id", "payee_id"], unique=False
+    )
+    op.create_index(op.f("ix_settlements_created_at"), "settlements", ["created_at"], unique=False)
+    op.create_index(op.f("ix_settlements_created_by"), "settlements", ["created_by"], unique=False)
+    op.create_index(op.f("ix_settlements_payee_id"), "settlements", ["payee_id"], unique=False)
+    op.create_index(op.f("ix_settlements_payer_id"), "settlements", ["payer_id"], unique=False)
+    op.create_index(op.f("ix_settlements_period_id"), "settlements", ["period_id"], unique=False)
+    op.create_index(op.f("ix_settlements_updated_at"), "settlements", ["updated_at"], unique=False)
+    op.create_index(op.f("ix_settlements_updated_by"), "settlements", ["updated_by"], unique=False)
+    op.create_table(
         "transactions",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("transaction_kind", sa.String(length=50), nullable=False),
-        sa.Column("split_kind", sa.String(length=20), nullable=False),
+        sa.Column("split_kind", sa.String(length=20), nullable=True),
+        sa.Column(
+            "status", sa.Enum("DRAFT", "PENDING", "APPROVED", "REJECTED", name="transactionstatus"), nullable=False
+        ),
         sa.Column("description", sa.String(length=1000), nullable=True),
         sa.Column("amount", sa.Integer(), nullable=False),
+        sa.Column("date_incurred", sa.DateTime(timezone=True), nullable=False),
         sa.Column("payer_id", sa.Integer(), nullable=False),
         sa.Column("category_id", sa.Integer(), nullable=False),
         sa.Column("period_id", sa.Integer(), nullable=False),
@@ -285,6 +334,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_transactions_created_by"), "transactions", ["created_by"], unique=False)
     op.create_index(op.f("ix_transactions_payer_id"), "transactions", ["payer_id"], unique=False)
     op.create_index(op.f("ix_transactions_period_id"), "transactions", ["period_id"], unique=False)
+    op.create_index(op.f("ix_transactions_status"), "transactions", ["status"], unique=False)
     op.create_index(op.f("ix_transactions_updated_at"), "transactions", ["updated_at"], unique=False)
     op.create_index(op.f("ix_transactions_updated_by"), "transactions", ["updated_by"], unique=False)
     op.create_table(
@@ -336,6 +386,7 @@ def downgrade() -> None:
     op.drop_table("expense_shares")
     op.drop_index(op.f("ix_transactions_updated_by"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_updated_at"), table_name="transactions")
+    op.drop_index(op.f("ix_transactions_status"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_period_id"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_payer_id"), table_name="transactions")
     op.drop_index(op.f("ix_transactions_created_by"), table_name="transactions")
@@ -344,6 +395,15 @@ def downgrade() -> None:
     op.drop_index("ix_transaction_period_payer", table_name="transactions")
     op.drop_index("ix_transaction_period_created", table_name="transactions")
     op.drop_table("transactions")
+    op.drop_index(op.f("ix_settlements_updated_by"), table_name="settlements")
+    op.drop_index(op.f("ix_settlements_updated_at"), table_name="settlements")
+    op.drop_index(op.f("ix_settlements_period_id"), table_name="settlements")
+    op.drop_index(op.f("ix_settlements_payer_id"), table_name="settlements")
+    op.drop_index(op.f("ix_settlements_payee_id"), table_name="settlements")
+    op.drop_index(op.f("ix_settlements_created_by"), table_name="settlements")
+    op.drop_index(op.f("ix_settlements_created_at"), table_name="settlements")
+    op.drop_index("ix_settlement_period_payer_payee", table_name="settlements")
+    op.drop_table("settlements")
     op.drop_index(op.f("ix_periods_updated_by"), table_name="periods")
     op.drop_index(op.f("ix_periods_updated_at"), table_name="periods")
     op.drop_index(op.f("ix_periods_group_id"), table_name="periods")
