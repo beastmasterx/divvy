@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_current_user
 from app.api.dependencies.authz import requires_group_role_for_transaction
+from app.api.dependencies.authz.transaction import requires_transaction_status, requires_transaction_status_and_creator
 from app.api.dependencies.services import get_transaction_service
 from app.core.i18n import _
 from app.exceptions import NotFoundError
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"], dependencies=[
 async def get_transaction_by_id(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
 ) -> TransactionResponse:
     """
     Get a specific transaction by its ID.
@@ -39,7 +40,10 @@ async def update_transaction(
     transaction_id: int,
     request: TransactionRequest,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
+    _status_check: Annotated[
+        TransactionResponse, Depends(requires_transaction_status_and_creator(TransactionStatus.DRAFT))
+    ],
 ) -> TransactionResponse:
     """Update an existing transaction."""
     return await transaction_service.update_transaction(transaction_id, request)
@@ -49,9 +53,10 @@ async def update_transaction(
 async def approve_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[
+    _group_role_check: Annotated[
         UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN))
     ],
+    _status_check: Annotated[TransactionResponse, Depends(requires_transaction_status(TransactionStatus.PENDING))],
 ) -> TransactionResponse:
     """
     Approve a pending transaction.
@@ -63,9 +68,10 @@ async def approve_transaction(
 async def reject_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[
+    _group_role_check: Annotated[
         UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN))
     ],
+    _status_check: Annotated[TransactionResponse, Depends(requires_transaction_status(TransactionStatus.PENDING))],
 ) -> TransactionResponse:
     """
     Reject a pending transaction.
@@ -77,8 +83,11 @@ async def reject_transaction(
 async def submit_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[
+    _group_role_check: Annotated[
         UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN))
+    ],
+    _status_check: Annotated[
+        TransactionResponse, Depends(requires_transaction_status_and_creator(TransactionStatus.DRAFT))
     ],
 ) -> TransactionResponse:
     """
@@ -91,7 +100,11 @@ async def submit_transaction(
 async def draft_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
+    _status_check: Annotated[
+        TransactionResponse,
+        Depends(requires_transaction_status_and_creator(TransactionStatus.PENDING, TransactionStatus.REJECTED)),
+    ],
 ) -> TransactionResponse:
     """
     Draft a pending transaction.
@@ -103,8 +116,12 @@ async def draft_transaction(
 async def delete_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[
+    _group_role_check: Annotated[
         UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
+    _status_check: Annotated[
+        TransactionResponse,
+        Depends(requires_transaction_status_and_creator(TransactionStatus.DRAFT, TransactionStatus.REJECTED)),
     ],
 ) -> None:
     """

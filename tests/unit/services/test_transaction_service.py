@@ -322,7 +322,7 @@ class TestTransactionService:
             ],
         )
 
-        shares = await transaction_service.calculate_shares_for_transaction(transaction.id)
+        shares = await transaction_service._calculate_shares_for_transaction(transaction.id)
 
         assert len(shares) == 3
 
@@ -363,7 +363,7 @@ class TestTransactionService:
             expense_shares=[ExpenseShare(user_id=user.id)],
         )
 
-        shares = await transaction_service.calculate_shares_for_transaction(transaction.id)
+        shares = await transaction_service._calculate_shares_for_transaction(transaction.id)
 
         assert len(shares) == 1
         assert shares[user.id] == 5000  # Personal expense - payer owes full amount
@@ -390,14 +390,14 @@ class TestTransactionService:
             split_kind=SplitKind.PERSONAL,
         )
 
-        shares = await transaction_service.calculate_shares_for_transaction(transaction.id)
+        shares = await transaction_service._calculate_shares_for_transaction(transaction.id)
 
         assert shares == {}
 
     async def test_calculate_shares_transaction_not_exists(self, transaction_service: TransactionService):
         """Test calculating shares for non-existent transaction raises NotFoundError."""
         with pytest.raises(NotFoundError):
-            await transaction_service.calculate_shares_for_transaction(99999)
+            await transaction_service._calculate_shares_for_transaction(99999)
 
     async def test_update_transaction_status_approve(
         self,

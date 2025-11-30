@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind
+from app.models import SplitKind, Transaction, TransactionKind
 from app.repositories import TransactionRepository
 from tests.fixtures.factories import create_test_transaction
 

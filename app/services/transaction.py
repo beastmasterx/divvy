@@ -22,6 +22,11 @@ class TransactionService:
         transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
         return TransactionResponse.model_validate(transaction) if transaction else None
 
+    async def get_transactions_by_period_id(self, period_id: int) -> Sequence[TransactionResponse]:
+        """Retrieve all transactions associated with a specific period."""
+        transactions = await self.transaction_repository.get_transactions_by_period_id(period_id)
+        return [TransactionResponse.model_validate(transaction) for transaction in transactions]
+
     async def create_transaction(self, period_id: int, request: TransactionRequest) -> TransactionResponse:
         """Create a new transaction.
 
@@ -130,12 +135,7 @@ class TransactionService:
         """Delete a transaction by its ID."""
         return await self.transaction_repository.delete_transaction(transaction_id)
 
-    async def get_transactions_by_period_id(self, period_id: int) -> Sequence[TransactionResponse]:
-        """Retrieve all transactions associated with a specific period."""
-        transactions = await self.transaction_repository.get_transactions_by_period_id(period_id)
-        return [TransactionResponse.model_validate(transaction) for transaction in transactions]
-
-    async def calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
+    async def _calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
         """Calculate how much each user owes for a transaction.
 
         Args:
@@ -278,7 +278,7 @@ class TransactionService:
                 balances[transaction.payer_id] += transaction.amount
 
                 # Debit each participant for their share
-                shares = await self.calculate_shares_for_transaction(transaction.id)
+                shares = await self._calculate_shares_for_transaction(transaction.id)
                 for user_id, amount in shares.items():
                     balances[user_id] -= amount
             elif transaction.transaction_kind == TransactionKind.DEPOSIT:

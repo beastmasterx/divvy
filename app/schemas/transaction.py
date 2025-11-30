@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models import SplitKind, TransactionKind
+from app.models import SplitKind, TransactionKind, TransactionStatus
 
 
 class TransactionRequest(BaseModel):
@@ -35,6 +35,7 @@ class TransactionResponse(BaseModel):
     period_name: str | None = Field(default=None, description="Name of the period of the transaction")
     transaction_kind: TransactionKind = Field(..., description="Kind of transaction")
     split_kind: SplitKind = Field(..., description="Kind of split")
+    status: TransactionStatus = Field(..., description="Status of the transaction")
     expense_shares: list[ExpenseShareResponse] | None = Field(
         default=None, description="Expense shares for the transaction"
     )
