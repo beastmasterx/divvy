@@ -162,7 +162,7 @@ class TestPeriodRepository:
         open_period = await period_factory(group_id=1, name="Open Period")
 
         # Get current period for group 1 (should be the open one)
-        current = await period_repository.get_current_period_by_group_id(1)
+        current = await period_repository.get_active_period_by_group_id(1)
 
         assert current is not None
         assert current.id == open_period.id
@@ -170,6 +170,6 @@ class TestPeriodRepository:
         assert current.end_date is None
 
         # Get current period for group with no open periods
-        current = await period_repository.get_current_period_by_group_id(2)
+        current = await period_repository.get_active_period_by_group_id(2)
 
         assert current is None

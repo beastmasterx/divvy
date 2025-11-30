@@ -4,7 +4,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.models import ExpenseShare, Transaction
+from app.models import Transaction
 
 
 class TransactionRepository:
@@ -12,16 +12,6 @@ class TransactionRepository:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-
-    async def get_all_transactions(self) -> Sequence[Transaction]:
-        """Retrieve all transactions from the database."""
-        stmt = select(Transaction).options(
-            joinedload(Transaction.payer),
-            joinedload(Transaction.category),
-            joinedload(Transaction.period),
-            selectinload(Transaction.expense_shares),
-        )
-        return (await self.session.scalars(stmt)).all()
 
     async def get_transaction_by_id(self, transaction_id: int) -> Transaction | None:
         """Retrieve a specific transaction by its ID."""
@@ -42,21 +32,6 @@ class TransactionRepository:
         stmt = (
             select(Transaction)
             .where(Transaction.period_id == period_id)
-            .options(
-                joinedload(Transaction.payer),
-                joinedload(Transaction.category),
-                joinedload(Transaction.period),
-                selectinload(Transaction.expense_shares),
-            )
-        )
-        return (await self.session.scalars(stmt)).all()
-
-    async def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[Transaction]:
-        """Retrieve all transactions where a specific user has an expense share."""
-        stmt = (
-            select(Transaction)
-            .join(ExpenseShare)
-            .where(ExpenseShare.user_id == user_id)
             .options(
                 joinedload(Transaction.payer),
                 joinedload(Transaction.category),

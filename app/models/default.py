@@ -8,6 +8,5 @@ categories = [
     "Groceries",
     "Daily Necessities",
     "Rent",
-    "Settlement",
     "Other",
 ]

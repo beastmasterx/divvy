@@ -67,18 +67,15 @@ class ExpenseShareResponse(BaseModel):
     share_percentage: float | None = Field(default=None, description="Percentage of the share")
 
 
-class SettlementPlanResponse(BaseModel):
-    """Schema for settlement plan response."""
+class SettlementResponse(BaseModel):
+    """Schema for settlement response representing money transfers between users."""
 
     model_config = {"from_attributes": True}
 
-    transaction_kind: TransactionKind = Field(..., description="Kind of transaction")
-    amount: int = Field(..., description="Amount of the transaction in cents")
-    payer_id: int = Field(..., description="ID of the user who paid the transaction")
-    period_id: int = Field(..., description="ID of the period of the transaction")
-    category_id: int = Field(..., description="ID of the category of the transaction")
-    split_kind: SplitKind = Field(..., description="Kind of split")
-    description: str | None = Field(default=None, description="Description of the transaction")
-    payer_name: str = Field(..., description="Name of the user who paid the transaction")
-    category_name: str = Field(..., description="Name of the category of the transaction")
-    period_name: str = Field(..., description="Name of the period of the transaction")
+    payer_id: int = Field(..., description="ID of the user who pays (debtor)")
+    payee_id: int = Field(..., description="ID of the user who receives (creditor)")
+    amount: int = Field(..., description="Amount to transfer in cents")
+    period_id: int = Field(..., description="ID of the period being settled")
+    payer_name: str = Field(..., description="Name of the user who pays")
+    payee_name: str = Field(..., description="Name of the user who receives")
+    period_name: str = Field(..., description="Name of the period")

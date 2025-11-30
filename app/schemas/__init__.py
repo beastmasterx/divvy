@@ -20,7 +20,7 @@ from .period import PeriodRequest, PeriodResponse
 from .transaction import (
     ExpenseShareRequest,
     ExpenseShareResponse,
-    SettlementPlanResponse,
+    SettlementResponse,
     TransactionRequest,
     TransactionResponse,
 )
@@ -42,7 +42,7 @@ __all__ = [
     "PeriodResponse",
     "TransactionRequest",
     "TransactionResponse",
-    "SettlementPlanResponse",
+    "SettlementResponse",
     "ExpenseShareRequest",
     "ExpenseShareResponse",
     "RegisterRequest",

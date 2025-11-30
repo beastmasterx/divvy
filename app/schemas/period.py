@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.models import PeriodStatus
+
 
 class PeriodRequest(BaseModel):
     """Schema for period request."""
@@ -17,6 +19,7 @@ class PeriodResponse(BaseModel):
     id: int = Field(..., description="Period ID")
     group_id: int = Field(..., description="Group ID")
     name: str = Field(..., description="Period name")
+    status: PeriodStatus = Field(..., description="Period status")
     start_date: datetime = Field(..., description="Period start date")
     end_date: datetime | None = Field(default=None, description="Period end date")
 
@@ -25,5 +28,3 @@ class PeriodResponse(BaseModel):
 
     created_by: int | None = Field(default=None, description="Period created by")
     updated_by: int | None = Field(default=None, description="Period updated by")
-
-    is_closed: bool = Field(..., description="Period closed status")

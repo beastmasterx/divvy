@@ -6,6 +6,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.db import get_db, get_serializable_db
+from app.repositories import PeriodRepository, SettlementRepository
 from app.services import (
     AccountLinkRequestService,
     AuthenticationService,
@@ -83,17 +84,22 @@ def get_group_service(
 
 
 def get_settlement_service(
+    db: AsyncSession = Depends(get_db),
     transaction_service: TransactionService = Depends(get_transaction_service),
     period_service: PeriodService = Depends(get_period_service),
     category_service: CategoryService = Depends(get_category_service),
     user_service: UserService = Depends(get_user_service),
 ) -> SettlementService:
     """Dependency that provides SettlementService instance."""
+    settlement_repository = SettlementRepository(db)
+    period_repository = PeriodRepository(db)
     return SettlementService(
         transaction_service=transaction_service,
         period_service=period_service,
         category_service=category_service,
         user_service=user_service,
+        settlement_repository=settlement_repository,
+        period_repository=period_repository,
     )
 
 
@@ -123,10 +129,14 @@ def get_serializable_settlement_service(
     category_service = CategoryService(db)
     period_service = PeriodService(db)
     transaction_service = TransactionService(db)
+    settlement_repository = SettlementRepository(db)
+    period_repository = PeriodRepository(db)
 
     return SettlementService(
         transaction_service=transaction_service,
         period_service=period_service,
         category_service=category_service,
         user_service=user_service,
+        settlement_repository=settlement_repository,
+        period_repository=period_repository,
     )

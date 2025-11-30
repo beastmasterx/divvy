@@ -161,7 +161,7 @@ async def get_current_period(
     """
     Get the current active period for a specific group.
     """
-    period = await period_service.get_current_period_by_group_id(group_id)
+    period = await period_service.get_active_period_by_group_id(group_id)
     if not period:
         raise NotFoundError(_("No current active period found for group %s") % group_id)
     return PeriodResponse.model_validate(period)

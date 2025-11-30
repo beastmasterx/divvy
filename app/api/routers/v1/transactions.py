@@ -2,27 +2,16 @@
 API v1 router for Transaction endpoints.
 """
 
-from collections.abc import Sequence
-
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies.services import get_transaction_service
 from app.core.i18n import _
 from app.exceptions import NotFoundError
+from app.models import TransactionStatus
 from app.schemas import TransactionRequest, TransactionResponse
 from app.services import TransactionService
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
-
-
-@router.get("/", response_model=list[TransactionResponse])
-async def list_transactions(
-    transaction_service: TransactionService = Depends(get_transaction_service),
-) -> Sequence[TransactionResponse]:
-    """
-    List all transactions.
-    """
-    return await transaction_service.get_all_transactions()
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
@@ -40,11 +29,7 @@ async def get_transaction(
     return transaction
 
 
-@router.post(
-    "/",
-    response_model=TransactionResponse,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 async def create_transaction(
     request: TransactionRequest,
     transaction_service: TransactionService = Depends(get_transaction_service),
@@ -53,6 +38,50 @@ async def create_transaction(
     Create a new transaction.
     """
     return await transaction_service.create_transaction(request)
+
+
+@router.put("/{transaction_id}/approve", response_model=TransactionResponse)
+async def approve_transaction(
+    transaction_id: int,
+    transaction_service: TransactionService = Depends(get_transaction_service),
+) -> TransactionResponse:
+    """
+    Approve a pending transaction.
+    """
+    return await transaction_service.update_transaction_status(transaction_id, TransactionStatus.APPROVED)
+
+
+@router.put("/{transaction_id}/reject", response_model=TransactionResponse)
+async def reject_transaction(
+    transaction_id: int,
+    transaction_service: TransactionService = Depends(get_transaction_service),
+) -> TransactionResponse:
+    """
+    Reject a pending transaction.
+    """
+    return await transaction_service.update_transaction_status(transaction_id, TransactionStatus.REJECTED)
+
+
+@router.put("/{transaction_id}/submit", response_model=TransactionResponse)
+async def submit_transaction(
+    transaction_id: int,
+    transaction_service: TransactionService = Depends(get_transaction_service),
+) -> TransactionResponse:
+    """
+    Submit a draft transaction.
+    """
+    return await transaction_service.update_transaction_status(transaction_id, TransactionStatus.PENDING)
+
+
+@router.put("/{transaction_id}/draft", response_model=TransactionResponse)
+async def draft_transaction(
+    transaction_id: int,
+    transaction_service: TransactionService = Depends(get_transaction_service),
+) -> TransactionResponse:
+    """
+    Draft a pending transaction.
+    """
+    return await transaction_service.update_transaction_status(transaction_id, TransactionStatus.DRAFT)
 
 
 @router.put("/{transaction_id}", response_model=TransactionResponse)
@@ -76,25 +105,3 @@ async def delete_transaction(
     Delete a transaction by its ID.
     """
     await transaction_service.delete_transaction(transaction_id)
-
-
-@router.get("/periods/{period_id}", response_model=list[TransactionResponse])
-async def get_transactions_by_period_id(
-    period_id: int,
-    transaction_service: TransactionService = Depends(get_transaction_service),
-) -> Sequence[TransactionResponse]:
-    """
-    Get transactions by period ID.
-    """
-    return await transaction_service.get_transactions_by_period_id(period_id)
-
-
-@router.get("/users/{user_id}/shared-transactions", response_model=list[TransactionResponse])
-async def get_shared_transactions_by_user_id(
-    user_id: int,
-    transaction_service: TransactionService = Depends(get_transaction_service),
-) -> Sequence[TransactionResponse]:
-    """
-    Get shared transactions by user ID.
-    """
-    return await transaction_service.get_shared_transactions_by_user_id(user_id)

@@ -4,7 +4,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Period
+from app.models import Period, PeriodStatus
 
 
 class PeriodRepository:
@@ -13,27 +13,27 @@ class PeriodRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all_periods(self) -> Sequence[Period]:
-        """Retrieve all periods from the database."""
-        stmt = select(Period)
+    async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
+        """Retrieve all periods associated with a specific group."""
+        stmt = select(Period).where(Period.group_id == group_id)
         return (await self.session.scalars(stmt)).all()
 
     async def get_period_by_id(self, id: int) -> Period | None:
         """Retrieve a specific period by its ID."""
         return await self.session.get(Period, id)
 
-    async def get_periods_by_group_id(self, group_id: int) -> Sequence[Period]:
-        """Retrieve all periods associated with a specific group."""
-        stmt = select(Period).where(Period.group_id == group_id)
-        return (await self.session.scalars(stmt)).all()
-
-    async def get_current_period_by_group_id(self, group_id: int) -> Period | None:
-        """Retrieve the current unsettled period for a specific group."""
+    async def get_active_period_by_group_id(self, group_id: int) -> Period | None:
+        """Retrieve the active period for a specific group."""
         stmt = (
             select(Period)
-            .where(Period.group_id == group_id, Period.end_date.is_(None))
+            .where(Period.group_id == group_id, Period.status == PeriodStatus.OPEN)
             .options(selectinload(Period.transactions))
         )
+        return (await self.session.scalars(stmt)).one_or_none()
+
+    async def get_period_status_by_id(self, period_id: int) -> PeriodStatus | None:
+        """Retrieve the status of a specific period."""
+        stmt = select(Period.status).where(Period.id == period_id)
         return (await self.session.scalars(stmt)).one_or_none()
 
     async def create_period(self, period: Period) -> Period:

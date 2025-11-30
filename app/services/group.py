@@ -182,7 +182,7 @@ class GroupService:
 
     async def has_active_period_with_transactions(self, group_id: int) -> bool:
         """Check if a group has an active period with transactions."""
-        active_period = await self._period_service.get_current_period_by_group_id(group_id)
+        active_period = await self._period_service.get_active_period_by_group_id(group_id)
         if not active_period or active_period.is_closed:
             return False
         return len(active_period.transactions) > 0

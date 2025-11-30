@@ -2,6 +2,7 @@
 API v1 router for Period endpoints.
 """
 
+from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -14,12 +15,13 @@ from app.api.dependencies.services import (
     get_period_service,
     get_serializable_settlement_service,
     get_settlement_service,
+    get_transaction_service,
 )
 from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import GroupRole
-from app.schemas import PeriodRequest, PeriodResponse, SettlementPlanResponse, UserResponse
-from app.services import PeriodService, SettlementService
+from app.schemas import PeriodRequest, PeriodResponse, SettlementResponse, TransactionResponse, UserResponse
+from app.services import PeriodService, SettlementService, TransactionService
 
 router = APIRouter(prefix="/periods", tags=["periods"], dependencies=[Depends(get_current_user)])
 
@@ -54,10 +56,23 @@ async def create_period(
     return await period_service.create_period(group_id, period)
 
 
+@router.put("/{period_id}/close", response_model=PeriodResponse)
+async def close_period(
+    period_id: int,
+    period_service: Annotated[PeriodService, Depends(get_period_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
+) -> PeriodResponse:
+    """
+    Close a specific period by its ID.
+    Requires owner or admin role in the period's group.
+    """
+    return await period_service.close_period(period_id)
+
+
 @router.put("/{period_id}", response_model=PeriodResponse)
 async def update_period(
     period_id: int,
-    period: PeriodRequest,
+    request: PeriodRequest,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
 ) -> PeriodResponse:
@@ -65,41 +80,41 @@ async def update_period(
     Update a specific period by its ID.
     Requires owner or admin role in the period's group.
     """
-    return await period_service.update_period(period_id, period)
+    return await period_service.update_period_name(period_id, request.name)
 
 
-@router.delete("/{period_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_period(
+@router.get("/{period_id}/transactions", response_model=list[TransactionResponse])
+async def get_transactions(
     period_id: int,
-    period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
-) -> None:
+    transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
+    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
+) -> Sequence[TransactionResponse]:
     """
-    Delete a specific period by its ID.
-    Requires owner or admin role in the period's group.
+    Get the transactions for a specific period.
+    Requires group membership for the period's group.
     """
-    await period_service.delete_period(period_id)
+    return await transaction_service.get_transactions_by_period_id(period_id)
 
 
 @router.get("/{period_id}/balances", response_model=dict[int, int])
 async def get_balances(
     period_id: int,
-    settlement_service: Annotated[SettlementService, Depends(get_settlement_service)],
+    transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
 ) -> dict[int, int]:
     """
     Get the balances for a specific period.
     Requires group membership for the period's group.
     """
-    return await settlement_service.get_all_balances(period_id)
+    return await transaction_service.get_all_balances(period_id)
 
 
-@router.get("/{period_id}/get-settlement-plan", response_model=list[SettlementPlanResponse])
+@router.get("/{period_id}/get-settlement-plan", response_model=list[SettlementResponse])
 async def get_settlement_plan(
     period_id: int,
     settlement_service: Annotated[SettlementService, Depends(get_settlement_service)],
     _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
-) -> list[SettlementPlanResponse]:
+) -> Sequence[SettlementResponse]:
     """
     Get the settlement plan for a specific period.
     Requires group membership for the period's group.

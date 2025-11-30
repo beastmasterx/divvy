@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 import pytest
 
 from app.exceptions import NotFoundError, ValidationError
-from app.models import Category, Period, SplitKind, Transaction, TransactionKind, User
+from app.models import Category, Period, SplitKind, Transaction, TransactionKind, TransactionStatus, User
 from app.schemas import ExpenseShareRequest, TransactionRequest
 from app.services import TransactionService
 
@@ -15,12 +15,6 @@ from app.services import TransactionService
 @pytest.mark.unit
 class TestTransactionService:
     """Test suite for TransactionService."""
-
-    async def test_get_all_transactions(self, transaction_service: TransactionService):
-        """Test retrieving all transactions."""
-        transactions = await transaction_service.get_all_transactions()
-        assert isinstance(transactions, list)
-        assert len(transactions) == 0
 
     async def test_get_transaction_by_id_exists(
         self,
@@ -404,3 +398,132 @@ class TestTransactionService:
         """Test calculating shares for non-existent transaction raises NotFoundError."""
         with pytest.raises(NotFoundError):
             await transaction_service.calculate_shares_for_transaction(99999)
+
+    async def test_update_transaction_status_approve(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
+        transaction_factory: Callable[..., Awaitable[Transaction]],
+    ):
+        """Test updating transaction status to APPROVED."""
+        user = await user_factory(email="user@example.com", name="User")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=1, name="Test Period")
+
+        transaction = await transaction_factory(
+            payer_id=user.id,
+            category_id=category.id,
+            period_id=period.id,
+            description="Test Transaction",
+            status=TransactionStatus.PENDING,
+        )
+
+        updated = await transaction_service.update_transaction_status(transaction.id, TransactionStatus.APPROVED)
+
+        assert updated.id == transaction.id
+        assert updated.status == TransactionStatus.APPROVED
+
+        # Verify the update persisted
+        retrieved = await transaction_service.get_transaction_by_id(transaction.id)
+        assert retrieved is not None
+        assert retrieved.status == TransactionStatus.APPROVED
+
+    async def test_update_transaction_status_reject(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
+        transaction_factory: Callable[..., Awaitable[Transaction]],
+    ):
+        """Test updating transaction status to REJECTED."""
+        user = await user_factory(email="user@example.com", name="User")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=1, name="Test Period")
+
+        transaction = await transaction_factory(
+            payer_id=user.id,
+            category_id=category.id,
+            period_id=period.id,
+            description="Test Transaction",
+            status=TransactionStatus.PENDING,
+        )
+
+        updated = await transaction_service.update_transaction_status(transaction.id, TransactionStatus.REJECTED)
+
+        assert updated.id == transaction.id
+        assert updated.status == TransactionStatus.REJECTED
+
+        # Verify the update persisted
+        retrieved = await transaction_service.get_transaction_by_id(transaction.id)
+        assert retrieved is not None
+        assert retrieved.status == TransactionStatus.REJECTED
+
+    async def test_update_transaction_status_submit(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
+        transaction_factory: Callable[..., Awaitable[Transaction]],
+    ):
+        """Test updating transaction status to PENDING (submit)."""
+        user = await user_factory(email="user@example.com", name="User")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=1, name="Test Period")
+
+        transaction = await transaction_factory(
+            payer_id=user.id,
+            category_id=category.id,
+            period_id=period.id,
+            description="Test Transaction",
+            status=TransactionStatus.DRAFT,
+        )
+
+        updated = await transaction_service.update_transaction_status(transaction.id, TransactionStatus.PENDING)
+
+        assert updated.id == transaction.id
+        assert updated.status == TransactionStatus.PENDING
+
+        # Verify the update persisted
+        retrieved = await transaction_service.get_transaction_by_id(transaction.id)
+        assert retrieved is not None
+        assert retrieved.status == TransactionStatus.PENDING
+
+    async def test_update_transaction_status_draft(
+        self,
+        transaction_service: TransactionService,
+        user_factory: Callable[..., Awaitable[User]],
+        category_factory: Callable[..., Awaitable[Category]],
+        period_factory: Callable[..., Awaitable[Period]],
+        transaction_factory: Callable[..., Awaitable[Transaction]],
+    ):
+        """Test updating transaction status to DRAFT."""
+        user = await user_factory(email="user@example.com", name="User")
+        category = await category_factory(name="Groceries")
+        period = await period_factory(group_id=1, name="Test Period")
+
+        transaction = await transaction_factory(
+            payer_id=user.id,
+            category_id=category.id,
+            period_id=period.id,
+            description="Test Transaction",
+            status=TransactionStatus.PENDING,
+        )
+
+        updated = await transaction_service.update_transaction_status(transaction.id, TransactionStatus.DRAFT)
+
+        assert updated.id == transaction.id
+        assert updated.status == TransactionStatus.DRAFT
+
+        # Verify the update persisted
+        retrieved = await transaction_service.get_transaction_by_id(transaction.id)
+        assert retrieved is not None
+        assert retrieved.status == TransactionStatus.DRAFT
+
+    async def test_update_transaction_status_not_exists(self, transaction_service: TransactionService):
+        """Test updating status for non-existent transaction raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            await transaction_service.update_transaction_status(99999, TransactionStatus.APPROVED)

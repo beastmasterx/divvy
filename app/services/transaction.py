@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Sequence
 from decimal import ROUND_HALF_EVEN, Decimal
 
@@ -5,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import _
 from app.exceptions import InternalServerError, NotFoundError, ValidationError
-from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind
+from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind, TransactionStatus
 from app.repositories import TransactionRepository
 from app.schemas import TransactionRequest, TransactionResponse
 
@@ -15,11 +16,6 @@ class TransactionService:
 
     def __init__(self, session: AsyncSession):
         self.transaction_repository = TransactionRepository(session)
-
-    async def get_all_transactions(self) -> Sequence[TransactionResponse]:
-        """Retrieve all transactions."""
-        transactions = await self.transaction_repository.get_all_transactions()
-        return [TransactionResponse.model_validate(transaction) for transaction in transactions]
 
     async def get_transaction_by_id(self, transaction_id: int) -> TransactionResponse | None:
         """Retrieve a specific transaction by its ID."""
@@ -117,6 +113,17 @@ class TransactionService:
         updated_transaction = await self.transaction_repository.update_transaction(transaction)
         return TransactionResponse.model_validate(updated_transaction)
 
+    async def update_transaction_status(self, transaction_id: int, status: TransactionStatus) -> TransactionResponse:
+        """Update the status of a transaction."""
+        transaction = await self.transaction_repository.get_transaction_by_id(transaction_id)
+        if not transaction:
+            raise NotFoundError(_("Transaction %s not found") % transaction_id)
+
+        transaction.status = status
+        updated_transaction = await self.transaction_repository.update_transaction(transaction)
+
+        return TransactionResponse.model_validate(updated_transaction)
+
     async def delete_transaction(self, transaction_id: int) -> None:
         """Delete a transaction by its ID."""
         return await self.transaction_repository.delete_transaction(transaction_id)
@@ -124,11 +131,6 @@ class TransactionService:
     async def get_transactions_by_period_id(self, period_id: int) -> Sequence[TransactionResponse]:
         """Retrieve all transactions associated with a specific period."""
         transactions = await self.transaction_repository.get_transactions_by_period_id(period_id)
-        return [TransactionResponse.model_validate(transaction) for transaction in transactions]
-
-    async def get_shared_transactions_by_user_id(self, user_id: int) -> Sequence[TransactionResponse]:
-        """Retrieve all transactions where a specific user has an expense share."""
-        transactions = await self.transaction_repository.get_shared_transactions_by_user_id(user_id)
         return [TransactionResponse.model_validate(transaction) for transaction in transactions]
 
     async def calculate_shares_for_transaction(self, transaction_id: int) -> dict[int, int]:
@@ -254,6 +256,39 @@ class TransactionService:
             )
 
         return shares
+
+    async def get_all_balances(self, period_id: int) -> dict[int, int]:
+        """Calculate balances for all users in a specific period.
+
+        Returns:
+            dict[int, int]: {user_id: net_balance}
+                Positive = user is owed money
+                Negative = user owes money
+
+        Raises:
+            ValidationError: If transaction kind is invalid
+        """
+        balances: dict[int, int] = defaultdict(int)
+        transactions = await self.get_transactions_by_period_id(period_id)
+        for transaction in transactions:
+            if transaction.transaction_kind == TransactionKind.EXPENSE:
+                # Credit the payer for paying the full amount
+                balances[transaction.payer_id] += transaction.amount
+
+                # Debit each participant for their share
+                shares = await self.calculate_shares_for_transaction(transaction.id)
+                for user_id, amount in shares.items():
+                    balances[user_id] -= amount
+            elif transaction.transaction_kind == TransactionKind.DEPOSIT:
+                balances[transaction.payer_id] += transaction.amount
+            elif transaction.transaction_kind == TransactionKind.REFUND:
+                balances[transaction.payer_id] -= transaction.amount
+            else:
+                raise ValidationError(
+                    _("Invalid transaction kind: %(transaction_kind)s")
+                    % {"transaction_kind": transaction.transaction_kind}
+                )
+        return dict(balances)
 
     def _validate_transaction(
         self,

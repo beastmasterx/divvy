@@ -18,7 +18,15 @@ from app.models.authorization import (
 from app.models.base import AuditMixin, Base, TimestampMixin
 from app.models.group import Group
 from app.models.period import Period, PeriodStatus
-from app.models.transaction import Category, ExpenseShare, Settlement, SplitKind, Transaction, TransactionKind
+from app.models.transaction import (
+    Category,
+    ExpenseShare,
+    Settlement,
+    SplitKind,
+    Transaction,
+    TransactionKind,
+    TransactionStatus,
+)
 from app.models.user import User
 
 __all__ = [
@@ -28,6 +36,7 @@ __all__ = [
     "AuditMixin",
     # Enums
     "TransactionKind",
+    "TransactionStatus",
     "SplitKind",
     "IdentityProviderName",
     "AccountLinkRequestStatus",

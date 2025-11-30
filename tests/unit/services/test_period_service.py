@@ -76,7 +76,7 @@ class TestPeriodService:
 
         request = PeriodRequest(name="Updated Name")
 
-        updated = await period_service.update_period(period.id, request)
+        updated = await period_service.update_period_name(period.id, request)
 
         assert updated.name == "Updated Name"
 
@@ -91,7 +91,7 @@ class TestPeriodService:
         request = PeriodRequest(name="Updated Name")
 
         with pytest.raises(NotFoundError):
-            await period_service.update_period(99999, request)
+            await period_service.update_period_name(99999, request)
 
     async def test_close_period(
         self,
@@ -188,7 +188,7 @@ class TestPeriodService:
         open_period = await period_factory(group_id=group.id, name="Open Period")
 
         # Get current period (should be the open one)
-        current = await period_service.get_current_period_by_group_id(group.id)
+        current = await period_service.get_active_period_by_group_id(group.id)
 
         assert current is not None
         assert current.id == open_period.id
@@ -198,6 +198,6 @@ class TestPeriodService:
         # Get current period for group with no open periods
         empty_group = await group_factory(name="Empty Group")
 
-        current = await period_service.get_current_period_by_group_id(empty_group.id)
+        current = await period_service.get_active_period_by_group_id(empty_group.id)
 
         assert current is None

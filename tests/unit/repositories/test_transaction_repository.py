@@ -20,35 +20,6 @@ class TestTransactionRepository:
     def transaction_repository(self, db_session: AsyncSession) -> TransactionRepository:
         return TransactionRepository(db_session)
 
-    async def test_get_all_transactions_empty(self, transaction_repository: TransactionRepository):
-        """Test retrieving all transactions when database is empty."""
-        transactions = await transaction_repository.get_all_transactions()
-
-        assert isinstance(transactions, list)
-        assert len(transactions) == 0
-
-    async def test_get_all_transactions_multiple(
-        self, transaction_repository: TransactionRepository, transaction_factory: Callable[..., Awaitable[Transaction]]
-    ):
-        """Test retrieving all transactions when multiple exist."""
-        # Create multiple transactions
-        # Note: Requires valid payer_id, category_id, period_id
-        tx1 = await transaction_factory(
-            description="Transaction 1", amount=10000, payer_id=1, category_id=1, period_id=1
-        )
-        tx2 = await transaction_factory(
-            description="Transaction 2", amount=20000, payer_id=1, category_id=1, period_id=1
-        )
-
-        transactions = await transaction_repository.get_all_transactions()
-
-        assert len(transactions) >= 2
-
-        descriptions = {tx.description for tx in transactions if tx.description}
-
-        assert tx1.description in descriptions
-        assert tx2.description in descriptions
-
     async def test_get_transaction_by_id_exists(
         self, transaction_repository: TransactionRepository, transaction_factory: Callable[..., Awaitable[Transaction]]
     ):
@@ -88,32 +59,6 @@ class TestTransactionRepository:
         assert tx1.description in descriptions
         assert tx2.description in descriptions
         assert tx3.description not in descriptions
-
-    async def test_get_shared_transactions_by_user_id(
-        self, transaction_repository: TransactionRepository, transaction_factory: Callable[..., Awaitable[Transaction]]
-    ):
-        """Test retrieving transactions where a user has expense shares."""
-        # Create a transaction with expense shares
-        _ = await transaction_factory(
-            transaction_kind=TransactionKind.EXPENSE,
-            split_kind=SplitKind.EQUAL,
-            amount=10000,
-            description="Test Transaction",
-            payer_id=1,
-            category_id=1,
-            period_id=1,
-            expense_shares=[
-                ExpenseShare(
-                    user_id=1,
-                    share_amount=5000,
-                )
-            ],
-        )
-
-        transactions = await transaction_repository.get_shared_transactions_by_user_id(1)
-
-        assert isinstance(transactions, list)
-        assert len(transactions) == 1
 
     async def test_create_transaction(self, transaction_repository: TransactionRepository):
         """Test creating a new transaction."""
