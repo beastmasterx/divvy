@@ -17,6 +17,7 @@ from app.models import (
     IdentityProviderName,
     Period,
     RefreshToken,
+    Settlement,
     SystemRoleBinding,
     Transaction,
     User,
@@ -29,6 +30,7 @@ from tests.fixtures.factories import (
     create_test_group,
     create_test_period,
     create_test_refresh_token,
+    create_test_settlement,
     create_test_transaction,
     create_test_user,
     create_test_user_identity,
@@ -213,3 +215,20 @@ def group_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaita
         return binding
 
     return _create_group_role_binding
+
+
+@pytest.fixture
+def settlement_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Settlement]]:
+    """Factory fixture for creating settlements."""
+
+    async def _create_settlement(
+        period_id: int = 1, payer_id: int = 1, payee_id: int = 2, amount: int = 5000, **kwargs: Any
+    ) -> Settlement:
+        settlement = create_test_settlement(
+            period_id=period_id, payer_id=payer_id, payee_id=payee_id, amount=amount, **kwargs
+        )
+        db_session.add(settlement)
+        await db_session.commit()
+        return settlement
+
+    return _create_settlement

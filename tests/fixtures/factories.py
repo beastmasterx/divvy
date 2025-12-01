@@ -13,6 +13,7 @@ from app.models import (
     IdentityProviderName,
     Period,
     RefreshToken,
+    Settlement,
     SplitKind,
     Transaction,
     TransactionKind,
@@ -240,3 +241,33 @@ def create_test_refresh_token(
         RefreshToken instance (not persisted to database)
     """
     return RefreshToken(id=id, user_id=user_id, device_info=device_info, is_revoked=is_revoked, **kwargs)
+
+
+def create_test_settlement(
+    period_id: int = 1,
+    payer_id: int = 1,
+    payee_id: int = 2,
+    amount: int = 5000,  # in cents ($50.00)
+    date_paid: datetime | None = None,
+    **kwargs: Any
+) -> Settlement:
+    """
+    Factory for creating test settlements.
+
+    Args:
+        period_id: ID of the period this settlement belongs to
+        payer_id: ID of the user who pays
+        payee_id: ID of the user who receives payment
+        amount: Settlement amount in cents
+        date_paid: Date when payment was made (defaults to now)
+        **kwargs: Additional Settlement model fields
+
+    Returns:
+        Settlement instance (not persisted to database)
+    """
+    if date_paid is None:
+        date_paid = datetime.now(UTC)
+
+    return Settlement(
+        period_id=period_id, payer_id=payer_id, payee_id=payee_id, amount=amount, date_paid=date_paid, **kwargs
+    )
