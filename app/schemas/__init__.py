@@ -18,6 +18,7 @@ from .category import CategoryRequest, CategoryResponse
 from .group import GroupRequest, GroupResponse, GroupRoleAssignmentRequest
 from .period import PeriodRequest, PeriodResponse
 from .transaction import (
+    BalanceResponse,
     ExpenseShareRequest,
     ExpenseShareResponse,
     SettlementResponse,
@@ -31,6 +32,7 @@ __all__ = [
     "AccountLinkRequestCreateRequest",
     "AccountLinkRequestResponse",
     "AccountLinkVerifyRequest",
+    "BalanceResponse",
     "CategoryRequest",
     "CategoryResponse",
     "GroupRequest",

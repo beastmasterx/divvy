@@ -10,8 +10,26 @@ The factory pattern (`requires_...`) creates dynamic FastAPI dependencies
 that check if the current authenticated user possesses any of the required roles
 for the requested resource.
 
-FAILURE:
-If the user's role does not satisfy the requirements, a 403 ForbiddenError is raised.
+FAILURE BEHAVIOR:
+=================
+The behavior differs between system-wide and group-scoped resources:
+
+System-Wide Resources (requires_system_role):
+- Returns 403 ForbiddenError if user lacks required system role
+
+Group-Scoped Resources (requires_group_role, requires_group_role_for_period, etc.):
+- Implements a security-by-obscurity pattern:
+  * Non-members (role is None): Returns 404 NotFoundError
+    - Rationale: Don't reveal resource existence to unauthorized users
+    - Prevents information disclosure attacks (enumeration of IDs)
+    - Example: Non-member accessing /groups/123 → "Group not found" (404)
+  * Members with insufficient roles: Returns 403 ForbiddenError
+    - Rationale: User is authorized to know resource exists, but lacks permission
+    - Clear distinction between "doesn't exist" vs "insufficient permissions"
+    - Example: Member accessing owner-only endpoint → "Access denied" (403)
+
+This pattern is consistent across all group-scoped resources (groups, periods, transactions)
+to prevent attackers from discovering resource IDs through enumeration.
 """
 
 from collections.abc import Awaitable, Callable, Sequence
@@ -123,7 +141,8 @@ def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[Any]]:
                 within the context of the requested group.
 
     Returns:
-        A callable FastAPI dependency that raises ForbiddenError on failure.
+        A callable FastAPI dependency that raises NotFoundError or ForbiddenError on failure.
+        See module docstring for details on the security-by-obscurity pattern.
     """
     required_role_values = _normalize_roles(roles)
 
@@ -138,6 +157,7 @@ def requires_group_role(*roles: RoleType) -> Callable[..., Awaitable[Any]]:
     ) -> UserResponse:
         role = await authorization_service.get_group_role_by_group_id(current_user.id, group_id)
 
+        # Security-by-obscurity: Return 404 for non-members to avoid revealing group existence
         if role is None:
             raise NotFoundError(_("Group not found"))
 
@@ -165,7 +185,8 @@ def requires_group_role_for_period(*roles: RoleType) -> Callable[..., Awaitable[
                 within the context of the period's group.
 
     Returns:
-        A callable FastAPI dependency that raises ForbiddenError on failure.
+        A callable FastAPI dependency that raises NotFoundError or ForbiddenError on failure.
+        See module docstring for details on the security-by-obscurity pattern.
     """
     required_role_values = _normalize_roles(roles)
     display_names = [_get_display_role_name(r) for r in required_role_values]
@@ -212,7 +233,8 @@ def requires_group_role_for_transaction(*roles: RoleType) -> Callable[..., Await
                 within the context of the transaction's period's group.
 
     Returns:
-        A callable FastAPI dependency that raises ForbiddenError on failure.
+        A callable FastAPI dependency that raises NotFoundError or ForbiddenError on failure.
+        See module docstring for details on the security-by-obscurity pattern.
     """
     required_role_values = _normalize_roles(roles)
     display_names = [_get_display_role_name(r) for r in required_role_values]

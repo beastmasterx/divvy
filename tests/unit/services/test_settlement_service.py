@@ -34,7 +34,7 @@ class TestSettlementService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
-        assert isinstance(balances, dict)
+        assert isinstance(balances, list)
         assert len(balances) == 0
 
     async def test_get_all_balances_with_deposits(
@@ -79,8 +79,10 @@ class TestSettlementService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
-        assert balances[user1.id] == 10000  # User 1 is owed $100
-        assert balances[user2.id] == 5000  # User 2 is owed $50
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
+        assert balances_dict[user1.id] == 10000  # User 1 is owed $100
+        assert balances_dict[user2.id] == 5000  # User 2 is owed $50
 
     async def test_get_all_balances_with_expenses(
         self,
@@ -117,10 +119,12 @@ class TestSettlementService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User 1 paid $100, owes $50 share = +$50
         # User 2 owes $50 share = -$50
-        assert balances[user1.id] == 5000
-        assert balances[user2.id] == -5000
+        assert balances_dict[user1.id] == 5000
+        assert balances_dict[user2.id] == -5000
 
     async def test_get_settlement_plan_period_not_exists(self, settlement_service: SettlementService):
         """Test getting settlement plan for non-existent period raises NotFoundError."""

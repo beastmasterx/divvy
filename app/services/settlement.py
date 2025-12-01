@@ -56,7 +56,9 @@ class SettlementService:
         creditors: list[tuple[int, int]] = []  # (user_id, amount_owed)
         debtors: list[tuple[int, int]] = []  # (user_id, amount_owed)
 
-        for user_id, balance in balances.items():
+        for balance_response in balances:
+            user_id = balance_response.user_id
+            balance = balance_response.balance
             if balance > 0:
                 creditors.append((user_id, balance))
             elif balance < 0:

@@ -172,7 +172,6 @@ class GroupService:
 
         Raises:
             NotFoundError: If group not found
-            BusinessRuleError: If active period with transactions is not settled
         """
         group = await self.get_group_by_id(id)
         if not group:

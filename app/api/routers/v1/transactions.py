@@ -23,7 +23,9 @@ router = APIRouter(prefix="/transactions", tags=["transactions"], dependencies=[
 async def get_transaction_by_id(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _group_role_check: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> TransactionResponse:
     """
     Get a specific transaction by its ID.
@@ -40,8 +42,10 @@ async def update_transaction(
     transaction_id: int,
     request: TransactionRequest,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _group_role_check: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
-    _status_check: Annotated[
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
+    _status_and_creator_check: Annotated[
         TransactionResponse, Depends(requires_transaction_status_and_creator(TransactionStatus.DRAFT))
     ],
 ) -> TransactionResponse:
@@ -84,9 +88,12 @@ async def submit_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
     _group_role_check: Annotated[
-        UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN))
+        UserResponse,
+        Depends(
+            requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER, GroupRole.MEMBER)
+        ),
     ],
-    _status_check: Annotated[
+    _status_and_creator_check: Annotated[
         TransactionResponse, Depends(requires_transaction_status_and_creator(TransactionStatus.DRAFT))
     ],
 ) -> TransactionResponse:
@@ -100,8 +107,10 @@ async def submit_transaction(
 async def draft_transaction(
     transaction_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _group_role_check: Annotated[UserResponse, Depends(requires_group_role_for_transaction(GroupRole.MEMBER))],
-    _status_check: Annotated[
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
+    _status_and_creator_check: Annotated[
         TransactionResponse,
         Depends(requires_transaction_status_and_creator(TransactionStatus.PENDING, TransactionStatus.REJECTED)),
     ],
@@ -119,7 +128,7 @@ async def delete_transaction(
     _group_role_check: Annotated[
         UserResponse, Depends(requires_group_role_for_transaction(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
     ],
-    _status_check: Annotated[
+    _status_and_creator_check: Annotated[
         TransactionResponse,
         Depends(requires_transaction_status_and_creator(TransactionStatus.DRAFT, TransactionStatus.REJECTED)),
     ],

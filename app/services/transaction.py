@@ -8,7 +8,7 @@ from app.core.i18n import _
 from app.exceptions import InternalServerError, NotFoundError, ValidationError
 from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind, TransactionStatus
 from app.repositories import TransactionRepository
-from app.schemas import TransactionRequest, TransactionResponse
+from app.schemas import BalanceResponse, TransactionRequest, TransactionResponse
 
 
 class TransactionService:
@@ -259,13 +259,13 @@ class TransactionService:
 
         return shares
 
-    async def get_all_balances(self, period_id: int) -> dict[int, int]:
+    async def get_all_balances(self, period_id: int) -> Sequence[BalanceResponse]:
         """Calculate balances for all users in a specific period.
 
         Returns:
-            dict[int, int]: {user_id: net_balance}
-                Positive = user is owed money
-                Negative = user owes money
+            Sequence[BalanceResponse]: List of user balances
+                Positive balance = user is owed money
+                Negative balance = user owes money
 
         Raises:
             ValidationError: If transaction kind is invalid
@@ -290,7 +290,7 @@ class TransactionService:
                     _("Invalid transaction kind: %(transaction_kind)s")
                     % {"transaction_kind": transaction.transaction_kind}
                 )
-        return dict(balances)
+        return [BalanceResponse(user_id=user_id, balance=balance) for user_id, balance in balances.items()]
 
     def _validate_transaction(
         self,

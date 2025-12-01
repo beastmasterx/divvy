@@ -15,6 +15,6 @@ dependencies:
   - pip:
     - -e "."  # Installs core dependencies from pyproject.toml (includes sqlalchemy and aiosqlite)
     - -e ".[dev]"  # Installs dev tools from pyproject.toml
-    - fastapi[standard]>=0.121.0
+    - fastapi[standard]>=0.122.0
     - python-jose[cryptography]>=3.3.0
     - pwdlib[argon2]>=0.3.0

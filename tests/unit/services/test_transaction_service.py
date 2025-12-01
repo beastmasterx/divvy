@@ -300,7 +300,7 @@ class TestTransactionService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
-        assert isinstance(balances, dict)
+        assert isinstance(balances, list)
         assert len(balances) == 0
 
     async def test_get_all_balances_with_deposits(
@@ -343,8 +343,10 @@ class TestTransactionService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
-        assert balances[user1.id] == 10000  # User 1 is owed $100
-        assert balances[user2.id] == 5000  # User 2 is owed $50
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
+        assert balances_dict[user1.id] == 10000  # User 1 is owed $100
+        assert balances_dict[user2.id] == 5000  # User 2 is owed $50
 
     async def test_get_all_balances_with_expenses_equal_split(
         self,
@@ -379,10 +381,12 @@ class TestTransactionService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User 1 paid $100, owes $50 share = +$50
         # User 2 owes $50 share = -$50
-        assert balances[user1.id] == 5000
-        assert balances[user2.id] == -5000
+        assert balances_dict[user1.id] == 5000
+        assert balances_dict[user2.id] == -5000
 
     async def test_get_all_balances_with_expenses_equal_split_three_users(
         self,
@@ -419,16 +423,18 @@ class TestTransactionService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User 1 paid $10.00, owes share (333 or 334 cents depending on remainder distribution)
         # Total shares must equal 1000 cents
-        total_shares = abs(balances[user1.id] - 1000) + abs(balances[user2.id]) + abs(balances[user3.id])
+        total_shares = abs(balances_dict[user1.id] - 1000) + abs(balances_dict[user2.id]) + abs(balances_dict[user3.id])
         assert total_shares == 1000
 
         # User 1 should have positive balance (paid more than owed)
-        assert balances[user1.id] > 0
+        assert balances_dict[user1.id] > 0
         # Users 2 and 3 should have negative balances (owe money)
-        assert balances[user2.id] < 0
-        assert balances[user3.id] < 0
+        assert balances_dict[user2.id] < 0
+        assert balances_dict[user3.id] < 0
 
     async def test_get_all_balances_with_personal_split(
         self,
@@ -461,8 +467,10 @@ class TestTransactionService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User paid $50, owes $50 share = $0 balance
-        assert balances[user.id] == 0
+        assert balances_dict[user.id] == 0
 
     async def test_get_all_balances_with_mixed_transactions(
         self,
@@ -510,10 +518,12 @@ class TestTransactionService:
 
         balances = await transaction_service.get_all_balances(period.id)
 
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User 1: +$100 (deposit) + $50 (paid) - $25 (share) = +$125
         # User 2: -$25 (share)
-        assert balances[user1.id] == 12500
-        assert balances[user2.id] == -2500
+        assert balances_dict[user1.id] == 12500
+        assert balances_dict[user2.id] == -2500
 
     # ============================================================================
     # Split Kind Tests: AMOUNT and PERCENTAGE
@@ -561,12 +571,14 @@ class TestTransactionService:
 
         # Verify balances reflect the amount split
         balances = await transaction_service.get_all_balances(period.id)
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User 1 paid $100, owes $40 = +$60
         # User 2 owes $35 = -$35
         # User 3 owes $25 = -$25
-        assert balances[user1.id] == 6000
-        assert balances[user2.id] == -3500
-        assert balances[user3.id] == -2500
+        assert balances_dict[user1.id] == 6000
+        assert balances_dict[user2.id] == -3500
+        assert balances_dict[user3.id] == -2500
 
     async def test_create_transaction_expense_percentage_split(
         self,
@@ -610,12 +622,14 @@ class TestTransactionService:
 
         # Verify balances reflect the percentage split
         balances = await transaction_service.get_all_balances(period.id)
+        # Convert to dict for easier assertions
+        balances_dict = {b.user_id: b.balance for b in balances}
         # User 1 paid $100, owes $50 (50%) = +$50
         # User 2 owes $30 (30%) = -$30
         # User 3 owes $20 (20%) = -$20
-        assert balances[user1.id] == 5000
-        assert balances[user2.id] == -3000
-        assert balances[user3.id] == -2000
+        assert balances_dict[user1.id] == 5000
+        assert balances_dict[user2.id] == -3000
+        assert balances_dict[user3.id] == -2000
 
     # ============================================================================
     # Validation Error Tests (tests _validate_transaction indirectly)

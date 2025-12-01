@@ -49,11 +49,13 @@ async def get_groups_by_user_id(
 async def get_group_by_id(
     group_id: int,
     group_service: Annotated[GroupService, Depends(get_group_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> GroupResponse:
     """
     Get a specific group by its ID.
-    Requires group membership.
+    Requires group membership (owner, admin, or member).
     """
     group = await group_service.get_group_by_id(group_id)
     if not group:
@@ -79,7 +81,7 @@ async def update_group(
     group_id: int,
     request: GroupRequest,
     group_service: Annotated[GroupService, Depends(get_group_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
 ) -> GroupResponse:
     """
     Update a specific group by its ID.
@@ -93,8 +95,8 @@ async def transfer_group_owner(
     group_id: int,
     user_id: int,
     group_service: Annotated[GroupService, Depends(get_group_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
-    _verifies_target_user_membership: Annotated[None, Depends(verifies_target_user_membership)],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
+    _target_user_membership_check: Annotated[None, Depends(verifies_target_user_membership)],
 ) -> GroupResponse:
     """Transfer the ownership of a specific group by its ID to a new owner."""
     return await group_service.transfer_group_owner(group_id, user_id)
@@ -105,9 +107,9 @@ async def remove_user_from_group(
     group_id: int,
     user_id: int,
     group_service: Annotated[GroupService, Depends(get_group_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
-    _verifies_target_user_membership: Annotated[None, Depends(verifies_target_user_membership)],
-    _requires_settled_active_period: Annotated[None, Depends(requires_settled_active_period)],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
+    _target_user_membership_check: Annotated[None, Depends(verifies_target_user_membership)],
+    _settled_active_period_check: Annotated[None, Depends(requires_settled_active_period)],
 ) -> None:
     """Remove a user from a group."""
     await group_service.remove_user_from_group(group_id, user_id)
@@ -119,8 +121,8 @@ async def assign_group_role(
     user_id: int,
     role: GroupRole,
     group_service: Annotated[GroupService, Depends(get_group_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
-    _requires_non_owner_role_assignment: Annotated[None, Depends(requires_non_owner_role_assignment)],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
+    _non_owner_role_assignment_check: Annotated[None, Depends(requires_non_owner_role_assignment)],
 ) -> None:
     """Assign a role to a user in a group."""
     await group_service.assign_group_role(group_id=group_id, user_id=user_id, role=role)
@@ -130,8 +132,8 @@ async def assign_group_role(
 async def delete_group(
     group_id: int,
     group_service: Annotated[GroupService, Depends(get_group_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
-    _requires_settled_active_period: Annotated[None, Depends(requires_settled_active_period)],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER))],
+    _settled_active_period_check: Annotated[None, Depends(requires_settled_active_period)],
 ) -> None:
     """
     Delete a specific group by its ID.
@@ -144,10 +146,13 @@ async def delete_group(
 async def get_periods(
     group_id: int,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> list[PeriodResponse]:
     """
     Get all periods for a specific group.
+    Requires group membership (owner, admin, or member).
     """
     periods = await period_service.get_periods_by_group_id(group_id)
     return [PeriodResponse.model_validate(period) for period in periods]
@@ -157,10 +162,13 @@ async def get_periods(
 async def get_current_period(
     group_id: int,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> PeriodResponse:
     """
     Get the current active period for a specific group.
+    Requires group membership (owner, admin, or member).
     """
     period = await period_service.get_active_period_by_group_id(group_id)
     if not period:
@@ -173,7 +181,7 @@ async def create_period(
     group_id: int,
     period: PeriodRequest,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
+    _group_role_check: Annotated[UserResponse, Depends(requires_group_role(GroupRole.OWNER, GroupRole.ADMIN))],
 ) -> PeriodResponse:
     """
     Create a new period.

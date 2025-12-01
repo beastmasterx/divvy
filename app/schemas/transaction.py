@@ -67,6 +67,15 @@ class ExpenseShareResponse(BaseModel):
     share_percentage: float | None = Field(default=None, description="Percentage of the share")
 
 
+class BalanceResponse(BaseModel):
+    """Schema for user balance in a period."""
+
+    user_id: int = Field(..., description="ID of the user")
+    balance: int = Field(
+        ..., description="Net balance in cents. Positive = user is owed money, Negative = user owes money"
+    )
+
+
 class SettlementResponse(BaseModel):
     """Schema for settlement response representing money transfers between users."""
 

@@ -21,6 +21,7 @@ from app.core.i18n import _
 from app.exceptions import NotFoundError
 from app.models import GroupRole
 from app.schemas import (
+    BalanceResponse,
     PeriodRequest,
     PeriodResponse,
     SettlementResponse,
@@ -37,7 +38,9 @@ router = APIRouter(prefix="/periods", tags=["periods"], dependencies=[Depends(ge
 async def get_period(
     period_id: int,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> PeriodResponse:
     """
     Get a specific period by its ID.
@@ -54,7 +57,9 @@ async def update_period(
     period_id: int,
     request: PeriodRequest,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))
+    ],
 ) -> PeriodResponse:
     """
     Update a specific period by its ID.
@@ -67,7 +72,9 @@ async def update_period(
 async def close_period(
     period_id: int,
     period_service: Annotated[PeriodService, Depends(get_period_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))
+    ],
 ) -> PeriodResponse:
     """
     Close a specific period by its ID.
@@ -80,7 +87,9 @@ async def close_period(
 async def get_transactions(
     period_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> Sequence[TransactionResponse]:
     """
     Get the transactions for a specific period.
@@ -94,7 +103,9 @@ async def create_transaction(
     period_id: int,
     request: TransactionRequest,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> TransactionResponse:
     """
     Create a new transaction.
@@ -102,15 +113,21 @@ async def create_transaction(
     return await transaction_service.create_transaction(period_id, request)
 
 
-@router.get("/{period_id}/balances", response_model=dict[int, int])
+@router.get("/{period_id}/balances", response_model=list[BalanceResponse])
 async def get_balances(
     period_id: int,
     transaction_service: Annotated[TransactionService, Depends(get_transaction_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
-) -> dict[int, int]:
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
+) -> Sequence[BalanceResponse]:
     """
     Get the balances for a specific period.
     Requires group membership for the period's group.
+
+    Returns a list of user balances where:
+    - Positive balance = user is owed money
+    - Negative balance = user owes money
     """
     return await transaction_service.get_all_balances(period_id)
 
@@ -119,7 +136,9 @@ async def get_balances(
 async def get_settlement_plan(
     period_id: int,
     settlement_service: Annotated[SettlementService, Depends(get_settlement_service)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.MEMBER))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN, GroupRole.MEMBER))
+    ],
 ) -> Sequence[SettlementResponse]:
     """
     Get the settlement plan for a specific period.
@@ -133,7 +152,9 @@ async def apply_settlement_plan(
     period_id: int,
     settlement_service: Annotated[SettlementService, Depends(get_serializable_settlement_service)],
     db: Annotated[AsyncSession, Depends(get_serializable_db)],
-    _current_user: Annotated[UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))],
+    _group_role_check: Annotated[
+        UserResponse, Depends(requires_group_role_for_period(GroupRole.OWNER, GroupRole.ADMIN))
+    ],
 ) -> None:
     """
     Apply the settlement plan and settle the period.

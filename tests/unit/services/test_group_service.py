@@ -16,6 +16,26 @@ from app.services import AuthorizationService, GroupService
 class TestGroupService:
     """Test suite for GroupService."""
 
+    @pytest.fixture
+    async def owner_user(self, user_factory: Callable[..., Awaitable[User]]):
+        """Fixture for creating an owner user."""
+        return await user_factory(email="owner@example.com", name="Owner")
+
+    @pytest.fixture
+    async def member_user(self, user_factory: Callable[..., Awaitable[User]]):
+        """Fixture for creating a member user."""
+        return await user_factory(email="member@example.com", name="Member")
+
+    @pytest.fixture
+    async def group_with_owner(
+        self,
+        group_with_role_factory: Callable[..., Awaitable[Group]],
+        owner_user: User,
+        authorization_service: AuthorizationService,
+    ):
+        """Fixture for creating a group with an owner."""
+        return await group_with_role_factory(user_id=owner_user.id, role=GroupRole.OWNER, name="Test Group")
+
     # ========== Get Operations ==========
 
     async def test_get_all_groups(self, group_service: GroupService, group_factory: Callable[..., Awaitable[Group]]):

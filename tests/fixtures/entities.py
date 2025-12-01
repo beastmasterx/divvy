@@ -1,5 +1,12 @@
 """
 Data fixtures for testing (users, groups, transactions, etc.).
+
+This module provides factory fixtures organized into logical sections:
+- Core entity factories: Basic entities (users, groups)
+- Authentication factories: Auth-related entities (identities, tokens, account links)
+- Business entity factories: Domain entities (categories, periods, transactions, settlements)
+- Low-level binding factories: Direct model creation (for repository unit tests)
+- High-level service factories: Service-based creation (for API/integration tests)
 """
 
 from collections.abc import Awaitable, Callable
@@ -18,6 +25,7 @@ from app.models import (
     Period,
     RefreshToken,
     Settlement,
+    SystemRole,
     SystemRoleBinding,
     Transaction,
     User,
@@ -36,6 +44,10 @@ from tests.fixtures.factories import (
     create_test_user_identity,
 )
 
+# ============================================================================
+# Core Entity Factories
+# ============================================================================
+
 
 @pytest.fixture
 def user_factory(db_session: AsyncSession) -> Callable[..., Awaitable[User]]:
@@ -48,18 +60,6 @@ def user_factory(db_session: AsyncSession) -> Callable[..., Awaitable[User]]:
         return user
 
     return _create_user
-
-
-@pytest.fixture
-async def owner_user(user_factory: Callable[..., Awaitable[User]]) -> User:
-    """Create an owner user for testing."""
-    return await user_factory(email="owner@example.com", name="Owner")
-
-
-@pytest.fixture
-async def member_user(user_factory: Callable[..., Awaitable[User]]) -> User:
-    """Create a member user for testing."""
-    return await user_factory(email="user@example.com", name="User")
 
 
 @pytest.fixture
@@ -76,14 +76,9 @@ def group_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Group]]:
     return _create_group
 
 
-@pytest.fixture
-async def group_with_owner(
-    group_factory: Callable[..., Awaitable[Group]], owner_user: User, authorization_service: AuthorizationService
-) -> Group:
-    """Create a group with owner for testing."""
-    group = await group_factory(name="Test Group")
-    await authorization_service.assign_group_role(owner_user.id, group.id, GroupRole.OWNER)
-    return group
+# ============================================================================
+# Authentication Factories
+# ============================================================================
 
 
 @pytest.fixture
@@ -96,7 +91,7 @@ async def user_identity_factory(db_session: AsyncSession) -> Callable[..., Await
         external_id: str = "external_123",
         external_email: str | None = "external@example.com",
         external_username: str | None = "external_user",
-        **kwargs: Any
+        **kwargs: Any,
     ) -> UserIdentity:
         user_identity = create_test_user_identity(
             user_id=user_id,
@@ -104,7 +99,7 @@ async def user_identity_factory(db_session: AsyncSession) -> Callable[..., Await
             external_id=external_id,
             external_email=external_email,
             external_username=external_username,
-            **kwargs
+            **kwargs,
         )
         db_session.add(user_identity)
         await db_session.commit()
@@ -121,7 +116,7 @@ async def account_link_request_factory(db_session: AsyncSession) -> Callable[...
         user_id: int = 1,
         identity_provider: IdentityProviderName = IdentityProviderName.MICROSOFT,
         external_id: str = "external_123",
-        **kwargs: Any
+        **kwargs: Any,
     ) -> AccountLinkRequest:
         account_link_request = create_test_account_link_request(
             user_id=user_id, identity_provider=identity_provider, external_id=external_id, **kwargs
@@ -142,7 +137,7 @@ async def refresh_token_factory(db_session: AsyncSession) -> Callable[..., Await
         user_id: int = 1,
         device_info: str | None = "Test Device",
         is_revoked: bool = False,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> RefreshToken:
         refresh_token = create_test_refresh_token(
             id=id, user_id=user_id, device_info=device_info, is_revoked=is_revoked, **kwargs
@@ -152,6 +147,11 @@ async def refresh_token_factory(db_session: AsyncSession) -> Callable[..., Await
         return refresh_token
 
     return _create_refresh_token
+
+
+# ============================================================================
+# Business Entity Factories
+# ============================================================================
 
 
 @pytest.fixture
@@ -196,28 +196,6 @@ def transaction_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Tra
 
 
 @pytest.fixture
-def system_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaitable[SystemRoleBinding]]:
-    async def _create_system_role_binding(user_id: int, role: str, **kwargs: Any) -> SystemRoleBinding:
-        binding = SystemRoleBinding(user_id=user_id, role=role, **kwargs)
-        db_session.add(binding)
-        await db_session.commit()
-        return binding
-
-    return _create_system_role_binding
-
-
-@pytest.fixture
-def group_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaitable[GroupRoleBinding]]:
-    async def _create_group_role_binding(user_id: int, group_id: int, role: str, **kwargs: Any) -> GroupRoleBinding:
-        binding = GroupRoleBinding(user_id=user_id, group_id=group_id, role=role, **kwargs)
-        db_session.add(binding)
-        await db_session.commit()
-        return binding
-
-    return _create_group_role_binding
-
-
-@pytest.fixture
 def settlement_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Settlement]]:
     """Factory fixture for creating settlements."""
 
@@ -232,3 +210,148 @@ def settlement_factory(db_session: AsyncSession) -> Callable[..., Awaitable[Sett
         return settlement
 
     return _create_settlement
+
+
+# ============================================================================
+# Low-Level Binding Factories (for Repository Unit Tests)
+# ============================================================================
+# These factories create role bindings directly, bypassing the service layer.
+# Use these in repository unit tests to test repository methods in isolation.
+
+
+@pytest.fixture
+def system_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaitable[SystemRoleBinding]]:
+    """Factory for creating system role bindings directly (bypasses service layer).
+
+    Use in repository unit tests when testing repository methods in isolation.
+    """
+
+    async def _create_system_role_binding(user_id: int, role: str, **kwargs: Any) -> SystemRoleBinding:
+        binding = SystemRoleBinding(user_id=user_id, role=role, **kwargs)
+        db_session.add(binding)
+        await db_session.commit()
+        return binding
+
+    return _create_system_role_binding
+
+
+@pytest.fixture
+def group_role_binding_factory(db_session: AsyncSession) -> Callable[..., Awaitable[GroupRoleBinding]]:
+    """Factory for creating group role bindings directly (bypasses service layer).
+
+    Use in repository unit tests when testing repository methods in isolation.
+    """
+
+    async def _create_group_role_binding(user_id: int, group_id: int, role: str, **kwargs: Any) -> GroupRoleBinding:
+        binding = GroupRoleBinding(user_id=user_id, group_id=group_id, role=role, **kwargs)
+        db_session.add(binding)
+        await db_session.commit()
+        return binding
+
+    return _create_group_role_binding
+
+
+# ============================================================================
+# High-Level Service-Based Factories (for API/Integration Tests)
+# ============================================================================
+# These factories use the service layer to create entities with role assignments.
+# Use these in API and integration tests to test through the service layer.
+
+
+@pytest.fixture
+def group_with_role_factory(
+    group_factory: Callable[..., Awaitable[Group]],
+    authorization_service: AuthorizationService,
+    db_session: AsyncSession,
+) -> Callable[..., Awaitable[Group]]:
+    """Factory for creating groups with role assignments (uses service layer).
+
+    This factory uses AuthorizationService to assign roles, ensuring proper
+    business logic and validation. Use in API and integration tests.
+
+    Usage:
+        # Create a new group with a role
+        group = await group_with_role_factory(
+            user_id=owner_user.id,
+            role=GroupRole.OWNER,
+            name="My Group"
+        )
+
+        # Add another role to existing group
+        await group_with_role_factory(
+            user_id=member_user.id,
+            role=GroupRole.MEMBER,
+            group_id=group.id
+        )
+    """
+
+    async def _create_group_with_role(
+        user_id: int, role: GroupRole, name: str | None = None, group_id: int | None = None, **kwargs: Any
+    ) -> Group:
+        """
+        Create a group and assign a role, or assign a role to an existing group.
+
+        Args:
+            user_id: The user ID to assign the role to
+            role: The role to assign
+            name: Group name (only used if group_id is None)
+            group_id: Existing group ID (if None, creates a new group)
+            **kwargs: Additional arguments passed to group_factory
+        """
+        if group_id is None:
+            # Create new group
+            group = await group_factory(name=name or "Test Group", **kwargs)
+            group_id = group.id
+        else:
+            # Use existing group - fetch it to return
+            from app.repositories.group import GroupRepository
+
+            group_repo = GroupRepository(db_session)
+            group = await group_repo.get_group_by_id(group_id)
+            if not group:
+                raise ValueError(f"Group {group_id} not found")
+
+        await authorization_service.assign_group_role(user_id, group_id, role)
+        await db_session.commit()
+        return group
+
+    return _create_group_with_role
+
+
+@pytest.fixture
+def user_with_system_role_factory(
+    user_factory: Callable[..., Awaitable[User]],
+    authorization_service: AuthorizationService,
+    db_session: AsyncSession,
+) -> Callable[..., Awaitable[User]]:
+    """Factory for creating users with system role assignments (uses service layer).
+
+    This factory uses AuthorizationService to assign roles, ensuring proper
+    business logic and validation. Use in API and integration tests.
+
+    Usage:
+        admin_user = await user_with_system_role_factory(
+            role=SystemRole.ADMIN,
+            email="admin@example.com",
+            name="Admin User"
+        )
+    """
+
+    async def _create_user_with_role(
+        role: SystemRole, email: str = "test@example.com", name: str = "Test User", **kwargs: Any
+    ) -> User:
+        """
+        Create a user and assign a system role.
+
+        Args:
+            role: The system role to assign
+            email: User email address
+            name: User name
+            **kwargs: Additional arguments passed to user_factory
+        """
+        user = await user_factory(email=email, name=name, **kwargs)
+        await authorization_service.assign_system_role(user.id, role)
+        await db_session.commit()
+        return user
+
+    return _create_user_with_role

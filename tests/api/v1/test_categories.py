@@ -3,13 +3,13 @@ API tests for Category endpoints.
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from fastapi import status
+from httpx import AsyncClient
 
 from app.models import Category
+from app.schemas.category import CategoryResponse
 
 
 @pytest.mark.api
@@ -22,14 +22,14 @@ class TestCategoriesAPI:
 
     async def test_get_all_categories_requires_authentication(
         self,
-        unauthenticated_client: AsyncClient,
+        unauthenticated_async_client: AsyncClient,
     ):
         """Test endpoint requires authentication - returns 401 (OAuth2 standard)."""
         # Use trailing slash to match route definition @router.get("/")
-        response = await unauthenticated_client.get("/api/v1/categories/", follow_redirects=True)
+        response = await unauthenticated_async_client.get("/api/v1/categories/", follow_redirects=True)
 
         # OAuth2 RFC 6749 standard: 401 Unauthorized for missing/invalid tokens
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
         # Verify error response format
         error_data = response.json()
         assert "detail" in error_data
@@ -48,13 +48,13 @@ class TestCategoriesAPI:
 
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
 
-        assert response.status_code == 200
-        data: list[dict[str, Any]] = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 1
-        assert data[0]["id"] == category.id
-        assert data[0]["name"] == "Food"
-        assert data[0]["is_default"] is False
+        assert response.status_code == status.HTTP_200_OK
+        categories = [CategoryResponse.model_validate(item) for item in response.json()]
+        assert isinstance(categories, list)
+        assert len(categories) == 1
+        assert categories[0].id == category.id
+        assert categories[0].name == "Food"
+        assert categories[0].is_default is False
 
     async def test_get_all_categories_returns_empty_list(
         self,
@@ -63,10 +63,10 @@ class TestCategoriesAPI:
         """Test GET with no categories returns 200 with empty list."""
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data == []
-        assert isinstance(data, list)
+        assert response.status_code == status.HTTP_200_OK
+        categories = [CategoryResponse.model_validate(item) for item in response.json()]
+        assert categories == []
+        assert isinstance(categories, list)
 
     # ============================================================================
     # Priority 2: Important Test Cases
@@ -82,21 +82,21 @@ class TestCategoriesAPI:
 
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
 
-        assert response.status_code == 200
-        data: list[dict[str, Any]] = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 1
+        assert response.status_code == status.HTTP_200_OK
+        categories = [CategoryResponse.model_validate(item) for item in response.json()]
+        assert isinstance(categories, list)
+        assert len(categories) == 1
 
-        category = data[0]
+        category = categories[0]
         # Verify all required fields from CategoryResponse schema
-        assert "id" in category
-        assert "name" in category
-        assert "is_default" in category
+        assert category.id is not None
+        assert category.name is not None
+        assert category.is_default is not None
 
-        # Verify data types
-        assert isinstance(category["id"], int)
-        assert isinstance(category["name"], str)
-        assert isinstance(category["is_default"], bool)
+        # Verify data types (Pydantic already validates these)
+        assert isinstance(category.id, int)
+        assert isinstance(category.name, str)
+        assert isinstance(category.is_default, bool)
 
     async def test_get_all_categories_returns_all_categories(
         self,
@@ -109,13 +109,13 @@ class TestCategoriesAPI:
         await category_factory(name="Entertainment")
 
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
-        data: list[dict[str, Any]] = response.json()
+        categories = [CategoryResponse.model_validate(item) for item in response.json()]
 
-        assert response.status_code == 200
-        assert len(data) == 3
+        assert response.status_code == status.HTTP_200_OK
+        assert len(categories) == 3
 
         # Verify all categories are present
-        category_names = {cat["name"] for cat in data}
+        category_names = {cat.name for cat in categories}
         assert "Food" in category_names
         assert "Transportation" in category_names
         assert "Entertainment" in category_names
@@ -132,17 +132,17 @@ class TestCategoriesAPI:
         await category_factory(name="Third")
 
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
-        data: list[dict[str, Any]] = response.json()
+        categories = [CategoryResponse.model_validate(item) for item in response.json()]
 
-        assert response.status_code == 200
-        assert len(data) == 3
+        assert response.status_code == status.HTTP_200_OK
+        assert len(categories) == 3
 
         # Verify IDs are in ascending order
-        ids = [cat["id"] for cat in data]
+        ids = [cat.id for cat in categories]
         assert ids == sorted(ids)
 
         # Verify names are present (order may vary by ID)
-        names = {cat["name"] for cat in data}
+        names = {cat.name for cat in categories}
         assert names == {"First", "Second", "Third"}
 
     # ============================================================================
@@ -156,7 +156,7 @@ class TestCategoriesAPI:
         """Test response has correct Content-Type header."""
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert "application/json" in response.headers.get("content-type", "").lower()
 
     async def test_get_all_categories_includes_default_flag(
@@ -169,32 +169,30 @@ class TestCategoriesAPI:
         await category_factory(name="Custom", is_default=False)
 
         response = await async_client.get("/api/v1/categories/", follow_redirects=True)
-        data: list[dict[str, Any]] = response.json()
+        categories = [CategoryResponse.model_validate(item) for item in response.json()]
 
-        assert response.status_code == 200
-        assert len(data) == 2
+        assert response.status_code == status.HTTP_200_OK
+        assert len(categories) == 2
 
         # Find categories by name
-        default = next(c for c in data if c["name"] == "Default")
-        custom = next(c for c in data if c["name"] == "Custom")
+        default = next(c for c in categories if c.name == "Default")
+        custom = next(c for c in categories if c.name == "Custom")
 
-        assert default["is_default"] is True
-        assert custom["is_default"] is False
+        assert default.is_default is True
+        assert custom.is_default is False
 
     async def test_get_all_categories_rejects_invalid_token(
         self,
-        app: FastAPI,
+        unauthenticated_async_client: AsyncClient,
     ):
         """Test endpoint rejects invalid authentication tokens."""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/categories/",
-                headers={"Authorization": "Bearer invalid_token_123"},
-                follow_redirects=True,
-            )
+        response = await unauthenticated_async_client.get(
+            "/api/v1/categories/",
+            headers={"Authorization": "Bearer invalid_token_123"},
+            follow_redirects=True,
+        )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
         error_data = response.json()
         assert "detail" in error_data
         assert isinstance(error_data["detail"], str)
