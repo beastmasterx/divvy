@@ -4,13 +4,14 @@
 // configuration and error handling.
 
 import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:divvy_api_client/src/api/categories_api.dart';
 import 'package:divvy_api_client/src/api/members_api.dart';
 import 'package:divvy_api_client/src/api/periods_api.dart';
-import 'package:divvy_api_client/src/api/transactions_api.dart';
 import 'package:divvy_api_client/src/api/settlement_api.dart';
 import 'package:divvy_api_client/src/api/system_api.dart';
-import 'package:divvy_api_client/src/api/categories_api.dart';
+import 'package:divvy_api_client/src/api/transactions_api.dart';
 import 'package:divvy_api_client/src/serializers.dart';
 
 /// Divvy API client wrapper.
@@ -31,10 +32,7 @@ class DivvyClient {
         baseUrl: _baseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       ),
     );
 

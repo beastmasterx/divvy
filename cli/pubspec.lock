@@ -101,10 +101,10 @@ packages:
     dependency: transitive
     description:
       name: built_value
-      sha256: a30f0a0e38671e89a492c44d005b5545b830a961575bbd8336d42869ff71066d
+      sha256: "426cf75afdb23aa74bd4e471704de3f9393f3c7b04c1e2d9c6f1073ae0b8b139"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "8.12.0"
+    version: "8.12.1"
   checked_yaml:
     dependency: transitive
     description:
@@ -121,14 +121,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.2.0"
-  cli_launcher:
-    dependency: transitive
-    description:
-      name: cli_launcher
-      sha256: "17d2744fb9a254c49ec8eda582536abe714ea0131533e24389843a4256f82eac"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "0.3.2+1"
   clock:
     dependency: transitive
     description:
@@ -223,7 +215,7 @@ packages:
       path: "lib/src/generated/api/divvy"
       relative: true
     source: path
-    version: "1.0.0"
+    version: "0.0.1"
   equatable:
     dependency: transitive
     description:
@@ -280,14 +272,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.3.2"
-  http:
-    dependency: transitive
-    description:
-      name: http
-      sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.6.0"
   http_multi_server:
     dependency: transitive
     description:
@@ -408,30 +392,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.5.0"
-  openapi_generator:
-    dependency: "direct dev"
-    description:
-      name: openapi_generator
-      sha256: fb39046f1753d92d2e25d1b4b132dd4f5b462b3b1b8af4a2b63078b8ac8e3a56
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "6.1.0"
-  openapi_generator_annotations:
-    dependency: "direct main"
-    description:
-      name: openapi_generator_annotations
-      sha256: "5b4d548c18b417cfc6abd03098a28971d6211d6e10ec57e4f8fb9b2eb46c0641"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "6.1.0"
-  openapi_generator_cli:
-    dependency: transitive
-    description:
-      name: openapi_generator_cli
-      sha256: a7b764d8b121ecb7cdd466c688da1e1a592f7fff73673dcdb35ee5009f49739b
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "6.1.0"
   package_config:
     dependency: transitive
     description:

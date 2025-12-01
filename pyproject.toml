@@ -26,6 +26,7 @@ dev = [
     "black>=23.0.0",
     "pyright[nodejs]>=1.1.330",
     "alembic>=1.13.0",
+    "openapi-generator-cli>=7.9.0",
 ]
 # Async database drivers
 postgresql = ["asyncpg>=0.29.0"]
