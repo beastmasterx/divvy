@@ -45,6 +45,8 @@ from app.models import (  # noqa: E402
     Category,
     ExpenseShare,
     Group,
+    GroupRole,
+    GroupRoleBinding,
     Period,
     PeriodStatus,
     Settlement,
@@ -65,6 +67,7 @@ async def clear_existing_data(session: AsyncSession) -> None:
     await session.execute(delete(ExpenseShare))
     await session.execute(delete(Transaction))
     await session.execute(delete(Period))
+    await session.execute(delete(GroupRoleBinding))
     await session.execute(delete(Group))
     await session.execute(delete(User))
 
@@ -158,6 +161,64 @@ async def create_sample_groups(session: AsyncSession, users: list[User]) -> list
         print(f"  ✓ Created group: {group.name}")
 
     return groups
+
+
+async def create_group_memberships(session: AsyncSession, groups: list[Group], users: list[User]) -> None:
+    """Create group role bindings to establish user-group relationships."""
+    print("\nCreating group memberships...")
+
+    # Apartment Roommates: Alice (owner), Bob (member), Charlie (member)
+    binding1 = GroupRoleBinding(
+        user_id=users[0].id,
+        group_id=groups[0].id,
+        role=GroupRole.OWNER.value,
+        created_by=users[0].id,
+    )
+    session.add(binding1)
+
+    binding2 = GroupRoleBinding(
+        user_id=users[1].id,
+        group_id=groups[0].id,
+        role=GroupRole.MEMBER.value,
+        created_by=users[0].id,
+    )
+    session.add(binding2)
+
+    binding3 = GroupRoleBinding(
+        user_id=users[2].id,
+        group_id=groups[0].id,
+        role=GroupRole.MEMBER.value,
+        created_by=users[0].id,
+    )
+    session.add(binding3)
+
+    # Weekend Trip Group: Bob (owner), Charlie (member), Diana (member)
+    binding4 = GroupRoleBinding(
+        user_id=users[1].id,
+        group_id=groups[1].id,
+        role=GroupRole.OWNER.value,
+        created_by=users[1].id,
+    )
+    session.add(binding4)
+
+    binding5 = GroupRoleBinding(
+        user_id=users[2].id,
+        group_id=groups[1].id,
+        role=GroupRole.MEMBER.value,
+        created_by=users[1].id,
+    )
+    session.add(binding5)
+
+    binding6 = GroupRoleBinding(
+        user_id=users[3].id,
+        group_id=groups[1].id,
+        role=GroupRole.MEMBER.value,
+        created_by=users[1].id,
+    )
+    session.add(binding6)
+
+    await session.flush()
+    print("  ✓ Created 6 group memberships")
 
 
 async def create_sample_periods(session: AsyncSession, groups: list[Group], users: list[User]) -> list[Period]:
@@ -426,6 +487,9 @@ async def seed_sample_data(clear_first: bool = False) -> None:
 
         # Create groups
         groups = await create_sample_groups(session, users)
+
+        # Create group memberships (user-group relationships)
+        await create_group_memberships(session, groups, users)
 
         # Create periods
         periods = await create_sample_periods(session, groups, users)
