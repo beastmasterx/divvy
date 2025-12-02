@@ -5,7 +5,7 @@ import '../commands/menu.dart';
 
 /// Menu shown when group is selected but no period is selected.
 class PeriodMenu extends Menu {
-  PeriodMenu() : super([ViewPeriodCommand(), CreatePeriodCommand(), MoreCommand(), ExitCommand()]);
+  PeriodMenu() : super([SelectPeriodCommand(), CreatePeriodCommand(), MoreCommand(), ExitCommand()]);
 }
 
 /// "More" menu shown when group is selected but no period.
