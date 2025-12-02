@@ -4,12 +4,13 @@
 
 set -e
 
-# Project root is parent of scripts/
+# CLI root is parent of scripts/
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# NOTE: Output must be outside lib/ to avoid language version override conflicts
+CLI_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-OPENAPI_SPEC="$PROJECT_ROOT/cli/api/openapi.json"
-OUTPUT_DIR="$PROJECT_ROOT/cli/lib/src/generated/api/divvy"
+OPENAPI_SPEC="$CLI_ROOT/api/openapi.json"
+OUTPUT_DIR="$CLI_ROOT/generated/openapi/divvy"
 
 # Check prerequisites
 if ! command -v java &> /dev/null; then
@@ -47,4 +48,3 @@ dart pub get
 dart run build_runner build --delete-conflicting-outputs
 
 echo "✅ Client build complete."
-

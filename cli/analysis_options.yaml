@@ -22,7 +22,7 @@ linter:
 
 analyzer:
   exclude:
-    - lib/src/generated/**
+    - generated/**
 
 format:
   line_length: 120

@@ -30,4 +30,4 @@ doc/api/
 !lib/
 
 # Ignore generated API client code
-lib/src/generated/
+generated/
