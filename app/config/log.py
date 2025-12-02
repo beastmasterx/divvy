@@ -60,8 +60,8 @@ def setup_logging() -> None:
         if not app_logger.handlers:
             handler = logging.StreamHandler()
             handler.setLevel(divvy_log_level)
-            # Use a simple formatter for app logs
-            formatter = logging.Formatter("%(message)s")
+            # Use Uvicorn-style formatter for app logs to match FastAPI output
+            formatter = logging.Formatter("%(levelname)-4s:     %(message)s")
             handler.setFormatter(formatter)
             app_logger.addHandler(handler)
 
