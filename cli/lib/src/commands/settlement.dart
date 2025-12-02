@@ -23,15 +23,15 @@ Future<void> handleViewBalances(
   }
 
   displayTable(
-    headers: ['User ID', 'Balance'],
+    headers: ['Email', 'Balance'],
     rows: balances.map((b) => [
-      b.userId.toString(),
+      b.userEmail ?? b.userId.toString(),
       formatAmount(b.balance),
     ]).toList(),
   );
 }
 
-/// Handle view settlement plan command.
+/// Handle view settlement plan command with apply prompt.
 Future<void> handleViewSettlementPlan(
   PeriodService periodService,
   Session session,
@@ -41,9 +41,38 @@ Future<void> handleViewSettlementPlan(
     return;
   }
 
+  // Step 1: Check period status
+  final period = await periodService.getPeriod(session.currentPeriodId!);
+  if (period == null) {
+    print(translate('Period not found.'));
+    return;
+  }
+
+  // If period is open, prompt to close it first
+  if (period.status.toString().split('.').last == 'open') {
+    print(translate('The period must be closed before viewing the settlement plan.'));
+    final confirmClose = promptYesNo(translate('Close this period?'), defaultYes: false);
+    if (!confirmClose) {
+      print(translate('Settlement plan view cancelled.'));
+      return;
+    }
+
+    final closedPeriod = await periodService.closePeriod(session.currentPeriodId!);
+    if (closedPeriod == null) {
+      print(translate('Failed to close period.'));
+      return;
+    }
+    print(translate('Period closed successfully.'));
+    print('');
+  } else if (period.status.toString().split('.').last == 'settled') {
+    print(translate('This period is already settled.'));
+    return;
+  }
+
+  // Step 2: View settlement plan
   final plan = await periodService.getSettlementPlan(session.currentPeriodId!);
   if (plan.isEmpty) {
-    print(translate('No settlement needed.'));
+    print(translate('No settlement needed - all balances are zero.'));
     return;
   }
 
@@ -56,6 +85,23 @@ Future<void> handleViewSettlementPlan(
       formatAmount(s.amount),
     ]).toList(),
   );
+  print('');
+
+  // Step 3: Apply prompt
+  final confirmApply = promptYesNo(translate('Apply settlement plan?'), defaultYes: false);
+  if (!confirmApply) {
+    print(translate('Settlement plan not applied.'));
+    return;
+  }
+
+  // Step 4: Apply settlement
+  final success = await periodService.applySettlementPlan(session.currentPeriodId!);
+  if (success) {
+    print(translate('Settlement plan applied successfully.'));
+    print(translate('Period is now settled.'));
+  } else {
+    print(translate('Failed to apply settlement plan.'));
+  }
 }
 
 /// Handle apply settlement command.

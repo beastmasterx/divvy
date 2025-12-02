@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.i18n import _
 from app.exceptions import InternalServerError, NotFoundError, ValidationError
 from app.models import ExpenseShare, SplitKind, Transaction, TransactionKind, TransactionStatus
-from app.repositories import TransactionRepository
+from app.repositories import TransactionRepository, UserRepository
 from app.schemas import BalanceResponse, TransactionRequest, TransactionResponse
 
 
@@ -16,6 +16,7 @@ class TransactionService:
 
     def __init__(self, session: AsyncSession):
         self._transaction_repository = TransactionRepository(session)
+        self._user_repository = UserRepository(session)
 
     async def get_transaction_by_id(self, transaction_id: int) -> TransactionResponse | None:
         """Retrieve a specific transaction by its ID."""
@@ -290,7 +291,16 @@ class TransactionService:
                     _("Invalid transaction kind: %(transaction_kind)s")
                     % {"transaction_kind": transaction.transaction_kind}
                 )
-        return [BalanceResponse(user_id=user_id, balance=balance) for user_id, balance in balances.items()]
+        # Fetch user emails for all user IDs
+        user_emails: dict[int, str | None] = {}
+        for user_id in balances.keys():
+            user = await self._user_repository.get_user_by_id(user_id)
+            user_emails[user_id] = user.email if user else None
+
+        return [
+            BalanceResponse(user_id=user_id, user_email=user_emails.get(user_id), balance=balance)
+            for user_id, balance in balances.items()
+        ]
 
     def _validate_transaction(
         self,

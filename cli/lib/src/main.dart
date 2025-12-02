@@ -77,6 +77,11 @@ class App {
       final group = await groupService.getGroup(config.lastActiveGroupId!);
       if (group != null) {
         session.setGroup(group.id, group.name);
+        // Automatically select the current active period for this group
+        final currentPeriod = await groupService.getCurrentPeriod(group.id);
+        if (currentPeriod != null) {
+          session.setPeriod(currentPeriod.id, currentPeriod.name);
+        }
       }
     }
   }
@@ -147,13 +152,10 @@ class App {
               }
               break;
             case 3:
-              // TODO: Handle settings
-              break;
-            case 4:
               // Show "More" submenu
               await _handleMoreMenu(session);
               break;
-            case 5:
+            case 4:
               print(translate('Exiting Divvy. Goodbye!'));
               exit(0);
             default:
@@ -173,62 +175,59 @@ class App {
               }
               break;
             case 3:
-              await handleSelectGroup(groupService, session);
-              if (session.currentGroupId != null) {
-                config.preferences.setLastActiveGroup(session.currentGroupId!);
-                await config.preferences.save();
-              }
-              break;
-            case 4:
-              // TODO: Handle settings
-              break;
-            case 5:
               // Show "More" submenu
               await _handleMoreMenu(session);
               break;
-            case 6:
+            case 4:
+              print(translate('Exiting Divvy. Goodbye!'));
+              exit(0);
+            default:
+              print(translate('Invalid choice, please try again.'));
+          }
+        } else if (session.currentTransactionId == null) {
+          // Authenticated with group and period - period level
+          switch (choice) {
+            case 1:
+              await handleViewTransactions(periodService, session);
+              break;
+            case 2:
+              await handleViewBalances(periodService, session);
+              break;
+            case 3:
+              // Show "More" submenu
+              await _handleMoreMenu(session);
+              break;
+            case 4:
               print(translate('Exiting Divvy. Goodbye!'));
               exit(0);
             default:
               print(translate('Invalid choice, please try again.'));
           }
         } else {
-          // Authenticated with group and period - full menu
+          // Authenticated with group, period, and transaction - transaction level
           switch (choice) {
             case 1:
-              await handleViewTransactions(periodService, session);
+              await handleViewTransactionDetails(transactionService, session);
               break;
             case 2:
-              await handleAddTransaction(transactionService, periodService, categoryService, session);
+              await handleApproveTransaction(transactionService, session);
               break;
             case 3:
-              await handleViewBalances(periodService, session);
+              await handleRejectTransaction(transactionService, session);
               break;
             case 4:
-              await handleViewPeriod(periodService, session);
+              await handleEditTransaction(transactionService, periodService, categoryService, session);
               break;
             case 5:
-              await handleSelectGroup(groupService, session);
-              if (session.currentGroupId != null) {
-                config.preferences.setLastActiveGroup(session.currentGroupId!);
-                await config.preferences.save();
-              }
+              // Back to Transactions
+              session.currentTransactionId = null;
+              session.currentTransactionDescription = null;
               break;
             case 6:
-              await handleCreatePeriod(client, periodService, session);
-              if (session.currentPeriodId != null) {
-                config.preferences.setLastActivePeriod(session.currentPeriodId!);
-                await config.preferences.save();
-              }
-              break;
-            case 7:
               // Show "More" submenu
               await _handleMoreMenu(session);
               break;
-            case 8:
-              // TODO: Handle settings
-              break;
-            case 9:
+            case 7:
               print(translate('Exiting Divvy. Goodbye!'));
               exit(0);
             default:
@@ -273,11 +272,24 @@ class App {
           // No group selected
           switch (choice) {
             case 1:
+              // TODO: Handle settings
+              break;
+            case 2:
               await handleLogout(auth);
               session.clear();
               return; // Exit submenu
-            case 2:
-              return; // Back to main menu
+            case 3:
+              // Back to Top - clear all context
+              session.currentGroupId = null;
+              session.currentGroupName = null;
+              session.currentPeriodId = null;
+              session.currentPeriodName = null;
+              session.currentTransactionId = null;
+              session.currentTransactionDescription = null;
+              return; // Exit submenu
+            case 4:
+              print(translate('Exiting Divvy. Goodbye!'));
+              exit(0);
             default:
               print(translate('Invalid choice, please try again.'));
           }
@@ -285,43 +297,105 @@ class App {
           // Group selected, no period
           switch (choice) {
             case 1:
-              await handleCreateGroup(groupService, session);
-              if (session.currentGroupId != null) {
-                config.preferences.setLastActiveGroup(session.currentGroupId!);
-                await config.preferences.save();
-              }
-              return; // Exit submenu after action
+              // TODO: Handle settings
+              break;
             case 2:
               await handleLogout(auth);
               session.clear();
               return; // Exit submenu
             case 3:
-              return; // Back to main menu
+              // Back to Top - clear all context
+              session.currentGroupId = null;
+              session.currentGroupName = null;
+              session.currentPeriodId = null;
+              session.currentPeriodName = null;
+              session.currentTransactionId = null;
+              session.currentTransactionDescription = null;
+              return; // Exit submenu
+            case 4:
+              print(translate('Exiting Divvy. Goodbye!'));
+              exit(0);
+            default:
+              print(translate('Invalid choice, please try again.'));
+          }
+        } else if (session.currentTransactionId == null) {
+          // Period level - full context
+          switch (choice) {
+            case 1:
+              await handleSelectTransaction(periodService, session);
+              if (session.currentTransactionId != null) {
+                return; // Exit submenu after selection
+              }
+              break;
+            case 2:
+              await handleAddTransaction(transactionService, periodService, categoryService, session);
+              return; // Exit submenu after action
+            case 3:
+              await handleViewSettlementPlan(periodService, session);
+              break; // Stay in submenu
+            case 4:
+              // TODO: Handle settings
+              break;
+            case 5:
+              await handleLogout(auth);
+              session.clear();
+              return; // Exit submenu
+            case 6:
+              // Back to Top - clear all context
+              session.currentGroupId = null;
+              session.currentGroupName = null;
+              session.currentPeriodId = null;
+              session.currentPeriodName = null;
+              session.currentTransactionId = null;
+              session.currentTransactionDescription = null;
+              return; // Exit submenu
+            case 7:
+              print(translate('Exiting Divvy. Goodbye!'));
+              exit(0);
             default:
               print(translate('Invalid choice, please try again.'));
           }
         } else {
-          // Full context
+          // Transaction level
           switch (choice) {
             case 1:
-              await handleCreateGroup(groupService, session);
-              if (session.currentGroupId != null) {
-                config.preferences.setLastActiveGroup(session.currentGroupId!);
-                await config.preferences.save();
+              final transaction = await transactionService.getTransaction(session.currentTransactionId!);
+              if (transaction?.status.toString().split('.').last == 'draft') {
+                await handleDeleteTransaction(transactionService, session);
+                if (session.currentTransactionId == null) {
+                  return; // Exit submenu if transaction was deleted
+                }
+              } else {
+                print(translate('Only draft transactions can be deleted.'));
               }
-              return; // Exit submenu after action
+              break;
             case 2:
-              await handleViewSettlementPlan(periodService, session);
-              break; // Stay in submenu
+              final transaction = await transactionService.getTransaction(session.currentTransactionId!);
+              if (transaction?.status.toString().split('.').last == 'draft') {
+                await handleSubmitTransaction(transactionService, session);
+              } else {
+                print(translate('Only draft transactions can be submitted.'));
+              }
+              break;
             case 3:
-              await handleApplySettlement(periodService, session);
-              break; // Stay in submenu
+              // TODO: Handle settings
+              break;
             case 4:
               await handleLogout(auth);
               session.clear();
               return; // Exit submenu
             case 5:
-              return; // Back to main menu
+              // Back to Top - clear all context
+              session.currentGroupId = null;
+              session.currentGroupName = null;
+              session.currentPeriodId = null;
+              session.currentPeriodName = null;
+              session.currentTransactionId = null;
+              session.currentTransactionDescription = null;
+              return; // Exit submenu
+            case 6:
+              print(translate('Exiting Divvy. Goodbye!'));
+              exit(0);
             default:
               print(translate('Invalid choice, please try again.'));
           }

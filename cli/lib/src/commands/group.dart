@@ -33,6 +33,13 @@ Future<void> handleSelectGroup(
   final selectedGroup = groups[choice - 1];
   session.setGroup(selectedGroup.id, selectedGroup.name);
   print(translate('Group selected: {}', [selectedGroup.name]));
+
+  // Automatically select the current active period for this group
+  final currentPeriod = await groupService.getCurrentPeriod(selectedGroup.id);
+  if (currentPeriod != null) {
+    session.setPeriod(currentPeriod.id, currentPeriod.name);
+    print(translate('Period selected: {}', [currentPeriod.name]));
+  }
 }
 
 /// Handle create group command.
@@ -50,6 +57,13 @@ Future<void> handleCreateGroup(
   if (group != null) {
     print(translate('Group created successfully.'));
     session.setGroup(group.id, group.name);
+
+    // Automatically select the current active period for this group (if any)
+    final currentPeriod = await groupService.getCurrentPeriod(group.id);
+    if (currentPeriod != null) {
+      session.setPeriod(currentPeriod.id, currentPeriod.name);
+      print(translate('Period selected: {}', [currentPeriod.name]));
+    }
   } else {
     print(translate('Failed to create group.'));
   }

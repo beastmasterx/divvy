@@ -6,6 +6,8 @@ class Session {
   String? currentGroupName;
   int? currentPeriodId;
   String? currentPeriodName;
+  int? currentTransactionId;
+  String? currentTransactionDescription;
   bool isAuthenticated = false;
   String? userName;
   String? userEmail;
@@ -16,6 +18,8 @@ class Session {
     currentGroupName = null;
     currentPeriodId = null;
     currentPeriodName = null;
+    currentTransactionId = null;
+    currentTransactionDescription = null;
     isAuthenticated = false;
     userName = null;
     userEmail = null;
@@ -34,6 +38,15 @@ class Session {
   void setPeriod(int id, String name) {
     currentPeriodId = id;
     currentPeriodName = name;
+    // Clear transaction when period changes
+    currentTransactionId = null;
+    currentTransactionDescription = null;
+  }
+
+  /// Set current transaction.
+  void setTransaction(int id, String? description) {
+    currentTransactionId = id;
+    currentTransactionDescription = description;
   }
 
   /// Set current user info.

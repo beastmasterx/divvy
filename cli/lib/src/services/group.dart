@@ -57,4 +57,16 @@ class GroupService {
       return false;
     }
   }
+
+  /// Get the current active period for a group.
+  Future<PeriodResponse?> getCurrentPeriod(int groupId) async {
+    try {
+      final response = await _client.groups.getCurrentPeriodApiV1GroupsGroupIdPeriodsCurrentGet(
+        groupId: groupId,
+      );
+      return response.data;
+    } catch (e) {
+      return null;
+    }
+  }
 }

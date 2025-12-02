@@ -36,28 +36,29 @@ void showMenu(Session session) {
     // Authenticated but no group selected
     print(translate('1. Select Group'));
     print(translate('2. Create Group'));
-    print(translate('3. Settings'));
-    print(translate('4. More...'));
-    print(translate('5. Exit'));
+    print(translate('3. More...'));
+    print(translate('4. Exit'));
   } else if (session.currentPeriodId == null) {
     // Authenticated with group, but no period selected
-    print(translate('1. View Period'));
+    print(translate('1. Select Period'));
     print(translate('2. Create Period'));
-    print(translate('3. Select Group'));
-    print(translate('4. Settings'));
-    print(translate('5. More...'));
-    print(translate('6. Exit'));
-  } else {
-    // Authenticated with group and period - full menu (most common first)
+    print(translate('3. More...'));
+    print(translate('4. Exit'));
+  } else if (session.currentTransactionId == null) {
+    // Authenticated with group and period - period level
     print(translate('1. View Transactions'));
-    print(translate('2. Add Transaction'));
-    print(translate('3. View Balances'));
-    print(translate('4. View Period'));
-    print(translate('5. Select Group'));
-    print(translate('6. Create Period'));
-    print(translate('7. More...'));
-    print(translate('8. Settings'));
-    print(translate('9. Exit'));
+    print(translate('2. View Balances'));
+    print(translate('3. More...'));
+    print(translate('4. Exit'));
+  } else {
+    // Authenticated with group, period, and transaction - transaction level
+    print(translate('1. View Details'));
+    print(translate('2. Approve'));
+    print(translate('3. Reject'));
+    print(translate('4. Edit (draft only)'));
+    print(translate('5. Back to Transactions'));
+    print(translate('6. More...'));
+    print(translate('7. Exit'));
   }
   print(translate('Enter your choice: '));
 }
@@ -69,20 +70,33 @@ void showMoreMenu(Session session) {
 
   if (session.currentGroupId == null) {
     // No group selected
-    print(translate('1. Logout'));
-    print(translate('2. Back'));
+    print(translate('1. Settings'));
+    print(translate('2. Logout'));
+    print(translate('3. Back to Top'));
+    print(translate('4. Exit'));
   } else if (session.currentPeriodId == null) {
     // Group selected, no period
-    print(translate('1. Create Group'));
+    print(translate('1. Settings'));
     print(translate('2. Logout'));
-    print(translate('3. Back'));
+    print(translate('3. Back to Top'));
+    print(translate('4. Exit'));
+  } else if (session.currentTransactionId == null) {
+    // Period level - full context
+    print(translate('1. Select Transaction'));
+    print(translate('2. Add Transaction'));
+    print(translate('3. View Settlement Plan'));
+    print(translate('4. Settings'));
+    print(translate('5. Logout'));
+    print(translate('6. Back to Top'));
+    print(translate('7. Exit'));
   } else {
-    // Full context - show all less common options
-    print(translate('1. Create Group'));
-    print(translate('2. View Settlement Plan'));
-    print(translate('3. Apply Settlement'));
+    // Transaction level
+    print(translate('1. Delete (draft only)'));
+    print(translate('2. Submit (draft only)'));
+    print(translate('3. Settings'));
     print(translate('4. Logout'));
-    print(translate('5. Back'));
+    print(translate('5. Back to Top'));
+    print(translate('6. Exit'));
   }
   print(translate('Enter your choice: '));
 }
@@ -105,21 +119,25 @@ int getMaxChoice(Session session) {
   if (!session.isAuthenticated) {
     return 3; // Login, Register, Exit
   } else if (session.currentGroupId == null) {
-    return 5; // Select Group, Create Group, Settings, More, Exit
+    return 4; // Select Group, Create Group, More, Exit
   } else if (session.currentPeriodId == null) {
-    return 6; // View Period, Create Period, Select Group, Settings, More, Exit
+    return 4; // Select Period, Create Period, More, Exit
+  } else if (session.currentTransactionId == null) {
+    return 4; // View Transactions, View Balances, More, Exit
   } else {
-    return 9; // Full menu
+    return 7; // Transaction level menu
   }
 }
 
 /// Get the maximum choice for the "More" submenu.
 int getMoreMenuMaxChoice(Session session) {
   if (session.currentGroupId == null) {
-    return 2; // Logout, Back
+    return 4; // Settings, Logout, Back to Top, Exit
   } else if (session.currentPeriodId == null) {
-    return 3; // Create Group, Logout, Back
+    return 4; // Settings, Logout, Back to Top, Exit
+  } else if (session.currentTransactionId == null) {
+    return 7; // Select Transaction, Add Transaction, View Settlement Plan, Settings, Logout, Back to Top, Exit
   } else {
-    return 5; // Create Group, View Settlement Plan, Apply Settlement, Logout, Back
+    return 6; // Delete, Submit, Settings, Logout, Back to Top, Exit
   }
 }

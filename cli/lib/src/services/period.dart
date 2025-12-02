@@ -100,5 +100,17 @@ class PeriodService {
       return false;
     }
   }
+
+  /// Get periods for a group.
+  Future<List<PeriodResponse>> getPeriodsByGroup(int groupId) async {
+    try {
+      final response = await _client.groups.getPeriodsApiV1GroupsGroupIdPeriodsGet(
+        groupId: groupId,
+      );
+      return response.data?.toList() ?? [];
+    } catch (e) {
+      return [];
+    }
+  }
 }
 
