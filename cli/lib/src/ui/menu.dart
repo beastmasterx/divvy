@@ -7,12 +7,23 @@ import '../utils/i18n.dart';
 
 /// Show the main menu based on current session context.
 void showMenu(Session session) {
-  print('\n${translate('Divvy Expense Splitter')}');
+  // Build title with context: "Divvy Expense Splitter (user | group | period)"
+  final parts = <String>[];
+  if (session.userName != null) {
+    parts.add(session.userName!);
+  }
   if (session.currentGroupName != null) {
-    print(translate('Current Group: {}', [session.currentGroupName!]));
+    parts.add(session.currentGroupName!);
   }
   if (session.currentPeriodName != null) {
-    print(translate('Current Period: {}', [session.currentPeriodName!]));
+    parts.add(session.currentPeriodName!);
+  }
+
+  final title = translate('Divvy Expense Splitter');
+  if (parts.isNotEmpty) {
+    print('\n$title (${parts.join(' | ')})');
+  } else {
+    print('\n$title');
   }
   print('');
 

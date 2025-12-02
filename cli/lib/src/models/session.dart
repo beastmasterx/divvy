@@ -7,6 +7,8 @@ class Session {
   int? currentPeriodId;
   String? currentPeriodName;
   bool isAuthenticated = false;
+  String? userName;
+  String? userEmail;
 
   /// Clear session state.
   void clear() {
@@ -15,6 +17,8 @@ class Session {
     currentPeriodId = null;
     currentPeriodName = null;
     isAuthenticated = false;
+    userName = null;
+    userEmail = null;
   }
 
   /// Set current group.
@@ -30,5 +34,11 @@ class Session {
   void setPeriod(int id, String name) {
     currentPeriodId = id;
     currentPeriodName = name;
+  }
+
+  /// Set current user info.
+  void setUser(String name, String email) {
+    userName = name;
+    userEmail = email;
   }
 }

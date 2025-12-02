@@ -64,6 +64,14 @@ class App {
     categoryService = CategoryService(client);
     userService = UserService(client);
 
+    // If already authenticated, fetch user info
+    if (session.isAuthenticated) {
+      final user = await userService.getCurrentUser();
+      if (user != null) {
+        session.setUser(user.name, user.email);
+      }
+    }
+
     // Restore last active group/period from preferences
     if (config.lastActiveGroupId != null) {
       final group = await groupService.getGroup(config.lastActiveGroupId!);
@@ -97,12 +105,22 @@ class App {
               final success = await handleLogin(auth);
               if (success) {
                 session.isAuthenticated = true;
+                // Fetch and set user info
+                final user = await userService.getCurrentUser();
+                if (user != null) {
+                  session.setUser(user.name, user.email);
+                }
               }
               break;
             case 2:
               final success = await handleRegister(auth);
               if (success) {
                 session.isAuthenticated = true;
+                // Fetch and set user info
+                final user = await userService.getCurrentUser();
+                if (user != null) {
+                  session.setUser(user.name, user.email);
+                }
               }
               break;
             case 3:
