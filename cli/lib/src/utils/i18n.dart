@@ -1,116 +1,162 @@
 // Internationalization utilities for translations.
 //
-// Uses a simple translation map approach. Can be extended to use
-// the `intl` package later if needed.
+// Supports en_US and zh_CN languages.
 
-/// Current language (default: 'en')
-String _currentLanguage = 'en';
+/// Current language (default: 'en_US').
+String _currentLanguage = 'en_US';
 
-/// Translation map for English
-final Map<String, String> _translationsEn = {
-  // Menu
-  'Divvy Expense Splitter': 'Divvy Expense Splitter',
-  'Current Period: {}': 'Current Period: {}',
-  '1. Add Expense': '1. Add Expense',
-  '2. Add Deposit': '2. Add Deposit',
-  '3. Add Refund': '3. Add Refund',
-  '4. View Period': '4. View Period',
-  '5. Close period': '5. Close period',
-  '6. Add member': '6. Add member',
-  '7. Remove Member': '7. Remove Member',
-  '8. Exit': '8. Exit',
-  'Enter your choice: ': 'Enter your choice: ',
-  'Enter your choice (1-{}): ': 'Enter your choice (1-{}): ',
-  'Enter your choice (1-{}, or Enter for default): ':
-      'Enter your choice (1-{}, or Enter for default): ',
-  'Invalid choice. Please enter a number between 1 and {}.':
-      'Invalid choice. Please enter a number between 1 and {}.',
-  'Invalid input. Please enter a number.':
-      'Invalid input. Please enter a number.',
-  'Input cannot be empty. Please enter a number.':
-      'Input cannot be empty. Please enter a number.',
-  'No {} available.': 'No {} available.',
-  '\n--- Select {} ---': '\n--- Select {} ---',
-  '------------------------': '------------------------',
+/// Translation maps for supported languages.
+final Map<String, Map<String, String>> _translations = {
+  'en_US': {
+    // Menu
+    'Divvy Expense Splitter': 'Divvy Expense Splitter',
+    'Current Group: {}': 'Current Group: {}',
+    'Current Period: {}': 'Current Period: {}',
+    '1. Login': '1. Login',
+    '2. Register': '2. Register',
+    '3. Logout': '3. Logout',
+    '4. Select Group': '4. Select Group',
+    '5. Create Group': '5. Create Group',
+    '6. View Period': '6. View Period',
+    '7. Create Period': '7. Create Period',
+    '8. Add Transaction': '8. Add Transaction',
+    '9. View Transactions': '9. View Transactions',
+    '10. View Balances': '10. View Balances',
+    '11. View Settlement Plan': '11. View Settlement Plan',
+    '12. Apply Settlement': '12. Apply Settlement',
+    '13. Settings': '13. Settings',
+    '14. Exit': '14. Exit',
+    'Enter your choice: ': 'Enter your choice: ',
+    'Invalid choice, please try again.': 'Invalid choice, please try again.',
+    'Exiting Divvy. Goodbye!': 'Exiting Divvy. Goodbye!',
 
-  // Periods
-  'No active period found.': 'No active period found.',
-  'Period not found.': 'Period not found.',
-  'No periods available.': 'No periods available.',
-  'Period': 'Period',
-  ' [Current]': ' [Current]',
-  'Period selection cancelled.': 'Period selection cancelled.',
-  'Active': 'Active',
-  'Settled': 'Settled',
-  'Started: {} | Active': 'Started: {} | Active',
-  'Started: {} | Settled: {}': 'Started: {} | Settled: {}',
-  'Deposits: {} | Expenses: {} | Fund: {}{}':
-      'Deposits: {} | Expenses: {} | Fund: {}{}',
+    // Authentication
+    'Email: ': 'Email: ',
+    'Password: ': 'Password: ',
+    'Name: ': 'Name: ',
+    'Login successful!': 'Login successful!',
+    'Registration successful!': 'Registration successful!',
+    'Logged out successfully.': 'Logged out successfully.',
+    'Invalid credentials.': 'Invalid credentials.',
+    'Email already exists.': 'Email already exists.',
 
-  // Transactions
-  '\n--- Transactions ({}) ---': '\n--- Transactions ({}) ---',
-  '\n--- Transactions (0) ---': '\n--- Transactions (0) ---',
-  '  No transactions in this period.': '  No transactions in this period.',
-  'Date': 'Date',
-  'Category': 'Category',
-  'Type': 'Type',
-  'Split': 'Split',
-  'Amount': 'Amount',
-  'Description': 'Description',
-  'From/To': 'From/To',
-  'Payer: {}': 'Payer: {}',
-  'From: {}': 'From: {}',
-  'To: {}': 'To: {}',
+    // Groups
+    'Group Name: ': 'Group Name: ',
+    'Group created successfully.': 'Group created successfully.',
+    'No groups available.': 'No groups available.',
+    'Select a group:': 'Select a group:',
+    'Group selected: {}': 'Group selected: {}',
 
-  // Transaction types
-  'Expense': 'Expense',
-  'Deposit': 'Deposit',
-  'Refund': 'Refund',
+    // Periods
+    'Period Name: ': 'Period Name: ',
+    'Period created successfully.': 'Period created successfully.',
+    'No periods available.': 'No periods available.',
+    'Select a period:': 'Select a period:',
+    'Period closed successfully.': 'Period closed successfully.',
 
-  // Split types
-  'Shared': 'Shared',
-  'Personal': 'Personal',
-  'Individual': 'Individual',
+    // Transactions
+    'Description (optional): ': 'Description (optional): ',
+    'Amount: ': 'Amount: ',
+    'Transaction created successfully.': 'Transaction created successfully.',
+    'No transactions available.': 'No transactions available.',
 
-  // Balances
-  '\n--- Balances ({} active) ---': '\n--- Balances ({} active) ---',
-  '\n--- Balances (0 active) ---': '\n--- Balances (0 active) ---',
-  '  No active members.': '  No active members.',
+    // Settlement
+    'Settlement plan applied successfully.': 'Settlement plan applied successfully.',
+    'No settlement needed.': 'No settlement needed.',
 
-  // Settlement
-  '\n--- Settlement Plan ---': '\n--- Settlement Plan ---',
-  'No settlement transactions needed (all balances already zero).':
-      'No settlement transactions needed (all balances already zero).',
-  '----------------------\n': '----------------------\n',
+    // Errors
+    'Error: {}': 'Error: {}',
+    'Connection error. Please check your API URL.': 'Connection error. Please check your API URL.',
+    'Unauthorized. Please login.': 'Unauthorized. Please login.',
+    'Not found.': 'Not found.',
+    'Validation error: {}': 'Validation error: {}',
 
-  // Members
-  'No active members available.': 'No active members available.',
-  'Payer': 'Payer',
-  'Member to refund': 'Member to refund',
-  'Member to remove': 'Member to remove',
+    // Common
+    'Yes': 'Yes',
+    'No': 'No',
+    'Cancel': 'Cancel',
+    'Confirm': 'Confirm',
+    'Success': 'Success',
+    'Failed': 'Failed',
+    'More Options': 'More Options',
+    'More...': 'More...',
+    'Back': 'Back',
+  },
+  'zh_CN': {
+    // Menu
+    'Divvy Expense Splitter': 'Divvy 费用分摊器',
+    'Current Group: {}': '当前组: {}',
+    'Current Period: {}': '当前周期: {}',
+    '1. Login': '1. 登录',
+    '2. Register': '2. 注册',
+    '3. Logout': '3. 登出',
+    '4. Select Group': '4. 选择组',
+    '5. Create Group': '5. 创建组',
+    '6. View Period': '6. 查看周期',
+    '7. Create Period': '7. 创建周期',
+    '8. Add Transaction': '8. 添加交易',
+    '9. View Transactions': '9. 查看交易',
+    '10. View Balances': '10. 查看余额',
+    '11. View Settlement Plan': '11. 查看结算计划',
+    '12. Apply Settlement': '12. 应用结算',
+    '13. Settings': '13. 设置',
+    '14. Exit': '14. 退出',
+    'Enter your choice: ': '请输入选择: ',
+    'Invalid choice, please try again.': '无效选择，请重试。',
+    'Exiting Divvy. Goodbye!': '退出 Divvy。再见！',
 
-  // Messages
-  'Exiting Divvy. Goodbye!': 'Exiting Divvy. Goodbye!',
-  'Invalid choice, please try again.': 'Invalid choice, please try again.',
-  'Expense recording cancelled.': 'Expense recording cancelled.',
-  'Deposit recording cancelled.': 'Deposit recording cancelled.',
-  'Refund cancelled.': 'Refund cancelled.',
-  'Member removal cancelled.': 'Member removal cancelled.',
-  'Rejoin cancelled.': 'Rejoin cancelled.',
+    // Authentication
+    'Email: ': '邮箱: ',
+    'Password: ': '密码: ',
+    'Name: ': '姓名: ',
+    'Login successful!': '登录成功！',
+    'Registration successful!': '注册成功！',
+    'Logged out successfully.': '登出成功。',
+    'Invalid credentials.': '无效的凭据。',
+    'Email already exists.': '邮箱已存在。',
 
-  // Errors
-  'Error: Amount cannot be empty.': 'Error: Amount cannot be empty.',
-  'Member email cannot be empty.': 'Member email cannot be empty.',
-  'Member name cannot be empty.': 'Member name cannot be empty.',
-  'Unknown': 'Unknown',
+    // Groups
+    'Group Name: ': '组名称: ',
+    'Group created successfully.': '组创建成功。',
+    'No groups available.': '没有可用的组。',
+    'Select a group:': '选择一个组:',
+    'Group selected: {}': '已选择组: {}',
 
-  // Category translations
-  'Utilities (Water & Electricity & Gas)':
-      'Utilities (Water & Electricity & Gas)',
-  'Groceries': 'Groceries',
-  'Daily Necessities': 'Daily Necessities',
-  'Rent': 'Rent',
-  'Other': 'Other',
+    // Periods
+    'Period Name: ': '周期名称: ',
+    'Period created successfully.': '周期创建成功。',
+    'No periods available.': '没有可用的周期。',
+    'Select a period:': '选择一个周期:',
+    'Period closed successfully.': '周期关闭成功。',
+
+    // Transactions
+    'Description (optional): ': '描述（可选）: ',
+    'Amount: ': '金额: ',
+    'Transaction created successfully.': '交易创建成功。',
+    'No transactions available.': '没有可用的交易。',
+
+    // Settlement
+    'Settlement plan applied successfully.': '结算计划应用成功。',
+    'No settlement needed.': '无需结算。',
+
+    // Errors
+    'Error: {}': '错误: {}',
+    'Connection error. Please check your API URL.': '连接错误。请检查您的 API URL。',
+    'Unauthorized. Please login.': '未授权。请登录。',
+    'Not found.': '未找到。',
+    'Validation error: {}': '验证错误: {}',
+
+    // Common
+    'Yes': '是',
+    'No': '否',
+    'Cancel': '取消',
+    'Confirm': '确认',
+    'Success': '成功',
+    'Failed': '失败',
+    'More Options': '更多选项',
+    'More...': '更多...',
+    'Back': '返回',
+  },
 };
 
 /// Get translation for a key, with optional format arguments.
@@ -122,7 +168,8 @@ final Map<String, String> _translationsEn = {
 /// Returns:
 /// The translated string with arguments substituted
 String translate(String key, [List<Object>? args]) {
-  final translation = _translationsEn[key] ?? key;
+  final langTranslations = _translations[_currentLanguage] ?? _translations['en_US']!;
+  final translation = langTranslations[key] ?? key;
 
   if (args == null || args.isEmpty) {
     return translation;
@@ -136,50 +183,28 @@ String translate(String key, [List<Object>? args]) {
   return result;
 }
 
-/// Alias for translate() - matches Python's _() function.
+// Alias for translate() - matches Python's _() function.
 // ignore: unused_element
 String _(String key, [List<Object>? args]) => translate(key, args);
 
-/// Translate a category name.
+/// Set the current language.
 ///
 /// Parameters:
-/// - [categoryName]: The category name from database
-///
-/// Returns:
-/// Translated category name
-String translateCategory(String categoryName) {
-  return translate(categoryName);
-}
-
-/// Translate a transaction type.
-///
-/// Parameters:
-/// - [transactionType]: Transaction type ('expense', 'deposit', 'refund')
-///
-/// Returns:
-/// Translated transaction type
-String translateTransactionType(String transactionType) {
-  final lowerType = transactionType.toLowerCase();
-  switch (lowerType) {
-    case 'expense':
-      return translate('Expense');
-    case 'deposit':
-      return translate('Deposit');
-    case 'refund':
-      return translate('Refund');
-    default:
-      return transactionType;
+/// - [lang]: Language code ('en_US' or 'zh_CN')
+void setLanguage(String lang) {
+  if (_translations.containsKey(lang)) {
+    _currentLanguage = lang;
   }
-}
-
-/// Set the current language (for future i18n support).
-///
-/// Parameters:
-/// - [lang]: Language code (e.g., 'en', 'zh_CN')
-void setLanguage([String lang = 'en']) {
-  _currentLanguage = lang;
-  // Future: Load translations for the specified language
 }
 
 /// Get the current language.
 String getCurrentLanguage() => _currentLanguage;
+
+/// Initialize i18n from preferences.
+///
+/// Parameters:
+/// - [language]: Language code from preferences
+Future<void> initialize(String language) async {
+  setLanguage(language);
+}
+

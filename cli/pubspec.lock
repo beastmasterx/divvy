@@ -124,7 +124,7 @@ packages:
   divvy_api_client:
     dependency: "direct main"
     description:
-      path: "lib/src/generated/api/divvy"
+      path: "generated/openapi/divvy"
       relative: true
     source: path
     version: "0.0.1"

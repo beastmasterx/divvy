@@ -1,477 +1,114 @@
-// Menu system for the CLI application.
+// Interactive menu system for the CLI.
 
 import 'dart:io';
 
-import 'package:dio/dio.dart';
-
-import '../api/divvy_client.dart';
-import '../services/categories.dart';
-import '../services/members.dart';
-import '../services/periods.dart';
-import '../services/settlement.dart';
-import '../services/transactions.dart';
+import '../models/session.dart';
 import '../utils/i18n.dart';
-import '../utils/validation.dart';
-import 'displays.dart';
-import 'selectors.dart';
 
-/// Show the main menu.
-void showMenu(String? currentPeriodName) {
-  print(translate('\n--- Divvy Expense Splitter ---'));
-  print(translate('Current Period: {}', [currentPeriodName ?? translate('None')]));
-  print(translate('1. Add Expense'));
-  print(translate('2. Add Deposit'));
-  print(translate('3. Add Refund'));
-  print(translate('4. View Period'));
-  print(translate('5. Close period'));
-  print(translate('6. Add member'));
-  print(translate('7. Remove Member'));
-  print(translate('8. Exit'));
-  print(translate('-----------------------------'));
-}
-
-/// Handle menu option 1: Add Expense
-Future<void> handleAddExpense(DivvyClient client) async {
-  stdout.write(translate('Enter expense description (optional): '));
-  final description = stdin.readLineSync()?.trim() ?? '';
-
-  stdout.write(translate('Enter total amount: '));
-  final amountStr = stdin.readLineSync()?.trim() ?? '';
-
-  if (amountStr.isEmpty) {
-    print(translate('Error: Amount cannot be empty.'));
-    return;
+/// Show the main menu based on current session context.
+void showMenu(Session session) {
+  print('\n${translate('Divvy Expense Splitter')}');
+  if (session.currentGroupName != null) {
+    print(translate('Current Group: {}', [session.currentGroupName!]));
   }
-
-  final amountValidation = validateAmount(amountStr);
-  if (!amountValidation.isValid) {
-    print(amountValidation.errorMessage);
-    return;
+  if (session.currentPeriodName != null) {
+    print(translate('Current Period: {}', [session.currentPeriodName!]));
   }
+  print('');
 
-  // Ask for expense type
-  stdout.write(translate('Expense type - (s)hared, (p)ersonal, or (i)ndividual split? (default: i): '));
-  final expenseTypeInput = stdin.readLineSync()?.trim().toLowerCase() ?? 'i';
-
-  String? payerName;
-  bool isPersonal = false;
-  String? expenseType;
-
-  if (expenseTypeInput == 's' || expenseTypeInput == 'shared') {
-    payerName = '_system_group_'; // Virtual member for shared expenses
-    isPersonal = false;
-    expenseType = 'shared';
-  } else if (expenseTypeInput == 'p' || expenseTypeInput == 'personal') {
-    final activeMembers = await listMembers(client, activeOnly: true);
-    final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
-    final selected = selectPayer(members: membersList, forExpense: true);
-    if (selected == null) {
-      print(translate('Expense recording cancelled.'));
-      return;
-    }
-    payerName = selected;
-    isPersonal = true;
-    expenseType = 'personal';
+  if (!session.isAuthenticated) {
+    // Not authenticated - simple menu
+    print(translate('1. Login'));
+    print(translate('2. Register'));
+    print(translate('3. Exit'));
+  } else if (session.currentGroupId == null) {
+    // Authenticated but no group selected
+    print(translate('1. Select Group'));
+    print(translate('2. Create Group'));
+    print(translate('3. Settings'));
+    print(translate('4. More...'));
+    print(translate('5. Exit'));
+  } else if (session.currentPeriodId == null) {
+    // Authenticated with group, but no period selected
+    print(translate('1. View Period'));
+    print(translate('2. Create Period'));
+    print(translate('3. Select Group'));
+    print(translate('4. Settings'));
+    print(translate('5. More...'));
+    print(translate('6. Exit'));
   } else {
-    // individual (default)
-    final activeMembers = await listMembers(client, activeOnly: true);
-    final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
-    final selected = selectPayer(members: membersList, forExpense: true);
-    if (selected == null) {
-      print(translate('Expense recording cancelled.'));
-      return;
-    }
-    payerName = selected;
-    isPersonal = false;
-    expenseType = 'individual';
+    // Authenticated with group and period - full menu (most common first)
+    print(translate('1. View Transactions'));
+    print(translate('2. Add Transaction'));
+    print(translate('3. View Balances'));
+    print(translate('4. View Period'));
+    print(translate('5. Select Group'));
+    print(translate('6. Create Period'));
+    print(translate('7. More...'));
+    print(translate('8. Settings'));
+    print(translate('9. Exit'));
   }
-
-  // Select category
-  final categories = await listCategories(client);
-  final categoriesList = categories.map((c) => (id: c.id, name: c.name)).toList();
-  final categoryName = selectCategory(categories: categoriesList);
-  if (categoryName == null) {
-    print(translate('Expense recording cancelled.'));
-    return;
-  }
-
-  try {
-    final result = await createExpense(
-      client,
-      amountStr,
-      payerName,
-      categoryName,
-      description: description.isEmpty ? null : description,
-      isPersonal: isPersonal,
-      expenseType: expenseType,
-    );
-    print(result);
-  } catch (e, s) {
-    handleError(e, s);
-  }
+  print(translate('Enter your choice: '));
 }
 
-/// Handle menu option 2: Add Deposit
-Future<void> handleAddDeposit(DivvyClient client) async {
-  stdout.write(translate('Enter deposit description (optional): '));
-  final description = stdin.readLineSync()?.trim() ?? '';
+/// Show the "More" submenu.
+void showMoreMenu(Session session) {
+  print('\n${translate('More Options')}');
+  print('---');
 
-  stdout.write(translate('Enter deposit amount: '));
-  final amountStr = stdin.readLineSync()?.trim() ?? '';
-
-  if (amountStr.isEmpty) {
-    print(translate('Error: Amount cannot be empty.'));
-    return;
-  }
-
-  final amountValidation = validateAmount(amountStr);
-  if (!amountValidation.isValid) {
-    print(amountValidation.errorMessage);
-    return;
-  }
-
-  final activeMembers = await listMembers(client, activeOnly: true);
-  final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
-  final payerName = selectPayer(members: membersList, forExpense: false);
-  if (payerName == null) {
-    print(translate('Deposit recording cancelled.'));
-    return;
-  }
-
-  try {
-    final result = await createDeposit(
-      client,
-      amountStr,
-      payerName,
-      description: description.isEmpty ? null : description,
-    );
-    print(result);
-  } catch (e, s) {
-    handleError(e, s);
-  }
-}
-
-/// Handle menu option 3: Add Refund
-Future<void> handleAddRefund(DivvyClient client) async {
-  final allMembers = await listMembers(client, activeOnly: false);
-  final membersList = allMembers.map((m) => (id: m.id, name: m.name)).toList();
-
-  if (membersList.isEmpty) {
-    print(translate('No members available.'));
-    return;
-  }
-
-  final selected = selectFromList<({int id, String name})>(membersList, (m) => m.name, translate('Member to refund'));
-  if (selected == null) {
-    print(translate('Refund cancelled.'));
-    return;
-  }
-
-  stdout.write(translate('Enter refund description (optional): '));
-  final description = stdin.readLineSync()?.trim() ?? '';
-
-  stdout.write(translate('Enter refund amount: '));
-  final amountStr = stdin.readLineSync()?.trim() ?? '';
-
-  if (amountStr.isEmpty) {
-    print(translate('Error: Amount cannot be empty.'));
-    return;
-  }
-
-  final amountValidation = validateAmount(amountStr);
-  if (!amountValidation.isValid) {
-    print(amountValidation.errorMessage);
-    return;
-  }
-
-  try {
-    final result = await createRefund(
-      client,
-      amountStr,
-      selected.name,
-      description: description.isEmpty ? null : description,
-    );
-    print(result);
-  } catch (e, s) {
-    handleError(e, s);
-  }
-}
-
-/// Handle menu option 4: View Period
-Future<void> handleViewPeriod(DivvyClient client) async {
-  final allPeriods = await listPeriods(client);
-  final currentPeriod = await getCurrentPeriod(client);
-
-  final selected = selectPeriod<Period>(
-    periods: allPeriods,
-    getId: (p) => p.id,
-    getName: (p) => p.name,
-    getStartDate: (p) => p.startDate,
-    getIsSettled: (p) => p.isSettled,
-    currentPeriodId: currentPeriod?.id,
-  );
-
-  if (selected == null) {
-    print(translate('Period selection cancelled.'));
-    return;
-  }
-
-  try {
-    final summary = await getPeriodSummary(client, periodId: selected.id);
-    displayViewPeriod(summary);
-  } catch (e, s) {
-    handleError(e, s);
-  }
-}
-
-/// Handle menu option 5: Close Period
-Future<void> handleClosePeriod(DivvyClient client) async {
-  try {
-    // Show current period status first
-    final currentSummary = await getPeriodSummary(client);
-    displayViewPeriod(currentSummary);
-
-    // Show settlement plan
-    final currentPeriod = await getCurrentPeriod(client);
-    if (currentPeriod != null) {
-      final settlementPlan = await getSettlementPlan(client, periodId: currentPeriod.id);
-      if (settlementPlan.isNotEmpty) {
-        displaySettlementPlan(settlementPlan);
-      } else {
-        print(translate('\nNo settlement transactions needed (all balances already zero).\n'));
-      }
-    }
-
-    // Ask for confirmation
-    stdout.write(translate('Close this period? (y/n): '));
-    final response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
-    if (response != 'y' && response != 'yes') {
-      print(translate('Period closing cancelled.'));
-      return;
-    }
-
-    // Get new period name
-    stdout.write(translate('Enter name for new period (press Enter for auto-generated): '));
-    final periodName = stdin.readLineSync()?.trim();
-    final finalPeriodName = periodName?.isEmpty ?? true ? null : periodName;
-
-    final result = await settleCurrentPeriod(client, periodName: finalPeriodName);
-    print(result);
-  } catch (e, s) {
-    handleError(e, s);
-  }
-}
-
-/// Handle menu option 6: Add Member
-Future<void> handleAddMember(DivvyClient client) async {
-  stdout.write(translate('Enter the member\'s email: '));
-  final email = stdin.readLineSync()?.trim() ?? '';
-
-  if (email.isEmpty) {
-    print(translate('Member email cannot be empty.'));
-    return;
-  }
-
-  if (!validateEmail(email)) {
-    print('Invalid email format.');
-    return;
-  }
-
-  stdout.write(translate('Enter the member\'s name: '));
-  final name = stdin.readLineSync()?.trim() ?? '';
-
-  if (name.isEmpty) {
-    print(translate('Member name cannot be empty.'));
-    return;
-  }
-
-  final nameValidation = validateName(name);
-  if (!nameValidation.isValid) {
-    print(nameValidation.errorMessage);
-    return;
-  }
-
-  // Check if member exists
-  final existingMember = await getMemberByEmail(client, email);
-
-  if (existingMember != null) {
-    if (existingMember.isActive) {
-      print(translate('Error: Member with email \'{}\' already exists and is active.', [email]));
-    } else {
-      // Member is inactive - ask to rejoin
-      stdout.write(translate('Member \'{}\' is inactive. Rejoin? (y/n): ', [existingMember.name]));
-      final response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
-      if (response == 'y' || response == 'yes') {
-        try {
-          final result = await rejoinMember(client, existingMember.id);
-          print(result);
-        } catch (e, s) {
-          handleError(e, s);
-        }
-      } else {
-        print(translate('Rejoin cancelled.'));
-      }
-    }
+  if (session.currentGroupId == null) {
+    // No group selected
+    print(translate('1. Logout'));
+    print(translate('2. Back'));
+  } else if (session.currentPeriodId == null) {
+    // Group selected, no period
+    print(translate('1. Create Group'));
+    print(translate('2. Logout'));
+    print(translate('3. Back'));
   } else {
-    // New member - add normally
-    try {
-      final result = await createMember(client, email, name);
-      print(result);
-    } catch (e, s) {
-      handleError(e, s);
-    }
+    // Full context - show all less common options
+    print(translate('1. Create Group'));
+    print(translate('2. View Settlement Plan'));
+    print(translate('3. Apply Settlement'));
+    print(translate('4. Logout'));
+    print(translate('5. Back'));
+  }
+  print(translate('Enter your choice: '));
+}
+
+/// Get menu choice from user input.
+int? getMenuChoice(int maxChoice) {
+  final input = stdin.readLineSync()?.trim();
+  if (input == null || input.isEmpty) {
+    return null;
+  }
+  final choice = int.tryParse(input);
+  if (choice == null || choice < 1 || choice > maxChoice) {
+    return null;
+  }
+  return choice;
+}
+
+/// Get the maximum menu choice number based on session context.
+int getMaxChoice(Session session) {
+  if (!session.isAuthenticated) {
+    return 3; // Login, Register, Exit
+  } else if (session.currentGroupId == null) {
+    return 5; // Select Group, Create Group, Settings, More, Exit
+  } else if (session.currentPeriodId == null) {
+    return 6; // View Period, Create Period, Select Group, Settings, More, Exit
+  } else {
+    return 9; // Full menu
   }
 }
 
-/// Handle menu option 7: Remove Member
-Future<void> handleRemoveMember(DivvyClient client) async {
-  final activeMembers = await listMembers(client, activeOnly: true);
-  final membersList = activeMembers.map((m) => (id: m.id, name: m.name)).toList();
-
-  if (membersList.isEmpty) {
-    print(translate('No active members to remove.'));
-    return;
-  }
-
-  // Show current period status first
-  try {
-    final currentSummary = await getPeriodSummary(client);
-    displayViewPeriod(currentSummary);
-  } catch (e) {
-    // If period summary fails, continue anyway
-  }
-
-  final selected = selectFromList<({int id, String name})>(membersList, (m) => m.name, translate('Member to remove'));
-  if (selected == null) {
-    print(translate('Member removal cancelled.'));
-    return;
-  }
-
-  // Get member's current balance (from period summary)
-  try {
-    final currentSummary = await getPeriodSummary(client);
-    final memberBalance = currentSummary.memberBalances
-        .firstWhere(
-          (b) => b.name == selected.name,
-          orElse: () => (name: selected.name, balance: 0, paidRemainder: false),
-        )
-        .balance;
-
-    final balanceFormatted = (memberBalance.abs() / 100.0).toStringAsFixed(2);
-    final balanceSign = memberBalance >= 0 ? '+' : '-';
-    final balanceDisplay = '$balanceSign\$$balanceFormatted';
-
-    String response;
-    if (memberBalance > 0) {
-      print(translate('\n⚠️  Warning: \'{}\' is owed {}.', [selected.name, balanceDisplay]));
-      print(translate('   Other members should settle this balance before removal.'));
-      stdout.write(translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]));
-      response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
-    } else if (memberBalance < 0) {
-      print(translate('\n⚠️  Warning: \'{}\' owes {}.', [selected.name, balanceDisplay]));
-      print(translate('   This balance should be settled before removal.'));
-      stdout.write(translate('Remove member \'{}\' anyway? (y/n): ', [selected.name]));
-      response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
-    } else {
-      stdout.write(translate('Remove member \'{}\' (Balance: \$0.00)? (y/n): ', [selected.name]));
-      response = stdin.readLineSync()?.trim().toLowerCase() ?? '';
-    }
-
-    if (response != 'y' && response != 'yes') {
-      print(translate('Member removal cancelled.'));
-      return;
-    }
-
-    final result = await removeMember(client, selected.id);
-    print(result);
-  } catch (e, s) {
-    handleError(e, s);
-  }
-}
-
-/// Main menu loop
-Future<void> runMenu(DivvyClient client) async {
-  while (true) {
-    try {
-      String? periodName;
-      try {
-        final currentPeriod = await getCurrentPeriod(client);
-        periodName = currentPeriod?.name;
-      } catch (e) {
-        // Silently handle errors loading period name - show placeholder
-        // Full error will be shown if user tries to use period-dependent features
-        periodName = translate('Not available');
-      }
-      showMenu(periodName ?? translate('Initializing...'));
-
-      stdout.write(translate('Enter your choice: '));
-      final choice = stdin.readLineSync()?.trim() ?? '';
-
-      switch (choice) {
-        case '1':
-          await handleAddExpense(client);
-          break;
-        case '2':
-          await handleAddDeposit(client);
-          break;
-        case '3':
-          await handleAddRefund(client);
-          break;
-        case '4':
-          await handleViewPeriod(client);
-          break;
-        case '5':
-          await handleClosePeriod(client);
-          break;
-        case '6':
-          await handleAddMember(client);
-          break;
-        case '7':
-          await handleRemoveMember(client);
-          break;
-        case '8':
-          print(translate('Exiting Divvy. Goodbye!'));
-          return;
-        default:
-          print(translate('Invalid choice, please try again.'));
-      }
-    } catch (e, s) {
-      // Handle all errors gracefully and continue the menu loop
-      handleError(e, s);
-      // Wait a moment before showing menu again
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
-  }
-}
-
-/// Handle API errors and convert to user-friendly messages.
-///
-/// Parameters:
-/// - [error]: The error from Dio
-/// - [stackTrace]: The stack trace of the error
-///
-void handleError(Object error, [StackTrace? stackTrace]) {
-  final message = switch (error) {
-    DioException(:final type, :final response) => switch (type) {
-      DioExceptionType.connectionTimeout => 'Connection timeout.',
-      DioExceptionType.sendTimeout => 'Request timed out.',
-      DioExceptionType.receiveTimeout => 'Response timed out.',
-      DioExceptionType.cancel => 'Request cancelled.',
-      DioExceptionType.badResponse => switch (response) {
-        Response(:final statusCode, :final data) => '$statusCode: $data',
-        _ => '${error.message}',
-      },
-      _ => '${error.message}',
-    },
-    _ => '$error',
-  };
-
-  print('\n⚠️: $message');
-
-  bool isDebug = false;
-  assert(isDebug = true);
-
-  if (isDebug && stackTrace != null) {
-    print('\n$stackTrace');
+/// Get the maximum choice for the "More" submenu.
+int getMoreMenuMaxChoice(Session session) {
+  if (session.currentGroupId == null) {
+    return 2; // Logout, Back
+  } else if (session.currentPeriodId == null) {
+    return 3; // Create Group, Logout, Back
+  } else {
+    return 5; // Create Group, View Settlement Plan, Apply Settlement, Logout, Back
   }
 }

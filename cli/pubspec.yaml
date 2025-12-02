@@ -15,7 +15,7 @@ dependencies:
   dio: ^5.9.0
   intl: ^0.20.2
   divvy_api_client:
-    path: lib/src/generated/api/divvy
+    path: generated/openapi/divvy
 
 dev_dependencies:
   lints: ^6.0.0
