@@ -10,5 +10,5 @@ class GroupMenu extends Menu {
 
 /// "More" menu shown when no group is selected.
 class GroupMoreMenu extends Menu {
-  GroupMoreMenu() : super([SettingsCommand(), LogoutCommand(), BackToTopCommand(), ExitCommand()]);
+  GroupMoreMenu() : super([BackCommand(), SettingsCommand(), LogoutCommand(), SubmenuExitCommand()]);
 }

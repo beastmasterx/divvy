@@ -11,7 +11,7 @@ class TransactionDetailMenu extends Menu {
         ApproveTransactionCommand(),
         RejectTransactionCommand(),
         EditTransactionCommand(),
-        BackToTransactionsCommand(),
+        BackCommand(),
         MoreCommand(),
         ExitCommand(),
       ]);
@@ -21,11 +21,11 @@ class TransactionDetailMenu extends Menu {
 class TransactionDetailMoreMenu extends Menu {
   TransactionDetailMoreMenu()
     : super([
+        BackCommand(),
         DeleteTransactionCommand(),
         SubmitTransactionCommand(),
         SettingsCommand(),
         LogoutCommand(),
-        BackToTopCommand(),
-        ExitCommand(),
+        SubmenuExitCommand(),
       ]);
 }

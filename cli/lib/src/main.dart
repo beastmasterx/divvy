@@ -226,10 +226,10 @@ class App {
           await command.execute(_createContext());
 
           // Check if we should exit submenu
-          // Commands that clear transaction context or logout should exit
+          // Commands that clear context, logout, or navigate back should exit
           if (command is LogoutCommand ||
-              command is BackToTopCommand ||
-              command is ExitCommand ||
+              command is BackCommand ||
+              command is SubmenuExitCommand ||
               (command is SelectTransactionCommand && session.currentTransactionId != null) ||
               command is AddTransactionCommand ||
               (command is DeleteTransactionCommand && session.currentTransactionId == null)) {

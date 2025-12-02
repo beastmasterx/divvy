@@ -12,12 +12,12 @@ class TransactionMenu extends Menu {
 class TransactionMoreMenu extends Menu {
   TransactionMoreMenu()
     : super([
+        BackCommand(),
         SelectTransactionCommand(),
         AddTransactionCommand(),
         ViewSettlementPlanCommand(),
         SettingsCommand(),
         LogoutCommand(),
-        BackToTopCommand(),
-        ExitCommand(),
+        SubmenuExitCommand(),
       ]);
 }

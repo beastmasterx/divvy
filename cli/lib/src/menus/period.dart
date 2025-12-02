@@ -10,5 +10,5 @@ class PeriodMenu extends Menu {
 
 /// "More" menu shown when group is selected but no period.
 class PeriodMoreMenu extends Menu {
-  PeriodMoreMenu() : super([SettingsCommand(), LogoutCommand(), BackToTopCommand(), ExitCommand()]);
+  PeriodMoreMenu() : super([BackCommand(), SettingsCommand(), LogoutCommand(), SubmenuExitCommand()]);
 }
