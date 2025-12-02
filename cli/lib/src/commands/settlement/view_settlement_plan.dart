@@ -23,35 +23,14 @@ class ViewSettlementPlanCommand extends Command {
       return;
     }
 
-    // Step 1: Check period status
+    // Step 1: Verify period exists
     final period = await context.periodService.getPeriod(context.session.currentPeriodId!);
     if (period == null) {
       print(translate('Period not found.'));
       return;
     }
 
-    // If period is open, prompt to close it first
-    if (period.status == PeriodStatus.open) {
-      print(translate('The period must be closed before viewing the settlement plan.'));
-      final confirmClose = promptYesNo(translate('Close this period?'), defaultYes: false);
-      if (!confirmClose) {
-        print(translate('Settlement plan view cancelled.'));
-        return;
-      }
-
-      final closedPeriod = await context.periodService.closePeriod(context.session.currentPeriodId!);
-      if (closedPeriod == null) {
-        print(translate('Failed to close period.'));
-        return;
-      }
-      print(translate('Period closed successfully.'));
-      print('');
-    } else if (period.status == PeriodStatus.settled) {
-      print(translate('This period is already settled.'));
-      return;
-    }
-
-    // Step 2: View settlement plan
+    // Step 2: View settlement plan (works for any period status)
     final plan = await context.periodService.getSettlementPlan(context.session.currentPeriodId!);
     if (plan.isEmpty) {
       print(translate('No settlement needed - all balances are zero.'));
@@ -72,7 +51,34 @@ class ViewSettlementPlanCommand extends Command {
       return;
     }
 
-    // Step 4: Apply settlement
+    // Step 4: Check period status before applying
+    final currentPeriod = await context.periodService.getPeriod(context.session.currentPeriodId!);
+    if (currentPeriod == null) {
+      print(translate('Period not found.'));
+      return;
+    }
+
+    if (currentPeriod.status == PeriodStatus.open) {
+      print(translate('The period must be closed before applying the settlement plan.'));
+      final confirmClose = promptYesNo(translate('Close this period?'), defaultYes: false);
+      if (!confirmClose) {
+        print(translate('Settlement plan application cancelled.'));
+        return;
+      }
+
+      final closedPeriod = await context.periodService.closePeriod(context.session.currentPeriodId!);
+      if (closedPeriod == null) {
+        print(translate('Failed to close period.'));
+        return;
+      }
+      print(translate('Period closed successfully.'));
+      print('');
+    } else if (currentPeriod.status == PeriodStatus.settled) {
+      print(translate('This period is already settled.'));
+      return;
+    }
+
+    // Step 5: Apply settlement
     final success = await context.periodService.applySettlementPlan(context.session.currentPeriodId!);
     if (success) {
       print(translate('Settlement plan applied successfully.'));
