@@ -91,3 +91,19 @@ String formatAmountWithSign(int cents) {
   final amount = centsToDollars(cents.abs());
   return '$sign\$$amount';
 }
+
+/// Get the string name from an EnumClass instance.
+///
+/// This extracts the enum value name (e.g., "open", "draft") from an EnumClass.
+/// EnumClass stores the name internally, and this helper provides a clean way to access it.
+///
+/// Parameters:
+/// - [enumValue]: The EnumClass instance
+///
+/// Returns:
+/// The string name of the enum value
+String getEnumName(dynamic enumValue) {
+  // EnumClass stores the name, accessible via toString().split('.').last
+  // This is cleaner than repeating the pattern everywhere
+  return enumValue.toString().split('.').last;
+}

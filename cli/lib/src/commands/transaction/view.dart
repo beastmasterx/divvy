@@ -2,6 +2,7 @@
 
 import '../../models/session.dart';
 import '../../ui/tables.dart';
+import '../../utils/formatting.dart';
 import '../../utils/i18n.dart';
 import '../base/command.dart';
 
@@ -33,10 +34,10 @@ class ViewTransactionsCommand extends Command {
           .map(
             (t) => [
               t.id.toString(),
-              t.transactionKind.toString().split('.').last,
+              getEnumName(t.transactionKind),
               formatAmount(t.amount),
               t.description ?? '',
-              t.status.toString().split('.').last,
+              getEnumName(t.status),
             ],
           )
           .toList(),

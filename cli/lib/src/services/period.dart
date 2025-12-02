@@ -1,8 +1,7 @@
 // Service layer for period operations.
 
-import 'package:divvy_api_client/divvy_api_client.dart';
-
 import '../api/client.dart';
+import '../api/schemas.dart';
 
 /// Period service for managing periods.
 class PeriodService {

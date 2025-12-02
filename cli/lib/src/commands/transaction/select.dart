@@ -1,10 +1,10 @@
 // Select transaction command.
 
-import 'package:divvy_api_client/divvy_api_client.dart';
-
+import '../../api/schemas.dart';
 import '../../models/session.dart';
 import '../../ui/prompts.dart';
 import '../../ui/tables.dart';
+import '../../utils/formatting.dart';
 import '../../utils/i18n.dart';
 import '../base/command.dart';
 
@@ -33,7 +33,7 @@ class SelectTransactionCommand extends Command {
     displayList<TransactionResponse>(
       items: transactions,
       itemToString: (t) =>
-          'ID ${t.id}: ${formatAmount(t.amount)} - ${t.description ?? translate('No description')} (${t.status.toString().split('.').last})',
+          'ID ${t.id}: ${formatAmount(t.amount)} - ${t.description ?? translate('No description')} (${getEnumName(t.status)})',
       header: translate('Select a transaction:'),
     );
 

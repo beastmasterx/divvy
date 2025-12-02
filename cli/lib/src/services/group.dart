@@ -1,8 +1,7 @@
 // Service layer for group operations.
 
-import 'package:divvy_api_client/divvy_api_client.dart';
-
 import '../api/client.dart';
+import '../api/schemas.dart';
 
 /// Group service for managing groups.
 class GroupService {

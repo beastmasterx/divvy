@@ -1,5 +1,6 @@
 // View settlement plan command.
 
+import '../../api/schemas.dart';
 import '../../models/session.dart';
 import '../../ui/prompts.dart';
 import '../../ui/tables.dart';
@@ -30,7 +31,7 @@ class ViewSettlementPlanCommand extends Command {
     }
 
     // If period is open, prompt to close it first
-    if (period.status.toString().split('.').last == 'open') {
+    if (period.status == PeriodStatus.open) {
       print(translate('The period must be closed before viewing the settlement plan.'));
       final confirmClose = promptYesNo(translate('Close this period?'), defaultYes: false);
       if (!confirmClose) {
@@ -45,7 +46,7 @@ class ViewSettlementPlanCommand extends Command {
       }
       print(translate('Period closed successfully.'));
       print('');
-    } else if (period.status.toString().split('.').last == 'settled') {
+    } else if (period.status == PeriodStatus.settled) {
       print(translate('This period is already settled.'));
       return;
     }

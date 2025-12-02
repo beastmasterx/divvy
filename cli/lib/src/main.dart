@@ -48,7 +48,7 @@ class App {
     client = DivvyClient(baseUrl: config.baseUrl, tokenStorage: tokenStorage);
 
     // Initialize authentication
-    auth = Auth(client.authentication, tokenStorage);
+    auth = Auth(client, tokenStorage);
 
     // Initialize session
     session = Session();

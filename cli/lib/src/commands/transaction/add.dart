@@ -1,7 +1,6 @@
 // Add transaction command.
 
-import 'package:divvy_api_client/divvy_api_client.dart';
-
+import '../../api/schemas.dart';
 import '../../models/session.dart';
 import '../../ui/prompts.dart';
 import '../../ui/tables.dart';

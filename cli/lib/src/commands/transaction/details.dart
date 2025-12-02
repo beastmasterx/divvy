@@ -2,6 +2,7 @@
 
 import '../../models/session.dart';
 import '../../ui/tables.dart';
+import '../../utils/formatting.dart';
 import '../../utils/i18n.dart';
 import '../base/command.dart';
 
@@ -32,11 +33,11 @@ class ViewTransactionDetailsCommand extends Command {
 
     print('\n${translate('Transaction Details')}:');
     print('${translate('ID')}: ${transaction.id}');
-    print('${translate('Type')}: ${transaction.transactionKind.toString().split('.').last}');
+    print('${translate('Type')}: ${getEnumName(transaction.transactionKind)}');
     print('${translate('Amount')}: ${formatAmount(transaction.amount)}');
     print('${translate('Description')}: ${transaction.description ?? translate('No description')}');
     print('${translate('Payer')}: ${transaction.payerName ?? transaction.payerId}');
-    print('${translate('Status')}: ${transaction.status.toString().split('.').last}');
+    print('${translate('Status')}: ${getEnumName(transaction.status)}');
     if (transaction.categoryName != null) {
       print('${translate('Category')}: ${transaction.categoryName}');
     }

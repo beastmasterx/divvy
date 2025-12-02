@@ -1,8 +1,7 @@
 // Service layer for transaction operations.
 
-import 'package:divvy_api_client/divvy_api_client.dart';
-
 import '../api/client.dart';
+import '../api/schemas.dart';
 
 /// Transaction service for managing transactions.
 class TransactionService {

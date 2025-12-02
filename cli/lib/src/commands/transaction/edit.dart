@@ -1,5 +1,6 @@
 // Edit transaction command (draft only).
 
+import '../../api/schemas.dart';
 import '../../models/session.dart';
 import '../../utils/i18n.dart';
 import '../base/command.dart';
@@ -30,7 +31,7 @@ class EditTransactionCommand extends Command {
     }
 
     // Check if transaction is in draft status
-    if (transaction.status.toString().split('.').last != 'draft') {
+    if (transaction.status != TransactionStatus.draft) {
       print(translate('Only draft transactions can be edited.'));
       return;
     }

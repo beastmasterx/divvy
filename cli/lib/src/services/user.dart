@@ -1,8 +1,7 @@
 // Service layer for user operations.
 
-import 'package:divvy_api_client/divvy_api_client.dart';
-
 import '../api/client.dart';
+import '../api/schemas.dart';
 
 /// User service for managing user profile.
 class UserService {

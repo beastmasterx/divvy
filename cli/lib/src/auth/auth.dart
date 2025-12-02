@@ -3,23 +3,24 @@
 // Handles login, registration, and token management.
 
 import 'package:dio/dio.dart';
-import 'package:divvy_api_client/divvy_api_client.dart';
 
+import '../api/client.dart';
+import '../api/schemas.dart';
 import 'token.dart';
 
 /// Authentication service.
 class Auth {
-  final AuthenticationApi _authApi;
+  final DivvyClient _client;
   final TokenStorage _tokenStorage;
 
-  Auth(this._authApi, this._tokenStorage);
+  Auth(this._client, this._tokenStorage);
 
   /// Login with email and password.
   ///
   /// Returns true if login successful, false otherwise.
   Future<bool> login(String email, String password) async {
     try {
-      final response = await _authApi.tokenApiV1AuthTokenPost(
+      final response = await _client.authentication.tokenApiV1AuthTokenPost(
         grantType: 'password',
         username: email,
         password: password,
@@ -43,14 +44,14 @@ class Auth {
   /// Returns true if registration successful, false otherwise.
   Future<bool> register(String email, String name, String password) async {
     try {
-      final request = RegisterRequest((b) => b
-        ..email = email
-        ..name = name
-        ..password = password);
-
-      final response = await _authApi.registerApiV1AuthRegisterPost(
-        registerRequest: request,
+      final request = RegisterRequest(
+        (b) => b
+          ..email = email
+          ..name = name
+          ..password = password,
       );
+
+      final response = await _client.authentication.registerApiV1AuthRegisterPost(registerRequest: request);
 
       if (response.data != null) {
         await _saveTokens(response.data!);
@@ -70,9 +71,7 @@ class Auth {
     try {
       // Try to revoke refresh token if available
       if (_tokenStorage.refreshToken != null) {
-        await _authApi.revokeTokenApiV1AuthRevokePost(
-          token: _tokenStorage.refreshToken!,
-        );
+        await _client.authentication.revokeTokenApiV1AuthRevokePost(token: _tokenStorage.refreshToken!);
       }
     } catch (e) {
       // Ignore errors during logout
@@ -90,7 +89,7 @@ class Auth {
     }
 
     try {
-      final response = await _authApi.tokenApiV1AuthTokenPost(
+      final response = await _client.authentication.tokenApiV1AuthTokenPost(
         grantType: 'refresh_token',
         refreshToken: _tokenStorage.refreshToken,
       );
@@ -120,11 +119,8 @@ class Auth {
 
     // Calculate expiration time (default to 1 hour if not provided)
     final expiresIn = tokenResponse.expiresIn;
-    _tokenStorage.expiresAt = DateTime.now().add(
-      Duration(seconds: expiresIn),
-    );
+    _tokenStorage.expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
 
     await _tokenStorage.save();
   }
 }
-
