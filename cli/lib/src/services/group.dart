@@ -5,7 +5,7 @@ import '../api/schemas.dart';
 
 /// Group service for managing groups.
 class GroupService {
-  final DivvyClient _client;
+  final Client _client;
 
   GroupService(this._client);
 
@@ -60,9 +60,7 @@ class GroupService {
   /// Get the current active period for a group.
   Future<PeriodResponse?> getCurrentPeriod(int groupId) async {
     try {
-      final response = await _client.groups.getCurrentPeriodApiV1GroupsGroupIdPeriodsCurrentGet(
-        groupId: groupId,
-      );
+      final response = await _client.groups.getCurrentPeriodApiV1GroupsGroupIdPeriodsCurrentGet(groupId: groupId);
       return response.data;
     } catch (e) {
       return null;

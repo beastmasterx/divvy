@@ -15,7 +15,7 @@ class CommandContext {
   final Auth auth;
   final Session session;
   final Config config;
-  final DivvyClient client;
+  final Client client;
   final GroupService groupService;
   final PeriodService periodService;
   final TransactionService transactionService;

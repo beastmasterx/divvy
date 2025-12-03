@@ -5,7 +5,7 @@ import '../api/schemas.dart';
 
 /// Period service for managing periods.
 class PeriodService {
-  final DivvyClient _client;
+  final Client _client;
 
   PeriodService(this._client);
 

@@ -10,7 +10,7 @@ import 'token.dart';
 
 /// Authentication service.
 class Auth {
-  final DivvyClient _client;
+  final Client _client;
   final TokenStorage _tokenStorage;
 
   Auth(this._client, this._tokenStorage);

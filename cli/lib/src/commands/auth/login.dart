@@ -1,13 +1,15 @@
 // Login command.
 
 import '../../models/session.dart';
-import '../../ui/prompts.dart';
+import '../../utils/errors.dart';
 import '../../utils/i18n.dart';
 import '../../utils/terminal.dart';
 import '../base/command.dart';
+import '../option_parser.dart';
+import '../prompts.dart';
 
 /// Login command.
-class LoginCommand extends Command {
+class LoginCommand extends Command with OptionParserMixin {
   @override
   String get description => translate('Login');
 
@@ -15,18 +17,19 @@ class LoginCommand extends Command {
   bool canExecute(Session session) => !session.isAuthenticated;
 
   @override
-  Future<void> execute(CommandContext context) async {
+  Future<int> execute(CommandContext context, {List<String>? args}) async {
     try {
-      final email = promptEmail();
+      // Parse and prompt in one call - much cleaner!
+      final email = parseOption(args, longName: 'user', shortName: 'u', prompt: promptEmail);
       if (email == null) {
         print(translate('Login cancelled.'));
-        return;
+        return 1;
       }
 
-      final password = promptPassword();
+      final password = parseOption(args, longName: 'password', shortName: 'p', prompt: promptPassword);
       if (password == null) {
         print(translate('Login cancelled.'));
-        return;
+        return 1;
       }
 
       print(translate('Logging in...'));
@@ -39,12 +42,15 @@ class LoginCommand extends Command {
         if (user != null) {
           context.session.setUser(user.name, user.email);
         }
+        return 0;
       } else {
         print(translate('Invalid credentials.'));
+        return 1;
       }
     } catch (e) {
       ensureTerminalState();
-      rethrow;
+      print(formatApiError(e));
+      return 1;
     }
   }
 }

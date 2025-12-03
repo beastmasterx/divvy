@@ -4,16 +4,13 @@ import 'api/client.dart';
 import 'auth/auth.dart';
 import 'auth/token.dart';
 import 'commands/commands.dart';
-import 'commands/menu.dart';
 import 'config/config.dart';
-import 'menus/menus.dart';
 import 'models/session.dart';
 import 'services/category.dart';
 import 'services/group.dart';
 import 'services/period.dart';
 import 'services/transaction.dart';
 import 'services/user.dart';
-import 'ui/menu/input.dart';
 import 'utils/errors.dart';
 import 'utils/i18n.dart';
 import 'utils/terminal.dart';
@@ -22,10 +19,9 @@ import 'utils/terminal.dart';
 class App {
   late final Config config;
   late final TokenStorage tokenStorage;
-  late final DivvyClient client;
+  late final Client client;
   late final Auth auth;
   late final Session session;
-
   late final GroupService groupService;
   late final PeriodService periodService;
   late final TransactionService transactionService;
@@ -45,7 +41,7 @@ class App {
     await tokenStorage.load();
 
     // Initialize API client
-    client = DivvyClient(baseUrl: config.baseUrl, tokenStorage: tokenStorage);
+    client = Client(baseUrl: config.baseUrl, token: tokenStorage);
 
     // Initialize authentication
     auth = Auth(client, tokenStorage);
@@ -61,31 +57,29 @@ class App {
     categoryService = CategoryService(client);
     userService = UserService(client);
 
-    // If already authenticated, fetch user info
-    if (session.isAuthenticated) {
-      final user = await userService.getCurrentUser();
-      if (user != null) {
-        session.setUser(user.name, user.email);
-      }
-    }
+    // Load session state from preferences (if authenticated)
+    if (session.isAuthenticated && config.lastActiveGroupId != null) {
+      try {
+        final group = await groupService.getGroup(config.lastActiveGroupId!);
+        if (group != null) {
+          session.setGroup(group.id, group.name);
 
-    // Restore last active group/period from preferences
-    if (config.lastActiveGroupId != null) {
-      final group = await groupService.getGroup(config.lastActiveGroupId!);
-      if (group != null) {
-        session.setGroup(group.id, group.name);
-      }
-    }
-
-    if (config.lastActivePeriodId != null) {
-      final period = await periodService.getPeriod(config.lastActivePeriodId!);
-      if (period != null) {
-        session.setPeriod(period.id, period.name);
+          // Load period if available
+          if (config.lastActivePeriodId != null) {
+            final period = await periodService.getPeriod(config.lastActivePeriodId!);
+            if (period != null && period.groupId == group.id) {
+              session.setPeriod(period.id, period.name);
+            }
+          }
+        }
+      } catch (e) {
+        // If loading fails, just continue without restoring session
+        // This can happen if the group/period was deleted
       }
     }
   }
 
-  /// Create command context from current app state.
+  /// Create command context.
   CommandContext _createContext() {
     return CommandContext(
       auth: auth,
@@ -100,149 +94,104 @@ class App {
     );
   }
 
-  /// Get menu for current session state.
-  Menu _getMenu() {
-    if (!session.isAuthenticated) {
-      return UserMenu();
-    } else if (session.currentGroupId == null) {
-      return GroupMenu();
-    } else if (session.currentPeriodId == null) {
-      return PeriodMenu();
-    } else if (session.currentTransactionId == null) {
-      return TransactionMenu();
-    } else {
-      return TransactionDetailMenu();
+  /// Run the CLI with command-line arguments.
+  Future<int> run(List<String> args) async {
+    try {
+      if (args.isEmpty) {
+        _printUsage();
+        return 1;
+      }
+
+      final command = args[0];
+      final remainingArgs = args.sublist(1);
+
+      // Handle verb-first commands (general commands)
+      switch (command) {
+        case 'get':
+          final getCommand = GetCommand(_createContext());
+          return await getCommand.execute(remainingArgs);
+        case 'create':
+          final createCommand = CreateCommand(_createContext());
+          return await createCommand.execute(remainingArgs);
+        case 'edit':
+          final editCommand = EditCommand(_createContext());
+          return await editCommand.execute(remainingArgs);
+        case 'delete':
+          final deleteCommand = DeleteCommand(_createContext());
+          return await deleteCommand.execute(remainingArgs);
+        case 'apply':
+          final applyCommand = ApplyCommand(_createContext());
+          return await applyCommand.execute(remainingArgs);
+        // Handle resource-specific commands (only for specific verbs)
+        case 'auth':
+          final authCommand = AuthCommand(_createContext());
+          return await authCommand.execute(remainingArgs);
+        case 'config':
+          final configCommand = ConfigCommand(_createContext());
+          return await configCommand.execute(remainingArgs);
+        case 'period':
+        case 'periods':
+          final periodCommand = PeriodCommand(_createContext());
+          return await periodCommand.execute(remainingArgs);
+        case 'trans':
+        case 'transaction':
+        case 'transactions':
+          final transactionCommand = TransactionCommand(_createContext());
+          return await transactionCommand.execute(remainingArgs);
+        // Handle utility commands
+        case 'help':
+        case '--help':
+        case '-h':
+          _printUsage();
+          return 0;
+        case 'version':
+        case '--version':
+          _printVersion();
+          return 0;
+        default:
+          print('Unknown command: $command');
+          print('Run "divvy help" for usage information.');
+          return 1;
+      }
+    } catch (e) {
+      ensureTerminalState();
+      print('Error: ${formatApiError(e)}');
+      return 1;
     }
   }
 
-  /// Get "More" menu for current session state.
-  Menu _getMoreMenu() {
-    if (session.currentGroupId == null) {
-      return GroupMoreMenu();
-    } else if (session.currentPeriodId == null) {
-      return PeriodMoreMenu();
-    } else if (session.currentTransactionId == null) {
-      return TransactionMoreMenu();
-    } else {
-      return TransactionDetailMoreMenu();
-    }
-  }
-
-  /// Run the main menu loop.
-  Future<void> run() async {
-    print('Divvy Expense Splitter (v0.0.1)');
-    print('Connecting to API at: ${config.apiUrl}');
+  void _printUsage() {
+    print('Divvy Expense Splitter CLI');
     print('');
-
-    while (true) {
-      // Show menu title
-      _showMenuTitle();
-
-      // Display menu
-      final menu = _getMenu();
-      menu.display();
-
-      // Get user choice
-      final choice = getMenuChoice(menu.maxChoice);
-      if (choice == null) {
-        print(translate('Invalid choice, please try again.'));
-        continue;
-      }
-
-      try {
-        final command = menu.getCommand(choice);
-        if (command == null) {
-          print(translate('Invalid choice, please try again.'));
-          continue;
-        }
-
-        // Handle special "More" command
-        if (command is MoreCommand) {
-          await _handleMoreMenu();
-          continue;
-        }
-
-        // Execute command
-        if (command.canExecute(session)) {
-          await command.execute(_createContext());
-        } else {
-          print(translate('Command not available.'));
-        }
-      } catch (e) {
-        // Ensure terminal is in a clean state before printing errors
-        ensureTerminalState();
-        print(formatApiError(e));
-      }
-    }
-  }
-
-  /// Show menu title with context.
-  void _showMenuTitle() {
-    // Build title with context: "Divvy Expense Splitter (user | group | period)"
-    final parts = <String>[];
-    if (session.userName != null) {
-      parts.add(session.userName!);
-    }
-    if (session.currentGroupName != null) {
-      parts.add(session.currentGroupName!);
-    }
-    if (session.currentPeriodName != null) {
-      parts.add(session.currentPeriodName!);
-    }
-
-    final title = translate('Divvy Expense Splitter');
-    if (parts.isNotEmpty) {
-      print('\n$title: ${parts.join(' > ')}');
-    } else {
-      print('\n$title');
-    }
+    print('Usage: divvy <command> [options]');
     print('');
+    print('General Commands:');
+    print('  get        Get resources (group, period, transaction)');
+    print('  create     Create resources');
+    print('  edit       Edit resources');
+    print('  delete     Delete resources');
+    print('  apply      Apply resources from YAML file');
+    print('');
+    print('Resource-Specific Commands:');
+    print('  auth       Authentication commands (login, register, logout, status)');
+    print('  config     Configuration management (view, set-context, get, set)');
+    print('  period     Period-specific operations (close, balances, settlement)');
+    print('  transaction Transaction-specific operations (approve, reject, submit)');
+    print('');
+    print('Utility Commands:');
+    print('  help       Show this help message');
+    print('  version    Show version information');
+    print('');
+    print('Examples:');
+    print('  divvy get group');
+    print('  divvy create group "My Group"');
+    print('  divvy auth login');
+    print('  divvy period close');
+    print('');
+    print('Run "divvy <command> --help" for more information on a command.');
   }
 
-  /// Handle the "More" submenu.
-  Future<void> _handleMoreMenu() async {
-    while (true) {
-      print('\n${translate('More Options')}');
-      print('---');
-
-      final menu = _getMoreMenu();
-      menu.display();
-
-      final choice = getMenuChoice(menu.maxChoice);
-      if (choice == null) {
-        print(translate('Invalid choice, please try again.'));
-        continue;
-      }
-
-      try {
-        final command = menu.getCommand(choice);
-        if (command == null) {
-          print(translate('Invalid choice, please try again.'));
-          continue;
-        }
-
-        // Execute command
-        if (command.canExecute(session)) {
-          await command.execute(_createContext());
-
-          // Check if we should exit submenu
-          // Commands that clear context, logout, or navigate back should exit
-          if (command is LogoutCommand ||
-              command is BackCommand ||
-              command is SubmenuExitCommand ||
-              (command is SelectTransactionCommand && session.currentTransactionId != null) ||
-              command is AddTransactionCommand ||
-              (command is DeleteTransactionCommand && session.currentTransactionId == null)) {
-            return; // Exit submenu
-          }
-        } else {
-          print(translate('Command not available.'));
-        }
-      } catch (e) {
-        // Ensure terminal is in a clean state before printing errors
-        ensureTerminalState();
-        print(formatApiError(e));
-      }
-    }
+  void _printVersion() {
+    print('Divvy CLI v0.0.1');
   }
 }

@@ -9,10 +9,10 @@ import 'package:divvy_api_client/divvy_api_client.dart';
 import '../auth/token.dart';
 
 /// Divvy API client wrapper.
-class DivvyClient {
+class Client {
   late final Dio _dio;
   late final String _baseUrl;
-  late final TokenStorage _tokenStorage;
+  late final TokenStorage _token;
 
   late final AuthenticationApi _authenticationApi;
   late final CategoriesApi _categoriesApi;
@@ -21,9 +21,7 @@ class DivvyClient {
   late final TransactionsApi _transactionsApi;
   late final UserApi _userApi;
 
-  DivvyClient({required String baseUrl, required TokenStorage tokenStorage})
-    : _baseUrl = baseUrl,
-      _tokenStorage = tokenStorage {
+  Client({required String baseUrl, required TokenStorage token}) : _baseUrl = baseUrl, _token = token {
     _dio = Dio(
       BaseOptions(
         baseUrl: _baseUrl,
@@ -38,8 +36,8 @@ class DivvyClient {
       InterceptorsWrapper(
         onRequest: (options, handler) {
           // Add access token to requests if available
-          if (_tokenStorage.accessToken != null) {
-            options.headers['Authorization'] = 'Bearer ${_tokenStorage.accessToken}';
+          if (_token.accessToken != null) {
+            options.headers['Authorization'] = 'Bearer ${_token.accessToken}';
           }
           handler.next(options);
         },
@@ -89,6 +87,6 @@ class DivvyClient {
 
   /// Update access token (called after refresh).
   void updateAccessToken(String? token) {
-    _tokenStorage.accessToken = token;
+    _token.accessToken = token;
   }
 }

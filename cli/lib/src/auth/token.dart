@@ -79,9 +79,7 @@ class TokenStorage {
       json['expiresAt'] = expiresAt!.toIso8601String();
     }
 
-    await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(json),
-    );
+    await file.writeAsString(const JsonEncoder.withIndent('  ').convert(json));
   }
 
   /// Clear all tokens.
@@ -105,4 +103,3 @@ class TokenStorage {
   /// Check if user is authenticated.
   bool get isAuthenticated => accessToken != null && !isExpired;
 }
-

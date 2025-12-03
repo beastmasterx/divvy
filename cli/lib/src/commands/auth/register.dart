@@ -1,13 +1,15 @@
 // Register command.
 
 import '../../models/session.dart';
-import '../../ui/prompts.dart';
+import '../../utils/errors.dart';
 import '../../utils/i18n.dart';
 import '../../utils/terminal.dart';
 import '../base/command.dart';
+import '../option_parser.dart';
+import '../prompts.dart';
 
 /// Register command.
-class RegisterCommand extends Command {
+class RegisterCommand extends Command with OptionParserMixin {
   @override
   String get description => translate('Register');
 
@@ -15,24 +17,25 @@ class RegisterCommand extends Command {
   bool canExecute(Session session) => !session.isAuthenticated;
 
   @override
-  Future<void> execute(CommandContext context) async {
+  Future<int> execute(CommandContext context, {List<String>? args}) async {
     try {
-      final email = promptEmail();
+      // All parsing and prompting encapsulated in mixins - very clean!
+      final email = parseOption(args, longName: 'user', shortName: 'u', prompt: promptEmail);
       if (email == null) {
         print(translate('Registration cancelled.'));
-        return;
+        return 1;
       }
 
-      final name = promptString(translate('Name: '));
-      if (name == null) {
+      final name = parseOption(args, longName: 'name', shortName: 'n');
+      if (name == null || name.isEmpty) {
         print(translate('Registration cancelled.'));
-        return;
+        return 1;
       }
 
-      final password = promptPassword();
+      final password = parseOption(args, longName: 'password', shortName: 'p', prompt: promptPassword);
       if (password == null) {
         print(translate('Registration cancelled.'));
-        return;
+        return 1;
       }
 
       print(translate('Registering...'));
@@ -45,12 +48,15 @@ class RegisterCommand extends Command {
         if (user != null) {
           context.session.setUser(user.name, user.email);
         }
+        return 0;
       } else {
         print(translate('Email already exists.'));
+        return 1;
       }
     } catch (e) {
       ensureTerminalState();
-      rethrow;
+      print(formatApiError(e));
+      return 1;
     }
   }
 }

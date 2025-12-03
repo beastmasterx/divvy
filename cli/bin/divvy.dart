@@ -9,11 +9,11 @@ Future<void> main(List<String> arguments) async {
   try {
     final app = App();
     await app.initialize();
-    await app.run();
+    final exitCode = await app.run(arguments);
+    exit(exitCode);
   } catch (e, stackTrace) {
     print('Fatal error: $e');
     print('Stack trace: $stackTrace');
     exit(1);
   }
 }
-

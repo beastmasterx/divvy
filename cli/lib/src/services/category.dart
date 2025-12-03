@@ -5,7 +5,7 @@ import '../api/schemas.dart';
 
 /// Category service for managing categories.
 class CategoryService {
-  final DivvyClient _client;
+  final Client _client;
 
   CategoryService(this._client);
 
