@@ -1,0 +1,21 @@
+name: divvy
+description: "Flutter application for tracking and splitting shared expenses among groups, roommates, and shared households."
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  divvy_api_client:
+    path: packages/divvy_api_client
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
